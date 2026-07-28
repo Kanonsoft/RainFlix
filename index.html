@@ -5,70 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Watch your favorite movies and series on RainFlix."
+      content="Browse movies and series on RainFlix."
     />
     <meta name="theme-color" content="#030712" />
     <title>RainFlix</title>
     <link rel="icon" type="image/png" href="./assets/rainflix-r.png" />
-    <link rel="preload" as="image" href="./assets/rainflix-r.png" />
-    <link rel="preload" as="image" href="./assets/rainflix-wordmark.png" />
     <link rel="preconnect" href="https://api.themoviedb.org" crossorigin />
     <link rel="preconnect" href="https://image.tmdb.org" crossorigin />
-    <link rel="stylesheet" href="./styles/rainflix.css" />
-    <script defer src="./scripts/config.js"></script>
-    <script defer src="./scripts/rainflix-api.js"></script>
-    <script defer src="./components/details-modal.js"></script>
-    <script defer src="./scripts/remote-navigation.js"></script>
-    <script defer src="./scripts/app.js"></script>
   </head>
-
   <body class="min-h-screen bg-rain-ink text-slate-100 antialiased">
-    <div id="appLoader" class="app-loader" role="status" aria-live="polite">
-      <div class="app-loader-scene" aria-hidden="true">
-        <div id="appLoaderWall" class="app-loader-wall"></div>
-      </div>
-      <div class="app-loader-vignette" aria-hidden="true"></div>
-      <div class="app-loader-content">
-        <div class="app-loader-emblem">
-          <img class="app-loader-logo" src="./assets/rainflix-r.png" alt="" draggable="false" />
-        </div>
-        <div class="app-loader-track" aria-hidden="true">
-          <div class="app-loader-bar"></div>
-        </div>
-        <span class="sr-only">Loading RainFlix</span>
-      </div>
-    </div>
-    <div id="ambientBackdrop" class="ambient-backdrop" aria-hidden="true"></div>
-    <div
-      id="app"
-      class="relative z-10 flex min-h-screen flex-col"
-    >
-      <div id="site-header" class="sticky top-0 z-[200]" data-component="header"></div>
-      <main id="app-view" class="flex-1 outline-none" tabindex="-1"></main>
-      <div id="site-footer" data-component="footer"></div>
-    </div>
-
-    <div id="titleDetailsModal" class="title-details-modal" aria-hidden="true">
-      <button class="title-details-backdrop" type="button" data-details-close aria-label="Close title details"></button>
-      <section
-        class="title-details-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="titleDetailsHeading"
-      >
-        <button
-          class="title-details-close"
-          type="button"
-          data-details-close
-          aria-label="Close title details"
-          title="Close"
-        >
-          <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-          </svg>
-        </button>
-        <div id="titleDetailsContent"></div>
-      </section>
-    </div>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
