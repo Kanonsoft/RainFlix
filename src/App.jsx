@@ -15,6 +15,7 @@ import CatalogPage from "./pages/CatalogPage.jsx";
 import WatchPage from "./pages/WatchPage.jsx";
 
 const LOADER_POSTER_CACHE_KEY = "rainflix:loader-posters:v1";
+const BACKDROP_FADE_DURATION = 960;
 
 function initialLoaderPosters() {
   try {
@@ -70,10 +71,16 @@ function ScrollManager() {
 }
 
 function AppShell() {
-  const [ambientBackdrop, setAmbientBackdrop] = useState("");
+  const [ambientBackdrop, setAmbientBackdrop] = useState({
+    current: "",
+    previous: "",
+    revision: 0,
+  });
   const [dataReady, setDataReady] = useState(false);
   const [loaderPosters, setLoaderPosters] = useState(initialLoaderPosters);
   const bootCompleted = useRef(false);
+  const requestedBackdrop = useRef("");
+  const preloadedBackdrops = useRef(new Set());
   useRemoteNavigation();
 
   const completeBoot = useCallback((posters = []) => {
@@ -99,10 +106,59 @@ function AppShell() {
   }, []);
 
   const updateBackdrop = useCallback((imageUrl) => {
-    if (imageUrl) {
-      setAmbientBackdrop(imageUrl);
+    if (!imageUrl || requestedBackdrop.current === imageUrl) {
+      return;
     }
+
+    requestedBackdrop.current = imageUrl;
+
+    const showBackdrop = () => {
+      if (requestedBackdrop.current !== imageUrl) {
+        return;
+      }
+
+      setAmbientBackdrop((backdrop) => {
+        if (backdrop.current === imageUrl) {
+          return backdrop;
+        }
+
+        return {
+          current: imageUrl,
+          previous: backdrop.current,
+          revision: backdrop.revision + 1,
+        };
+      });
+    };
+
+    if (preloadedBackdrops.current.has(imageUrl)) {
+      showBackdrop();
+      return;
+    }
+
+    const image = new Image();
+    image.onload = () => {
+      preloadedBackdrops.current.add(imageUrl);
+      showBackdrop();
+    };
+    image.src = imageUrl;
   }, []);
+
+  useEffect(() => {
+    if (!ambientBackdrop.previous) {
+      return undefined;
+    }
+
+    const revision = ambientBackdrop.revision;
+    const timer = window.setTimeout(() => {
+      setAmbientBackdrop((backdrop) =>
+        backdrop.revision === revision
+          ? { ...backdrop, previous: "" }
+          : backdrop,
+      );
+    }, BACKDROP_FADE_DURATION);
+
+    return () => window.clearTimeout(timer);
+  }, [ambientBackdrop.previous, ambientBackdrop.revision]);
 
   useEffect(() => {
     const preventImageDrag = (event) => {
@@ -118,17 +174,26 @@ function AppShell() {
   return (
     <>
       <AppLoader dataReady={dataReady} posters={loaderPosters} />
-      <div
-        className={`ambient-backdrop${
-          ambientBackdrop ? " is-visible" : ""
-        }`}
-        style={
-          ambientBackdrop
-            ? { backgroundImage: `url("${ambientBackdrop.replaceAll('"', "%22")}")` }
-            : undefined
-        }
-        aria-hidden="true"
-      />
+      <div className="ambient-backdrop" aria-hidden="true">
+        {ambientBackdrop.previous ? (
+          <div
+            className="ambient-backdrop-layer ambient-backdrop-previous"
+            style={{
+              backgroundImage: `url("${ambientBackdrop.previous.replaceAll('"', "%22")}")`,
+            }}
+            key={`previous-${ambientBackdrop.revision}`}
+          />
+        ) : null}
+        {ambientBackdrop.current ? (
+          <div
+            className="ambient-backdrop-layer ambient-backdrop-current"
+            style={{
+              backgroundImage: `url("${ambientBackdrop.current.replaceAll('"', "%22")}")`,
+            }}
+            key={`current-${ambientBackdrop.revision}`}
+          />
+        ) : null}
+      </div>
       <div className="relative z-10 flex min-h-screen flex-col">
         <div id="site-header" className="sticky top-0 z-[200]">
           <Header />

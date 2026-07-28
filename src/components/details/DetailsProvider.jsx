@@ -14,25 +14,38 @@ import TitleArtwork from "../TitleArtwork.jsx";
 
 const DetailsContext = createContext(null);
 const MODAL_HISTORY_KEY = "rainflixDetailsModal";
+const PREVIEW_QUERY_KEY = "preview";
 
-function currentHistoryState() {
-  return history.state && typeof history.state === "object"
-    ? history.state
-    : {};
-}
+function previewFromSearch(search = "") {
+  const value = new URLSearchParams(search).get(PREVIEW_QUERY_KEY) || "";
+  const match = /^(movie|tv)-(\d+)$/.exec(value);
 
-function modalHistoryState(state = currentHistoryState()) {
-  const modalState = state?.[MODAL_HISTORY_KEY];
-
-  if (!modalState?.mediaType || !String(modalState.id || "").trim()) {
+  if (!match) {
     return null;
   }
 
-  return modalState;
+  return {
+    id: match[2],
+    mediaType: match[1],
+  };
 }
 
-function stateWithoutModal(state = currentHistoryState()) {
-  const nextState = { ...state };
+function searchWithPreview(search, mediaType, id) {
+  const params = new URLSearchParams(search);
+  params.set(PREVIEW_QUERY_KEY, `${mediaType}-${id}`);
+  return `?${params.toString()}`;
+}
+
+function searchWithoutPreview(search) {
+  const params = new URLSearchParams(search);
+  params.delete(PREVIEW_QUERY_KEY);
+  const value = params.toString();
+  return value ? `?${value}` : "";
+}
+
+function stateWithoutModal(state) {
+  const nextState =
+    state && typeof state === "object" ? { ...state } : {};
   delete nextState[MODAL_HISTORY_KEY];
   return nextState;
 }
@@ -337,7 +350,7 @@ export function DetailsProvider({ children }) {
     returnFocus.current = null;
   }, []);
 
-  const openDetails = useCallback(async (mediaType, id, updateHistory = true) => {
+  const loadDetails = useCallback(async (mediaType, id) => {
     if (!mediaType || !String(id || "").trim()) {
       return;
     }
@@ -346,22 +359,7 @@ export function DetailsProvider({ children }) {
     const wasOpen = modalOpenRef.current;
 
     if (!wasOpen) {
-      returnFocus.current = document.activeElement;
-    }
-
-    if (updateHistory) {
-      const nextState = {
-        ...stateWithoutModal(),
-        [MODAL_HISTORY_KEY]: {
-          id: String(id),
-          mediaType: String(mediaType),
-        },
-      };
-      history[wasOpen && modalHistoryState() ? "replaceState" : "pushState"](
-        nextState,
-        "",
-        window.location.href,
-      );
+      returnFocus.current ||= document.activeElement;
     }
 
     setModal({
@@ -398,36 +396,110 @@ export function DetailsProvider({ children }) {
     }
   }, []);
 
+  const openDetails = useCallback(
+    (mediaType, id) => {
+      const normalizedType = api.normalizeMediaType(mediaType);
+      const normalizedId = String(id || "").trim();
+
+      if (
+        !["movie", "tv"].includes(normalizedType) ||
+        !/^\d+$/.test(normalizedId)
+      ) {
+        return;
+      }
+
+      const currentPreview = previewFromSearch(location.search);
+
+      if (
+        currentPreview?.mediaType === normalizedType &&
+        currentPreview.id === normalizedId
+      ) {
+        if (!modalOpenRef.current) {
+          loadDetails(normalizedType, normalizedId);
+        }
+        return;
+      }
+
+      if (!modalOpenRef.current) {
+        returnFocus.current = document.activeElement;
+      }
+
+      navigate(
+        {
+          pathname: location.pathname,
+          search: searchWithPreview(
+            location.search,
+            normalizedType,
+            normalizedId,
+          ),
+          hash: location.hash,
+        },
+        {
+          replace: Boolean(currentPreview),
+          state: {
+            ...stateWithoutModal(location.state),
+            [MODAL_HISTORY_KEY]: true,
+          },
+        },
+      );
+    },
+    [
+      loadDetails,
+      location.hash,
+      location.pathname,
+      location.search,
+      location.state,
+      navigate,
+    ],
+  );
+
   const closeDetails = useCallback((restoreFocus = true) => {
     if (!modalOpenRef.current) {
       return;
     }
 
-    if (modalHistoryState()) {
-      history.back();
+    if (previewFromSearch(location.search)) {
+      if (location.state?.[MODAL_HISTORY_KEY]) {
+        navigate(-1);
+      } else {
+        navigate(
+          {
+            pathname: location.pathname,
+            search: searchWithoutPreview(location.search),
+            hash: location.hash,
+          },
+          {
+            replace: true,
+            state: stateWithoutModal(location.state),
+          },
+        );
+      }
     } else {
       closeImmediately(restoreFocus);
     }
-  }, [closeImmediately]);
+  }, [
+    closeImmediately,
+    location.hash,
+    location.pathname,
+    location.search,
+    location.state,
+    navigate,
+  ]);
 
   useEffect(() => {
-    if (modalHistoryState()) {
-      history.replaceState(stateWithoutModal(), "", window.location.href);
+    const preview = previewFromSearch(location.search);
+
+    if (preview) {
+      loadDetails(preview.mediaType, preview.id);
+    } else if (modalOpenRef.current) {
+      closeImmediately(true);
     }
-
-    const handlePopState = (event) => {
-      const modalState = modalHistoryState(event.state);
-
-      if (modalState) {
-        openDetails(modalState.mediaType, modalState.id, false);
-      } else {
-        closeImmediately(true);
-      }
-    };
-
-    window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
-  }, [closeImmediately, openDetails]);
+  }, [
+    closeImmediately,
+    loadDetails,
+    location.pathname,
+    location.search,
+  ]);
 
   useEffect(() => {
     if (!modal.open) {
@@ -482,22 +554,24 @@ export function DetailsProvider({ children }) {
     return () => document.removeEventListener("keydown", handleKeyDown, true);
   }, [closeDetails, modal.open]);
 
-  useEffect(() => {
-    if (modalOpenRef.current && !modalHistoryState()) {
-      closeImmediately(false);
-    }
-  }, [closeImmediately, location.pathname]);
-
   const handleWatch = useCallback(() => {
     if (!modal.details) {
       return;
     }
 
     const target = watchPath(modal.details);
-    history.replaceState(stateWithoutModal(), "", window.location.href);
     closeImmediately(false);
-    navigate(target);
-  }, [closeImmediately, modal.details, navigate]);
+    navigate(target, {
+      replace: Boolean(previewFromSearch(location.search)),
+      state: stateWithoutModal(location.state),
+    });
+  }, [
+    closeImmediately,
+    location.search,
+    location.state,
+    modal.details,
+    navigate,
+  ]);
 
   const value = useMemo(
     () => ({ closeDetails, openDetails }),
