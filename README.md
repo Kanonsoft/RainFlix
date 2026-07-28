@@ -193,4 +193,4 @@ Movie and television metadata and artwork are provided by
 
 This product uses the TMDB API but is not endorsed or certified by TMDB.
 
-RainFlix is an independent project and is not affiliated with organization.
+RainFlix is an independent project and is not affiliated with any organization.
