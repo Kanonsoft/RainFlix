@@ -181,10 +181,19 @@ function DetailsPanel({
   );
 }
 
-function Player({ details, episode, playerSource, season, setPlayerSource }) {
+function Player({
+  details,
+  episode,
+  onStarted,
+  playerSource,
+  season,
+  setPlayerSource,
+}) {
   const [frameLoading, setFrameLoading] = useState(true);
   const [fullscreen, setFullscreen] = useState(false);
   const frameRef = useRef(null);
+  const iframeRef = useRef(null);
+  const startedKeyRef = useRef("");
   const sources = useMemo(
     () =>
       api.buildStreamSources({
@@ -197,6 +206,15 @@ function Player({ details, episode, playerSource, season, setPlayerSource }) {
   );
   const activeSource =
     sources.find((source) => source.id === playerSource) || sources[0];
+  const playbackKey = `${details.mediaType}:${details.id}:${season}:${episode}`;
+  const markStarted = useCallback(() => {
+    if (startedKeyRef.current === playbackKey) {
+      return;
+    }
+
+    startedKeyRef.current = playbackKey;
+    onStarted?.();
+  }, [onStarted, playbackKey]);
 
   useEffect(() => {
     if (activeSource && activeSource.id !== playerSource) {
@@ -207,6 +225,48 @@ function Player({ details, episode, playerSource, season, setPlayerSource }) {
   useEffect(() => {
     setFrameLoading(true);
   }, [activeSource?.url]);
+
+  useEffect(() => {
+    if (!activeSource) {
+      return undefined;
+    }
+
+    let sourceOrigin = "";
+    try {
+      sourceOrigin = new URL(activeSource.url).origin;
+    } catch {
+      return undefined;
+    }
+
+    const handlePlayerMessage = (event) => {
+      const eventType = String(event.data?.data?.event || "").toLowerCase();
+      const isPlaybackEvent =
+        event.data?.type === "PLAYER_EVENT" &&
+        ["play", "playing"].includes(eventType);
+
+      if (
+        isPlaybackEvent &&
+        event.source === iframeRef.current?.contentWindow &&
+        event.origin === sourceOrigin
+      ) {
+        markStarted();
+      }
+    };
+    const handleWindowBlur = () => {
+      window.setTimeout(() => {
+        if (document.activeElement === iframeRef.current) {
+          markStarted();
+        }
+      }, 0);
+    };
+
+    window.addEventListener("message", handlePlayerMessage);
+    window.addEventListener("blur", handleWindowBlur);
+    return () => {
+      window.removeEventListener("message", handlePlayerMessage);
+      window.removeEventListener("blur", handleWindowBlur);
+    };
+  }, [activeSource, markStarted]);
 
   useEffect(() => {
     const update = () => {
@@ -292,8 +352,11 @@ function Player({ details, episode, playerSource, season, setPlayerSource }) {
             allowFullScreen
             frameBorder="0"
             loading="eager"
+            ref={iframeRef}
             referrerPolicy="origin"
+            onFocus={markStarted}
             onLoad={() => setFrameLoading(false)}
+            onPointerDown={markStarted}
           />
         </div>
       </section>
@@ -343,7 +406,7 @@ function EpisodeSection({
   return (
     <section className="mt-6 md:mt-8" aria-labelledby="episodesTitle">
       <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
+        <div className="min-w-0">
           <h2 id="episodesTitle" className="text-2xl font-black text-slate-50">
             Episodes
           </h2>
@@ -354,10 +417,10 @@ function EpisodeSection({
           ) : null}
         </div>
 
-        <label className="flex items-center gap-3 text-sm font-bold text-slate-300">
-          Season
+        <label className="flex w-full min-w-0 items-center gap-3 text-sm font-bold text-slate-300 md:w-auto">
+          <span className="shrink-0">Season</span>
           <select
-            className="h-10 rounded-lg border border-blue-900/70 bg-blue-950/30 px-3 text-sm text-slate-100 outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-400/10"
+            className="h-10 min-w-0 max-w-full flex-1 truncate rounded-lg border border-blue-900/70 bg-blue-950/30 px-3 text-sm text-slate-100 outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-400/10 md:w-64 md:max-w-none md:flex-none"
             value={season}
             onChange={(event) => onSeasonChange(event.target.value)}
           >
@@ -522,7 +585,6 @@ export default function WatchPage({ onBackdrop, onReady }) {
       setSeasonDetails(nextSeasonDetails);
       setSimilarItems(similarFeed?.items || []);
       setLoading(false);
-      recordViewed(nextDetails, nextSeason, nextEpisode);
       const backdrop =
         nextDetails.backdrop ||
         nextDetails.poster ||
@@ -554,7 +616,7 @@ export default function WatchPage({ onBackdrop, onReady }) {
       cancelled = true;
       requestId.current += 1;
     };
-  }, [id, mediaType, recordViewed, retryVersion]);
+  }, [id, mediaType, retryVersion]);
 
   const selectedEpisode = seasonDetails?.episodes?.find(
     (item) => item.episodeNumber === episode,
@@ -563,7 +625,6 @@ export default function WatchPage({ onBackdrop, onReady }) {
   const changeEpisode = (nextEpisode) => {
     const parsed = Number.parseInt(nextEpisode, 10) || 1;
     setEpisode(parsed);
-    recordViewed(details, season, parsed);
     navigate(watchPath(details, season, parsed), { replace: true });
   };
 
@@ -581,12 +642,17 @@ export default function WatchPage({ onBackdrop, onReady }) {
       }
 
       setSeasonDetails(nextSeasonDetails);
-      recordViewed(details, parsed, 1);
       navigate(watchPath(details, parsed, 1), { replace: true });
     } catch {
       // Keep the previous episode list if this season cannot be loaded.
     }
   };
+
+  const recordCurrentPlayback = useCallback(() => {
+    if (details) {
+      recordViewed(details, season, episode);
+    }
+  }, [details, episode, recordViewed, season]);
 
   if (loading) {
     return (
@@ -645,6 +711,7 @@ export default function WatchPage({ onBackdrop, onReady }) {
           <Player
             details={details}
             episode={episode}
+            onStarted={recordCurrentPlayback}
             playerSource={playerSource}
             season={season}
             setPlayerSource={setPlayerSource}

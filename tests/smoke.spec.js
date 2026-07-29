@@ -88,6 +88,60 @@ test("opens a route-backed preview and browser Back closes it", async ({
   await expect(page).toHaveTitle(/Search: batman/);
 });
 
+test("records Continue Watching only after player interaction", async ({
+  page,
+}) => {
+  await page.route("https://vidsrc.to/**", (route) => route.abort());
+  await page.goto("/#/home");
+
+  await page
+    .getByRole("button", { name: /^More information about / })
+    .first()
+    .click();
+  const dialog = page.getByRole("dialog");
+  const watchLink = dialog.getByRole("link", { name: "Watch now" });
+  await expect(watchLink).toBeVisible({ timeout: 15000 });
+  await watchLink.click();
+
+  const frame = page.locator("#playerShell iframe");
+  await expect(frame).toBeVisible({ timeout: 15000 });
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          JSON.parse(
+            window.localStorage.getItem("rainflix:recently-viewed:v1") || "[]",
+          ).length,
+      ),
+    )
+    .toBe(0);
+
+  await page.evaluate(() => {
+    const playerFrame = document.querySelector("#playerShell iframe");
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        data: {
+          type: "PLAYER_EVENT",
+          data: { event: "play" },
+        },
+        origin: new URL(playerFrame.src).origin,
+        source: playerFrame.contentWindow,
+      }),
+    );
+  });
+
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          JSON.parse(
+            window.localStorage.getItem("rainflix:recently-viewed:v1") || "[]",
+          ).length,
+      ),
+    )
+    .toBe(1);
+});
+
 test.describe("mobile accessibility", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
