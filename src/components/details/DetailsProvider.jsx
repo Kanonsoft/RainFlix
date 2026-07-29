@@ -8,7 +8,7 @@ import {
   useState,
 } from "react";
 import { Play, X } from "lucide-react";
-import { useLocation, useNavigate } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
 import { api, imageFallback, watchPath } from "../../lib/api.js";
 import TitleArtwork from "../TitleArtwork.jsx";
 
@@ -127,7 +127,7 @@ function CastMember({ person }) {
   );
 }
 
-function DetailsContent({ details, onWatch }) {
+function DetailsContent({ details, onWatch, watchState }) {
   const [trailerActive, setTrailerActive] = useState(false);
   const backdrop =
     details.backdrop ||
@@ -205,14 +205,26 @@ function DetailsContent({ details, onWatch }) {
 
       <div className="p-5 md:p-7">
         <div className="flex flex-wrap items-center gap-3">
-          <button
+          <Link
             className="inline-flex items-center gap-2 rounded-lg bg-sky-400 px-5 py-3 text-sm font-black text-slate-950 transition duration-200 hover:bg-sky-300 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-400/25"
-            type="button"
-            onClick={onWatch}
+            to={watchPath(details)}
+            replace
+            state={watchState}
+            onClick={(event) => {
+              if (
+                event.button === 0 &&
+                !event.altKey &&
+                !event.ctrlKey &&
+                !event.metaKey &&
+                !event.shiftKey
+              ) {
+                onWatch();
+              }
+            }}
           >
             <Play className="h-4 w-4" fill="currentColor" aria-hidden="true" />
             Watch now
-          </button>
+          </Link>
           {trailerKey ? (
             <button
               className="inline-flex items-center gap-2 rounded-lg border border-blue-800/80 bg-blue-950/45 px-5 py-3 text-sm font-black text-slate-100 transition duration-200 hover:border-sky-500 hover:text-sky-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-400/20"
@@ -555,23 +567,8 @@ export function DetailsProvider({ children }) {
   }, [closeDetails, modal.open]);
 
   const handleWatch = useCallback(() => {
-    if (!modal.details) {
-      return;
-    }
-
-    const target = watchPath(modal.details);
     closeImmediately(false);
-    navigate(target, {
-      replace: Boolean(previewFromSearch(location.search)),
-      state: stateWithoutModal(location.state),
-    });
-  }, [
-    closeImmediately,
-    location.search,
-    location.state,
-    modal.details,
-    navigate,
-  ]);
+  }, [closeImmediately]);
 
   const value = useMemo(
     () => ({ closeDetails, openDetails }),
@@ -627,7 +624,11 @@ export function DetailsProvider({ children }) {
             </div>
           ) : null}
           {modal.details ? (
-            <DetailsContent details={modal.details} onWatch={handleWatch} />
+            <DetailsContent
+              details={modal.details}
+              onWatch={handleWatch}
+              watchState={stateWithoutModal(location.state)}
+            />
           ) : null}
         </section>
       </div>
