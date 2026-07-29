@@ -1,18 +1,25 @@
-import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Navigate,
-  Route,
-  Routes,
-  useLocation,
-} from "react-router";
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { Navigate, Route, Routes, useLocation } from "react-router";
 import AppLoader from "./components/AppLoader.jsx";
 import Footer from "./components/Footer.jsx";
 import Header from "./components/Header.jsx";
+import PrivacyAnalytics from "./components/PrivacyAnalytics.jsx";
 import { DetailsProvider } from "./components/details/DetailsProvider.jsx";
+import { LibraryProvider } from "./components/library/LibraryProvider.jsx";
 import useRemoteNavigation from "./hooks/useRemoteNavigation.js";
 import { api } from "./lib/api.js";
 import CatalogPage from "./pages/CatalogPage.jsx";
-import WatchPage from "./pages/WatchPage.jsx";
+
+const LibraryPage = lazy(() => import("./pages/LibraryPage.jsx"));
+const SearchPage = lazy(() => import("./pages/SearchPage.jsx"));
+const WatchPage = lazy(() => import("./pages/WatchPage.jsx"));
 
 const LOADER_POSTER_CACHE_KEY = "rainflix:loader-posters:v1";
 const BACKDROP_FADE_DURATION = 960;
@@ -68,6 +75,19 @@ function ScrollManager() {
   }, [location.pathname]);
 
   return null;
+}
+
+function RouteFallback() {
+  return (
+    <div
+      className="mx-auto w-full max-w-[1440px] px-6 py-8 md:px-10 lg:px-12"
+      role="status"
+      aria-live="polite"
+    >
+      <span className="sr-only">Loading view</span>
+      <div className="h-[24rem] animate-pulse border border-blue-900/70 bg-blue-950/25 md:h-[28rem]" />
+    </div>
+  );
 }
 
 function AppShell() {
@@ -194,86 +214,120 @@ function AppShell() {
           />
         ) : null}
       </div>
-      <div className="relative z-10 flex min-h-screen flex-col">
+      <div id="app-shell" className="relative z-10 flex min-h-screen flex-col">
+        <button
+          className="fixed left-4 top-3 z-[500] -translate-y-20 rounded-lg bg-sky-400 px-4 py-3 text-sm font-black text-slate-950 shadow-xl transition focus:translate-y-0 focus:outline-none focus:ring-4 focus:ring-white/30"
+          type="button"
+          onClick={() => {
+            const main = document.querySelector("#app-view");
+            main?.focus({ preventScroll: true });
+            main?.scrollIntoView({ behavior: "auto", block: "start" });
+          }}
+        >
+          Skip to content
+        </button>
         <div id="site-header" className="sticky top-0 z-[200]">
           <Header />
         </div>
         <main id="app-view" className="flex-1 outline-none" tabIndex="-1">
-          <Routes>
-            <Route path="/" element={<Navigate replace to="/home" />} />
-            <Route
-              path="/home"
-              element={
-                <CatalogPage
-                  mode="home"
-                  onBackdrop={updateBackdrop}
-                  onReady={completeBoot}
-                />
-              }
-            />
-            <Route
-              path="/movies"
-              element={
-                <CatalogPage
-                  mode="movies"
-                  onBackdrop={updateBackdrop}
-                  onReady={completeBoot}
-                />
-              }
-            />
-            <Route
-              path="/series"
-              element={
-                <CatalogPage
-                  mode="series"
-                  onBackdrop={updateBackdrop}
-                  onReady={completeBoot}
-                />
-              }
-            />
-            <Route
-              path="/genre/:genre"
-              element={
-                <CatalogPage
-                  mode="genre"
-                  onBackdrop={updateBackdrop}
-                  onReady={completeBoot}
-                />
-              }
-            />
-            <Route
-              path="/year/:year"
-              element={
-                <CatalogPage
-                  mode="year"
-                  onBackdrop={updateBackdrop}
-                  onReady={completeBoot}
-                />
-              }
-            />
-            <Route
-              path="/watch/:mediaType/:id/:season?/:episode?"
-              element={
-                <WatchPage
-                  onBackdrop={updateBackdrop}
-                  onReady={completeBoot}
-                />
-              }
-            />
-            <Route path="*" element={<Navigate replace to="/home" />} />
-          </Routes>
+          <Suspense fallback={<RouteFallback />}>
+            <Routes>
+              <Route path="/" element={<Navigate replace to="/home" />} />
+              <Route
+                path="/home"
+                element={
+                  <CatalogPage
+                    mode="home"
+                    onBackdrop={updateBackdrop}
+                    onReady={completeBoot}
+                  />
+                }
+              />
+              <Route
+                path="/movies"
+                element={
+                  <CatalogPage
+                    mode="movies"
+                    onBackdrop={updateBackdrop}
+                    onReady={completeBoot}
+                  />
+                }
+              />
+              <Route
+                path="/series"
+                element={
+                  <CatalogPage
+                    mode="series"
+                    onBackdrop={updateBackdrop}
+                    onReady={completeBoot}
+                  />
+                }
+              />
+              <Route
+                path="/genre/:genre"
+                element={
+                  <CatalogPage
+                    mode="genre"
+                    onBackdrop={updateBackdrop}
+                    onReady={completeBoot}
+                  />
+                }
+              />
+              <Route
+                path="/year/:year"
+                element={
+                  <CatalogPage
+                    mode="year"
+                    onBackdrop={updateBackdrop}
+                    onReady={completeBoot}
+                  />
+                }
+              />
+              <Route
+                path="/library"
+                element={
+                  <LibraryPage
+                    onBackdrop={updateBackdrop}
+                    onReady={completeBoot}
+                  />
+                }
+              />
+              <Route
+                path="/search"
+                element={
+                  <SearchPage
+                    onBackdrop={updateBackdrop}
+                    onReady={completeBoot}
+                  />
+                }
+              />
+              <Route
+                path="/watch/:mediaType/:id/:season?/:episode?"
+                element={
+                  <WatchPage
+                    onBackdrop={updateBackdrop}
+                    onReady={completeBoot}
+                  />
+                }
+              />
+              <Route path="*" element={<Navigate replace to="/home" />} />
+            </Routes>
+          </Suspense>
         </main>
         <Footer />
       </div>
       <ScrollManager />
+      <PrivacyAnalytics />
     </>
   );
 }
 
 export default function App() {
   return (
-    <DetailsProvider>
-      <AppShell />
-    </DetailsProvider>
+    <LibraryProvider>
+      <DetailsProvider>
+        <AppShell />
+      </DetailsProvider>
+    </LibraryProvider>
   );
 }

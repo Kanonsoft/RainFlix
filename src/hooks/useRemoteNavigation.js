@@ -73,8 +73,7 @@ function focusableElements(scope) {
 
   return [...scope.querySelectorAll(FOCUSABLE_SELECTOR)].filter(
     (element) =>
-      isVisible(element) &&
-      (includeHeader || !element.closest("#site-header")),
+      isVisible(element) && (includeHeader || !element.closest("#site-header")),
   );
 }
 
@@ -102,8 +101,7 @@ function isInDirection(direction, deltaX, deltaY) {
 }
 
 function directionalScore(direction, deltaX, deltaY) {
-  const horizontal =
-    direction === "ArrowLeft" || direction === "ArrowRight";
+  const horizontal = direction === "ArrowLeft" || direction === "ArrowRight";
   const primary = Math.abs(horizontal ? deltaX : deltaY);
   const secondary = Math.abs(horizontal ? deltaY : deltaX);
   const anglePenalty = secondary / Math.max(primary, 1);
@@ -130,22 +128,17 @@ function initialFocusTarget(elements, direction) {
 
     if (direction === "ArrowUp") {
       return (
-        secondRect.bottom - firstRect.bottom ||
-        firstRect.left - secondRect.left
+        secondRect.bottom - firstRect.bottom || firstRect.left - secondRect.left
       );
     }
 
     if (direction === "ArrowLeft") {
       return (
-        secondRect.right - firstRect.right ||
-        firstRect.top - secondRect.top
+        secondRect.right - firstRect.right || firstRect.top - secondRect.top
       );
     }
 
-    return (
-      firstRect.top - secondRect.top ||
-      firstRect.left - secondRect.left
-    );
+    return firstRect.top - secondRect.top || firstRect.left - secondRect.left;
   })[0];
 }
 

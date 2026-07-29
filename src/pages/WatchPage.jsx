@@ -5,6 +5,10 @@ import { MediaGrid } from "../components/MediaCard.jsx";
 import TitleArtwork from "../components/TitleArtwork.jsx";
 import { useDetails } from "../components/details/DetailsProvider.jsx";
 import { api, imageFallback, watchPath } from "../lib/api.js";
+import { trackEvent } from "../lib/analytics.js";
+import { backdropImageProps, posterImageProps } from "../lib/images.js";
+import { usePageMetadata } from "../lib/metadata.js";
+import { useLibrary } from "../components/library/LibraryProvider.jsx";
 
 const PLAYER_STORAGE_KEY = "rainflix:player-source";
 
@@ -28,9 +32,7 @@ function WatchSkeleton() {
 
 function WatchHero({ details, episode, onMoreInfo, onScrollPlayer, season }) {
   const image =
-    details.backdrop ||
-    details.poster ||
-    imageFallback(details.title, true);
+    details.backdrop || details.poster || imageFallback(details.title, true);
 
   return (
     <section className="hidden overflow-hidden rounded-xl border border-blue-900/70 bg-blue-950/20 shadow-2xl shadow-black/40 md:block">
@@ -40,8 +42,11 @@ function WatchHero({ details, episode, onMoreInfo, onScrollPlayer, season }) {
           src={image}
           alt=""
           draggable="false"
+          fetchPriority="high"
+          {...backdropImageProps(image)}
           onError={(event) => {
             event.currentTarget.onerror = null;
+            event.currentTarget.removeAttribute("srcset");
             event.currentTarget.src = imageFallback(details.title, true);
           }}
         />
@@ -79,7 +84,11 @@ function WatchHero({ details, episode, onMoreInfo, onScrollPlayer, season }) {
               type="button"
               onClick={onScrollPlayer}
             >
-              <Play className="h-4 w-4" fill="currentColor" aria-hidden="true" />
+              <Play
+                className="h-4 w-4"
+                fill="currentColor"
+                aria-hidden="true"
+              />
               {details.mediaType === "tv"
                 ? `Start watching S${season}:E${episode}`
                 : "Start watching movie"}
@@ -105,20 +114,23 @@ function DetailsPanel({
   season,
   selectedEpisode,
 }) {
+  const image =
+    details.poster || details.backdrop || imageFallback(details.title);
+
   return (
     <aside className="h-fit rounded-xl border border-blue-900/70 bg-blue-950/20 p-4 md:p-5">
       <div className="flex gap-4">
         <img
           className="h-32 w-24 shrink-0 rounded-lg object-cover"
-          src={
-            details.poster ||
-            details.backdrop ||
-            imageFallback(details.title)
-          }
+          src={image}
           alt=""
           draggable="false"
+          loading="lazy"
+          decoding="async"
+          {...posterImageProps(image, "96px")}
           onError={(event) => {
             event.currentTarget.onerror = null;
+            event.currentTarget.removeAttribute("srcset");
             event.currentTarget.src = imageFallback(details.title);
           }}
         />
@@ -169,13 +181,7 @@ function DetailsPanel({
   );
 }
 
-function Player({
-  details,
-  episode,
-  playerSource,
-  season,
-  setPlayerSource,
-}) {
+function Player({ details, episode, playerSource, season, setPlayerSource }) {
   const [frameLoading, setFrameLoading] = useState(true);
   const [fullscreen, setFullscreen] = useState(false);
   const frameRef = useRef(null);
@@ -205,9 +211,7 @@ function Player({
   useEffect(() => {
     const update = () => {
       const current =
-        document.fullscreenElement ||
-        document.webkitFullscreenElement ||
-        null;
+        document.fullscreenElement || document.webkitFullscreenElement || null;
       setFullscreen(current === frameRef.current);
     };
 
@@ -227,10 +231,7 @@ function Player({
     }
 
     try {
-      if (
-        document.fullscreenElement ||
-        document.webkitFullscreenElement
-      ) {
+      if (document.fullscreenElement || document.webkitFullscreenElement) {
         if (document.exitFullscreen) {
           await document.exitFullscreen();
         } else {
@@ -407,12 +408,14 @@ export default function WatchPage({ onBackdrop, onReady }) {
   const params = useParams();
   const navigate = useNavigate();
   const { openDetails } = useDetails();
+  const { recordViewed } = useLibrary();
   const mediaType = api.normalizeMediaType(params.mediaType);
   const id = params.id || "";
   const requestedSeason = Number.parseInt(params.season, 10) || 1;
   const requestedEpisode = Number.parseInt(params.episode, 10) || 1;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [retryVersion, setRetryVersion] = useState(0);
   const [details, setDetails] = useState(null);
   const [season, setSeason] = useState(requestedSeason);
   const [episode, setEpisode] = useState(requestedEpisode);
@@ -426,9 +429,26 @@ export default function WatchPage({ onBackdrop, onReady }) {
     }
   });
   const requestId = useRef(0);
+  const routeContext = useRef(null);
+  routeContext.current = {
+    navigate,
+    onBackdrop,
+    onReady,
+    requestedEpisode,
+    requestedSeason,
+  };
+
+  usePageMetadata({
+    title: details?.title || "Watch",
+    description:
+      details?.synopsis ||
+      "Watch a movie or television episode through RainFlix.",
+    image: details?.backdrop || details?.poster || "",
+  });
 
   const setPlayerSource = useCallback((source) => {
     setPlayerSourceState(source);
+    trackEvent("player-source", { source });
 
     try {
       window.localStorage.setItem(PLAYER_STORAGE_KEY, source);
@@ -439,6 +459,13 @@ export default function WatchPage({ onBackdrop, onReady }) {
 
   useEffect(() => {
     const loadRequestId = ++requestId.current;
+    const {
+      navigate: navigateFromRequest,
+      onBackdrop: setBackdropFromRequest,
+      onReady: setReadyFromRequest,
+      requestedEpisode: episodeFromRequest,
+      requestedSeason: seasonFromRequest,
+    } = routeContext.current;
     let cancelled = false;
     setLoading(true);
     setError("");
@@ -459,8 +486,8 @@ export default function WatchPage({ onBackdrop, onReady }) {
         throw new Error("RainFlix could not find metadata for this title.");
       }
 
-      let nextSeason = requestedSeason;
-      let nextEpisode = requestedEpisode;
+      let nextSeason = seasonFromRequest;
+      let nextEpisode = episodeFromRequest;
       let nextSeasonDetails = null;
 
       if (nextDetails.mediaType === "tv") {
@@ -485,10 +512,7 @@ export default function WatchPage({ onBackdrop, onReady }) {
 
       const similarFeed = await similarPromise;
 
-      if (
-        cancelled ||
-        loadRequestId !== requestId.current
-      ) {
+      if (cancelled || loadRequestId !== requestId.current) {
         return;
       }
 
@@ -498,42 +522,39 @@ export default function WatchPage({ onBackdrop, onReady }) {
       setSeasonDetails(nextSeasonDetails);
       setSimilarItems(similarFeed?.items || []);
       setLoading(false);
-      document.title = `${nextDetails.title} | RainFlix`;
+      recordViewed(nextDetails, nextSeason, nextEpisode);
       const backdrop =
         nextDetails.backdrop ||
         nextDetails.poster ||
         imageFallback(nextDetails.title, true);
-      onBackdrop?.(backdrop);
-      onReady?.([nextDetails.poster, nextDetails.backdrop]);
+      setBackdropFromRequest?.(backdrop);
+      setReadyFromRequest?.([nextDetails.poster, nextDetails.backdrop]);
 
       if (
-        nextSeason !== requestedSeason ||
-        nextEpisode !== requestedEpisode
+        nextSeason !== seasonFromRequest ||
+        nextEpisode !== episodeFromRequest
       ) {
-        navigate(watchPath(nextDetails, nextSeason, nextEpisode), {
+        navigateFromRequest(watchPath(nextDetails, nextSeason, nextEpisode), {
           replace: true,
         });
       }
     };
 
     load().catch((loadError) => {
-      if (
-        cancelled ||
-        loadRequestId !== requestId.current
-      ) {
+      if (cancelled || loadRequestId !== requestId.current) {
         return;
       }
 
       setLoading(false);
       setError(loadError.message || "This title is unavailable.");
-      onReady?.([]);
+      setReadyFromRequest?.([]);
     });
 
     return () => {
       cancelled = true;
       requestId.current += 1;
     };
-  }, [id, mediaType]);
+  }, [id, mediaType, recordViewed, retryVersion]);
 
   const selectedEpisode = seasonDetails?.episodes?.find(
     (item) => item.episodeNumber === episode,
@@ -542,6 +563,7 @@ export default function WatchPage({ onBackdrop, onReady }) {
   const changeEpisode = (nextEpisode) => {
     const parsed = Number.parseInt(nextEpisode, 10) || 1;
     setEpisode(parsed);
+    recordViewed(details, season, parsed);
     navigate(watchPath(details, season, parsed), { replace: true });
   };
 
@@ -559,6 +581,7 @@ export default function WatchPage({ onBackdrop, onReady }) {
       }
 
       setSeasonDetails(nextSeasonDetails);
+      recordViewed(details, parsed, 1);
       navigate(watchPath(details, parsed, 1), { replace: true });
     } catch {
       // Keep the previous episode list if this season cannot be loaded.
@@ -587,6 +610,13 @@ export default function WatchPage({ onBackdrop, onReady }) {
             Title unavailable
           </h1>
           <p>{error}</p>
+          <button
+            className="mt-5 rounded-lg bg-sky-400 px-4 py-2 text-sm font-black text-slate-950 transition hover:bg-sky-300 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-400/25"
+            type="button"
+            onClick={() => setRetryVersion((value) => value + 1)}
+          >
+            Try again
+          </button>
         </div>
       </section>
     );

@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Menu, Search, X } from "lucide-react";
+import { ArrowRight, Menu, Search, X } from "lucide-react";
 import { createPortal } from "react-dom";
-import { Link, useLocation } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
 import rainflixWordmark from "../../assets/rainflix-wordmark.png";
 import { api, imageFallback } from "../lib/api.js";
+import { posterImageProps } from "../lib/images.js";
 import { useDetails } from "./details/DetailsProvider.jsx";
 
 function routeState(pathname) {
@@ -60,6 +61,7 @@ function FilterMenu({
       <div
         className="header-dropdown absolute left-0 top-full z-[220] w-[min(34rem,calc(100vw-3rem))] pt-2"
         aria-hidden={!open}
+        inert={!open}
       >
         <div
           className={`grid max-h-[28rem] ${columns} gap-x-4 gap-y-1 overflow-y-auto border border-blue-900/80 bg-slate-950/95 p-4 shadow-2xl shadow-black/45 backdrop-blur-xl`}
@@ -92,8 +94,10 @@ function SearchResult({ item, onSelect }) {
         alt=""
         loading="lazy"
         draggable="false"
+        {...posterImageProps(image, "44px")}
         onError={(event) => {
           event.currentTarget.onerror = null;
+          event.currentTarget.removeAttribute("srcset");
           event.currentTarget.src = imageFallback(item.title);
         }}
       />
@@ -124,6 +128,7 @@ function SearchSkeleton() {
 
 export default function Header() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { openDetails } = useDetails();
   const state = routeState(location.pathname);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -144,10 +149,18 @@ export default function Header() {
   });
   const searchRootRef = useRef(null);
   const searchInputRef = useRef(null);
+  const mobileCloseRef = useRef(null);
+  const mobileDrawerRef = useRef(null);
+  const mobilePreviousFocusRef = useRef(null);
+  const mobileToggleRef = useRef(null);
   const requestId = useRef(0);
   const currentYear = new Date().getFullYear();
   const years = useMemo(
-    () => Array.from({ length: currentYear - 1949 }, (_, index) => currentYear - index),
+    () =>
+      Array.from(
+        { length: currentYear - 1949 },
+        (_, index) => currentYear - index,
+      ),
     [currentYear],
   );
 
@@ -180,6 +193,32 @@ export default function Header() {
   }, [mobileOpen]);
 
   useEffect(() => {
+    if (!mobileOpen) {
+      return undefined;
+    }
+
+    const shell = document.querySelector("#app-shell");
+    mobilePreviousFocusRef.current = document.activeElement;
+    mobileCloseRef.current?.focus();
+    shell?.setAttribute("aria-hidden", "true");
+    if (shell) {
+      shell.inert = true;
+    }
+
+    return () => {
+      if (shell) {
+        shell.inert = false;
+        shell.removeAttribute("aria-hidden");
+      }
+
+      const previousFocus = mobilePreviousFocusRef.current;
+      if (previousFocus instanceof HTMLElement && previousFocus.isConnected) {
+        previousFocus.focus({ preventScroll: true });
+      }
+    };
+  }, [mobileOpen]);
+
+  useEffect(() => {
     if (searchOpen) {
       window.setTimeout(() => searchInputRef.current?.focus(), 100);
     } else {
@@ -197,7 +236,11 @@ export default function Header() {
     }
 
     const id = ++requestId.current;
-    setSearchState((current) => ({ ...current, loading: true, searched: true }));
+    setSearchState((current) => ({
+      ...current,
+      loading: true,
+      searched: true,
+    }));
     const timer = window.setTimeout(async () => {
       try {
         const results = await api.search(cleanQuery);
@@ -256,29 +299,68 @@ export default function Header() {
     setSearchOpen(false);
     openDetails(item.mediaType, item.id);
   };
+  const openSearchPage = () => {
+    const cleanQuery = query.trim();
+
+    if (cleanQuery.length < 2) {
+      searchInputRef.current?.focus();
+      return;
+    }
+
+    setSearchOpen(false);
+    navigate(`/search?q=${encodeURIComponent(cleanQuery)}`);
+  };
   const primaryClass = (name) =>
     `header-nav-link${state.primary === name ? " is-active" : ""}`;
   const mobilePrimaryClass = (name) =>
     `mobile-nav-link${state.primary === name ? " is-active" : ""}`;
   const filterLinkClass = (active) =>
     `filter-menu-link${active ? " is-active" : ""}`;
+  const trapMobileFocus = (event) => {
+    if (event.key !== "Tab" || !mobileDrawerRef.current) {
+      return;
+    }
+
+    const focusable = [
+      ...mobileDrawerRef.current.querySelectorAll(
+        'a[href], button:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ),
+    ].filter((element) => !element.closest("[inert]"));
+    const first = focusable[0];
+    const last = focusable.at(-1);
+
+    if (!first || !last) {
+      event.preventDefault();
+    } else if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
 
   const mobileLayer = (
     <div
       id="mobileNavLayer"
       className={`mobile-nav-layer md:hidden${mobileOpen ? " is-open" : ""}`}
       aria-hidden={!mobileOpen}
+      inert={!mobileOpen}
+      onKeyDown={trapMobileFocus}
     >
       <button
         className="mobile-nav-backdrop fixed inset-0 z-[300] cursor-default bg-black/80"
         type="button"
         onClick={() => setMobileOpen(false)}
         aria-label="Close navigation"
-        tabIndex={mobileOpen ? 0 : -1}
+        tabIndex="-1"
       />
       <aside
         className="mobile-nav-drawer fixed inset-y-0 left-0 z-[310] w-[min(18rem,82vw)] overflow-y-auto border-r border-blue-900/70 bg-slate-950 p-5 shadow-2xl shadow-black/60"
         aria-label="Mobile navigation"
+        aria-modal="true"
+        role="dialog"
+        ref={mobileDrawerRef}
       >
         <div className="flex items-center justify-between border-b border-blue-950/80 pb-5">
           <Link
@@ -300,6 +382,7 @@ export default function Header() {
             onClick={() => setMobileOpen(false)}
             aria-label="Close navigation"
             title="Close"
+            ref={mobileCloseRef}
           >
             <X className="h-6 w-6" aria-hidden="true" />
           </button>
@@ -314,6 +397,9 @@ export default function Header() {
           </Link>
           <Link className={mobilePrimaryClass("series")} to="/series">
             Series
+          </Link>
+          <Link className={mobilePrimaryClass("library")} to="/library">
+            My List
           </Link>
 
           <div className="border-t border-blue-950/80 pt-1">
@@ -338,6 +424,7 @@ export default function Header() {
                 mobileFilter === "genre" ? " is-open" : ""
               }`}
               aria-hidden={mobileFilter !== "genre"}
+              inert={mobileFilter !== "genre"}
             >
               {api.GENRES.map((genre) => (
                 <Link
@@ -358,9 +445,7 @@ export default function Header() {
               }`}
               type="button"
               onClick={() =>
-                setMobileFilter((current) =>
-                  current === "year" ? "" : "year",
-                )
+                setMobileFilter((current) => (current === "year" ? "" : "year"))
               }
               aria-controls="mobileYearList"
               aria-expanded={mobileFilter === "year"}
@@ -373,6 +458,7 @@ export default function Header() {
                 mobileFilter === "year" ? " is-open" : ""
               }`}
               aria-hidden={mobileFilter !== "year"}
+              inert={mobileFilter !== "year"}
             >
               {years.map((year) => (
                 <Link
@@ -421,6 +507,9 @@ export default function Header() {
             </Link>
             <Link className={primaryClass("series")} to="/series">
               Series
+            </Link>
+            <Link className={primaryClass("library")} to="/library">
+              My List
             </Link>
 
             <FilterMenu
@@ -490,6 +579,7 @@ export default function Header() {
               id="searchPanel"
               className="header-search-panel absolute z-[230]"
               aria-hidden={!searchOpen}
+              inert={!searchOpen}
             >
               <label
                 className="flex h-12 w-full items-center gap-3 border border-blue-900/80 bg-slate-950 px-4 text-slate-400 shadow-2xl shadow-black/40 backdrop-blur-xl transition focus-within:border-sky-400 focus-within:ring-4 focus-within:ring-sky-400/10"
@@ -509,6 +599,9 @@ export default function Header() {
                     if (event.key === "Escape") {
                       event.preventDefault();
                       setSearchOpen(false);
+                    } else if (event.key === "Enter") {
+                      event.preventDefault();
+                      openSearchPage();
                     } else if (event.key === "ArrowDown") {
                       const firstResult = document.querySelector(
                         "#searchDropdown [data-search-result]",
@@ -555,7 +648,9 @@ export default function Header() {
                         "#searchDropdown [data-search-result]",
                       ),
                     ];
-                    const currentIndex = results.indexOf(document.activeElement);
+                    const currentIndex = results.indexOf(
+                      document.activeElement,
+                    );
                     event.preventDefault();
 
                     if (event.key === "ArrowUp" && currentIndex <= 0) {
@@ -590,6 +685,16 @@ export default function Header() {
                         No titles found.
                       </div>
                     ) : null}
+                    {!searchState.loading && searchState.searched ? (
+                      <button
+                        className="flex w-full items-center justify-between border-t border-blue-900/70 px-4 py-3 text-left text-sm font-black text-sky-300 transition hover:bg-sky-400/10 hover:text-sky-200 focus-visible:bg-sky-400/10 focus-visible:outline-none"
+                        type="button"
+                        onClick={openSearchPage}
+                      >
+                        View all search results
+                        <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               ) : null}
@@ -605,6 +710,7 @@ export default function Header() {
             aria-controls="mobileNavLayer"
             aria-expanded={mobileOpen}
             title="Menu"
+            ref={mobileToggleRef}
           >
             <Menu className="h-6 w-6" aria-hidden="true" />
           </button>

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Play } from "lucide-react";
 import { Link } from "react-router";
 import { api, imageFallback, watchPath } from "../lib/api.js";
+import { backdropImageProps } from "../lib/images.js";
 import { useDetails } from "./details/DetailsProvider.jsx";
 import TitleArtwork from "./TitleArtwork.jsx";
 
@@ -40,9 +41,7 @@ function interactivePeelStyles(direction, rawProgress, duration = 0) {
       ? `polygon(${108 - progress * 150}% -2%, 102% -2%, 102% 102%, ${142 - progress * 150}% 102%)`
       : `polygon(-2% -2%, ${-8 + progress * 150}% -2%, ${-42 + progress * 150}% 102%, -2% 102%)`;
   const edgeTranslate =
-    direction === "left"
-      ? 610 - progress * 860
-      : -250 + progress * 860;
+    direction === "left" ? 610 - progress * 860 : -250 + progress * 860;
   const edgeSkew = direction === "left" ? -12 : 12;
 
   return {
@@ -86,8 +85,7 @@ function HeroSlide({
   direction,
   openDetails,
 }) {
-  const image =
-    item.backdrop || item.poster || imageFallback(item.title, true);
+  const image = item.backdrop || item.poster || imageFallback(item.title, true);
   const isOutgoing = mode === "outgoing" || mode === "drag-outgoing";
   const isInteractive = !isOutgoing && mode !== "drag-incoming";
   const transitionClass =
@@ -99,7 +97,7 @@ function HeroSlide({
           : "rainflix-peel-interactive"
         : mode === "drag-incoming"
           ? "rainflix-peel-interactive"
-        : "";
+          : "";
   const contentTransitionClass =
     mode === "incoming"
       ? "rainflix-peel-content-in"
@@ -107,7 +105,7 @@ function HeroSlide({
         ? "rainflix-peel-content-out"
         : mode === "drag-incoming" || mode === "drag-outgoing"
           ? "rainflix-peel-content-interactive"
-        : "";
+          : "";
 
   return (
     <article
@@ -126,8 +124,11 @@ function HeroSlide({
         src={image}
         alt=""
         draggable="false"
+        fetchPriority={mode === "active" ? "high" : "auto"}
+        {...backdropImageProps(image)}
         onError={(event) => {
           event.currentTarget.onerror = null;
+          event.currentTarget.removeAttribute("srcset");
           event.currentTarget.src = imageFallback(item.title, true);
         }}
       />
@@ -212,8 +213,7 @@ export default function HeroCarousel({ items, onBackdrop }) {
       }
 
       setDirection(
-        requestedDirection ||
-          (normalized > activeIndex ? "left" : "right"),
+        requestedDirection || (normalized > activeIndex ? "left" : "right"),
       );
       setPreviousIndex(activeIndex);
       setActiveIndex(normalized);
@@ -278,13 +278,7 @@ export default function HeroCarousel({ items, onBackdrop }) {
       window.clearTimeout(timer);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [
-    activeIndex,
-    changeSlide,
-    gestureActive,
-    itemCount,
-    timerVersion,
-  ]);
+  }, [activeIndex, changeSlide, gestureActive, itemCount, timerVersion]);
 
   useEffect(
     () => () => {
@@ -398,7 +392,9 @@ export default function HeroCarousel({ items, onBackdrop }) {
       event.preventDefault();
       const nextDirection = deltaX < 0 ? "left" : "right";
       const targetIndex =
-        (gesture.activeIndex + (nextDirection === "left" ? 1 : -1) + itemCount) %
+        (gesture.activeIndex +
+          (nextDirection === "left" ? 1 : -1) +
+          itemCount) %
         itemCount;
       const progress = clamp(absoluteX / Math.max(1, gesture.width));
       const preview = {
@@ -435,8 +431,7 @@ export default function HeroCarousel({ items, onBackdrop }) {
       }
 
       const elapsed = Math.max(1, performance.now() - gesture.startTime);
-      const velocity =
-        Math.abs(event.clientX - gesture.startX) / elapsed;
+      const velocity = Math.abs(event.clientX - gesture.startX) / elapsed;
       const complete =
         gesture.preview.progress >= DRAG_COMMIT_PROGRESS ||
         (gesture.preview.progress >= 0.06 && velocity >= 0.45);

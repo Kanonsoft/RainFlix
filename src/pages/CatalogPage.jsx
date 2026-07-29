@@ -3,6 +3,7 @@ import { useParams } from "react-router";
 import HeroCarousel from "../components/HeroCarousel.jsx";
 import { MediaGrid } from "../components/MediaCard.jsx";
 import { api, delay, preloadImage } from "../lib/api.js";
+import { usePageMetadata } from "../lib/metadata.js";
 
 const BROWSE_ROWS_PER_BATCH = 5;
 const TITLE_LOGO_WAIT_MS = 2600;
@@ -89,11 +90,7 @@ function sectionConfiguration({ filter, genre, year }) {
   };
 }
 
-export default function CatalogPage({
-  mode = "home",
-  onBackdrop,
-  onReady,
-}) {
+export default function CatalogPage({ mode = "home", onBackdrop, onReady }) {
   const params = useParams();
   const genreSlug = mode === "genre" ? params.genre || "" : "";
   const genre = genreSlug ? api.getGenre(genreSlug) : null;
@@ -102,12 +99,13 @@ export default function CatalogPage({
   const year = requestedYear
     ? Math.min(new Date().getFullYear(), Math.max(1900, requestedYear))
     : null;
-  const filter =
-    mode === "movies" ? "movie" : mode === "series" ? "tv" : "all";
+  const filter = mode === "movies" ? "movie" : mode === "series" ? "tv" : "all";
   const config = sectionConfiguration({ filter, genre, year });
   const columns = useBrowseColumns();
   const routeKey = `${mode}:${genreSlug}:${year || ""}`;
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [retryVersion, setRetryVersion] = useState(0);
   const [carouselItems, setCarouselItems] = useState([]);
   const [trending, setTrending] = useState([]);
   const [newestMovies, setNewestMovies] = useState([]);
@@ -186,10 +184,7 @@ export default function CatalogPage({
           }
         }
 
-        if (
-          nextItems.length >= targetCount ||
-          !browseHasMoreRef.current
-        ) {
+        if (nextItems.length >= targetCount || !browseHasMoreRef.current) {
           break;
         }
 
@@ -236,10 +231,7 @@ export default function CatalogPage({
       browseItemsRef.current = [...browseItemsRef.current, ...nextItems];
       setBrowseItems(browseItemsRef.current);
 
-      if (
-        nextItems.length < targetCount &&
-        !browseBufferRef.current.length
-      ) {
+      if (nextItems.length < targetCount && !browseBufferRef.current.length) {
         browseHasMoreRef.current = false;
       }
     } catch (error) {
@@ -272,6 +264,7 @@ export default function CatalogPage({
     setNewestMovies([]);
     setNewestSeries([]);
     setLoading(true);
+    setLoadError(false);
 
     const loadFeeds = async () => {
       let carouselFeed;
@@ -332,13 +325,14 @@ export default function CatalogPage({
         ]);
         carouselFeed = trendingFeed;
       } else if (filter === "all") {
-        [carouselFeed, trendingFeed, movieFeed, seriesFeed] =
-          await Promise.all([
+        [carouselFeed, trendingFeed, movieFeed, seriesFeed] = await Promise.all(
+          [
             api.getTrendingMovies(api.PAGE_SIZE),
             api.getTrendingThisWeek(api.PAGE_SIZE),
             api.getNewestMovies(api.PAGE_SIZE),
             api.getNewestSeries(api.PAGE_SIZE),
-          ]);
+          ],
+        );
       } else if (filter === "movie") {
         [trendingFeed, movieFeed] = await Promise.all([
           api.getTrending({
@@ -375,9 +369,7 @@ export default function CatalogPage({
         ...nextMovies,
         ...nextSeries,
       ];
-      const posters = allItems.map(
-        (item) => item.poster || item.backdrop,
-      );
+      const posters = allItems.map((item) => item.poster || item.backdrop);
 
       setCarouselItems(nextCarouselItems);
       setTrending(nextTrending);
@@ -389,7 +381,9 @@ export default function CatalogPage({
         .getTitleLogos(nextCarouselItems)
         .then(async (items) => {
           await Promise.all(
-            items.filter((item) => item.logo).map((item) => preloadImage(item.logo)),
+            items
+              .filter((item) => item.logo)
+              .map((item) => preloadImage(item.logo)),
           );
           return items;
         })
@@ -398,10 +392,7 @@ export default function CatalogPage({
         logosPromise,
         delay(TITLE_LOGO_WAIT_MS).then(() => null),
       ]);
-      const [preparedLogos] = await Promise.all([
-        logoRace,
-        loadMoreBrowse(),
-      ]);
+      const [preparedLogos] = await Promise.all([logoRace, loadMoreBrowse()]);
 
       if (cancelled || requestId !== requestIdRef.current) {
         return;
@@ -428,6 +419,7 @@ export default function CatalogPage({
       }
 
       console.error("RainFlix catalog failed:", error);
+      setLoadError(true);
       browseHasMoreRef.current = false;
       setBrowseHasMore(false);
       setLoading(false);
@@ -445,6 +437,7 @@ export default function CatalogPage({
     loadMoreBrowse,
     onReady,
     routeKey,
+    retryVersion,
     year,
   ]);
 
@@ -471,21 +464,31 @@ export default function CatalogPage({
     return () => observer.disconnect();
   }, [browseHasMore, loadMoreBrowse]);
 
-  useEffect(() => {
-    document.title = genre
-      ? `${genre.name} | RainFlix`
-      : year
-        ? `${year} Movies & Series | RainFlix`
-        : filter === "movie"
-          ? "Movies | RainFlix"
-          : filter === "tv"
-            ? "Series | RainFlix"
-            : "RainFlix";
-  }, [filter, genre, year]);
+  const pageTitle = genre
+    ? genre.name
+    : year
+      ? `${year} Movies & Series`
+      : filter === "movie"
+        ? "Movies"
+        : filter === "tv"
+          ? "Series"
+          : "RainFlix";
 
-  const ghostCount = browseLoading
-    ? columns * BROWSE_ROWS_PER_BATCH
-    : 0;
+  usePageMetadata({
+    title: pageTitle,
+    description: genre
+      ? `Browse ${genre.name} movies and series on RainFlix.`
+      : year
+        ? `Browse movies and series released in ${year} on RainFlix.`
+        : filter === "movie"
+          ? "Discover trending and newly released movies on RainFlix."
+          : filter === "tv"
+            ? "Discover trending and newly released television series on RainFlix."
+            : "Discover trending movies and series through RainFlix.",
+    image: carouselItems[0]?.backdrop || carouselItems[0]?.poster || "",
+  });
+
+  const ghostCount = browseLoading ? columns * BROWSE_ROWS_PER_BATCH : 0;
   const heroItems = useMemo(
     () => carouselItems.slice(0, api.PAGE_SIZE),
     [carouselItems],
@@ -496,14 +499,32 @@ export default function CatalogPage({
       className="mx-auto w-full max-w-[1440px] px-6 py-8 md:px-10 lg:px-12"
       aria-label={config.ariaLabel}
     >
+      {loadError ? (
+        <div
+          className="mb-7 border border-blue-900/80 bg-blue-950/30 p-6"
+          role="alert"
+        >
+          <h1 className="text-xl font-black text-slate-50">
+            The catalog could not refresh
+          </h1>
+          <p className="mt-2 text-sm leading-6 text-slate-400">
+            RainFlix will keep using any cached titles that are available.
+          </p>
+          <button
+            className="mt-4 rounded-lg bg-sky-400 px-4 py-2 text-sm font-black text-slate-950 transition hover:bg-sky-300 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-400/25"
+            type="button"
+            onClick={() => setRetryVersion((value) => value + 1)}
+          >
+            Try again
+          </button>
+        </div>
+      ) : null}
+
       <HeroCarousel items={heroItems} onBackdrop={onBackdrop} />
 
       <section className="mt-10" aria-labelledby="trendingTitle">
         <div className="mb-5 flex items-end justify-between gap-6">
-          <h1
-            id="trendingTitle"
-            className="text-3xl font-black text-slate-50"
-          >
+          <h1 id="trendingTitle" className="text-3xl font-black text-slate-50">
             {config.trendingTitle}
           </h1>
         </div>
@@ -552,10 +573,7 @@ export default function CatalogPage({
 
       <section className="mt-12" aria-labelledby="browseTitle">
         <div className="mb-5">
-          <h2
-            id="browseTitle"
-            className="text-3xl font-black text-slate-50"
-          >
+          <h2 id="browseTitle" className="text-3xl font-black text-slate-50">
             {config.browseTitle}
           </h2>
         </div>

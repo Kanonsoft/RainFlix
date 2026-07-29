@@ -1,57 +1,110 @@
+import { Bookmark, Check } from "lucide-react";
+import { Link } from "react-router";
 import { api, imageFallback } from "../lib/api.js";
+import { posterImageProps } from "../lib/images.js";
 import { useDetails } from "./details/DetailsProvider.jsx";
+import { useLibrary } from "./library/LibraryProvider.jsx";
 
 export function MediaCard({ item }) {
   const { openDetails } = useDetails();
-  const poster =
-    item.poster || item.backdrop || imageFallback(item.title);
+  const { isInMyList, toggleMyList } = useLibrary();
+  const poster = item.poster || item.backdrop || imageFallback(item.title);
+  const saved = isInMyList(item);
+  const mainClass =
+    "block w-full text-left outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-sky-400/25";
+  const cardContent = (
+    <>
+      <div className="relative isolate aspect-[2/3] overflow-hidden">
+        <img
+          className="h-full w-full object-cover transition duration-500 group-hover:scale-105 group-hover:brightness-[0.58] group-focus-within:scale-105 group-focus-within:brightness-[0.58]"
+          src={poster}
+          alt={`${item.title} poster`}
+          loading="lazy"
+          decoding="async"
+          draggable="false"
+          {...posterImageProps(poster)}
+          onError={(event) => {
+            event.currentTarget.onerror = null;
+            event.currentTarget.removeAttribute("srcset");
+            event.currentTarget.src = imageFallback(item.title);
+          }}
+        />
+
+        {item.resumeLabel ? (
+          <span className="absolute left-2 top-2 z-10 rounded-md bg-slate-950/88 px-2 py-1 text-[0.65rem] font-black uppercase text-sky-200 shadow-lg backdrop-blur">
+            {item.resumeLabel}
+          </span>
+        ) : null}
+
+        <div className="absolute inset-0 flex translate-y-3 flex-col justify-end gap-3 bg-gradient-to-t from-slate-950 via-slate-950/78 to-transparent p-4 opacity-0 transition duration-300 group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:translate-y-0 group-focus-within:opacity-100">
+          <h3 className="text-xl font-black leading-tight text-slate-50">
+            {item.title}
+          </h3>
+          <p className="line-clamp-3 text-xs leading-5 text-slate-300 md:line-clamp-4 md:text-sm md:leading-6">
+            {item.synopsis}
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-2 p-3">
+        <h3 className="truncate text-sm font-black text-slate-50">
+          {item.title}
+        </h3>
+        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
+          <span className="rounded-full bg-blue-500/20 px-2 py-1 font-black text-sky-200">
+            {item.rating}
+          </span>
+          <span>{item.year}</span>
+          <span className="rounded-full bg-sky-400/15 px-2 py-1 font-black uppercase text-sky-300">
+            {api.mediaLabel(item.mediaType)}
+          </span>
+        </div>
+      </div>
+    </>
+  );
 
   return (
     <article className="catalog-card group relative overflow-hidden rounded-lg border border-blue-900/70 bg-slate-950 transition duration-300 hover:-translate-y-1 hover:border-sky-500/70 focus-within:-translate-y-1 focus-within:border-sky-500/70">
+      {item.resumePath ? (
+        <Link
+          className={mainClass}
+          to={item.resumePath}
+          aria-label={`Continue watching ${item.title}`}
+        >
+          {cardContent}
+        </Link>
+      ) : (
+        <button
+          className={mainClass}
+          type="button"
+          onClick={() => openDetails(item.mediaType, item.id)}
+          aria-label={`More information about ${item.title}`}
+        >
+          {cardContent}
+        </button>
+      )}
+
       <button
-        className="block w-full text-left outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-sky-400/25"
+        className={`absolute right-2 top-2 z-20 grid h-9 w-9 place-items-center rounded-full border shadow-lg backdrop-blur transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-400/30 ${
+          saved
+            ? "border-sky-300/70 bg-sky-400 text-slate-950"
+            : "border-white/20 bg-slate-950/78 text-slate-100 hover:border-sky-300 hover:text-sky-200"
+        }`}
         type="button"
-        onClick={() => openDetails(item.mediaType, item.id)}
-        aria-label={`More information about ${item.title}`}
+        onClick={() => toggleMyList(item)}
+        aria-label={
+          saved
+            ? `Remove ${item.title} from My List`
+            : `Add ${item.title} to My List`
+        }
+        aria-pressed={saved}
+        title={saved ? "Remove from My List" : "Add to My List"}
       >
-        <div className="relative isolate aspect-[2/3] overflow-hidden">
-          <img
-            className="h-full w-full object-cover transition duration-500 group-hover:scale-105 group-hover:brightness-[0.58] group-focus-within:scale-105 group-focus-within:brightness-[0.58]"
-            src={poster}
-            alt={`${item.title} poster`}
-            loading="lazy"
-            decoding="async"
-            draggable="false"
-            onError={(event) => {
-              event.currentTarget.onerror = null;
-              event.currentTarget.src = imageFallback(item.title);
-            }}
-          />
-
-          <div className="absolute inset-0 flex translate-y-3 flex-col justify-end gap-3 bg-gradient-to-t from-slate-950 via-slate-950/78 to-transparent p-4 opacity-0 transition duration-300 group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:translate-y-0 group-focus-within:opacity-100">
-            <h3 className="text-xl font-black leading-tight text-slate-50">
-              {item.title}
-            </h3>
-            <p className="line-clamp-3 text-xs leading-5 text-slate-300 md:line-clamp-4 md:text-sm md:leading-6">
-              {item.synopsis}
-            </p>
-          </div>
-        </div>
-
-        <div className="space-y-2 p-3">
-          <h3 className="truncate text-sm font-black text-slate-50">
-            {item.title}
-          </h3>
-          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
-            <span className="rounded-full bg-blue-500/20 px-2 py-1 font-black text-sky-200">
-              {item.rating}
-            </span>
-            <span>{item.year}</span>
-            <span className="rounded-full bg-sky-400/15 px-2 py-1 font-black uppercase text-sky-300">
-              {api.mediaLabel(item.mediaType)}
-            </span>
-          </div>
-        </div>
+        {saved ? (
+          <Check className="h-4 w-4" strokeWidth={3} aria-hidden="true" />
+        ) : (
+          <Bookmark className="h-4 w-4" aria-hidden="true" />
+        )}
       </button>
     </article>
   );

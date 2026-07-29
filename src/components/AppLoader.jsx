@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import rainflixLogo from "../../assets/rainflix-r.png";
 import { config } from "../lib/api.js";
+import { posterImageProps } from "../lib/images.js";
 
 const COLUMN_COUNT = 7;
 const CARDS_PER_COLUMN = 5;
@@ -14,8 +15,12 @@ function LoaderCard({ poster, onSettled }) {
         loading="eager"
         decoding="async"
         draggable="false"
+        {...posterImageProps(poster, "18vw")}
         onLoad={onSettled}
-        onError={onSettled}
+        onError={(event) => {
+          event.currentTarget.removeAttribute("srcset");
+          onSettled();
+        }}
       />
     </div>
   );
@@ -38,12 +43,26 @@ export default function AppLoader({ dataReady, posters }) {
     () => [...new Set((posters || []).filter(Boolean))].slice(0, 35),
     [posters],
   );
-  const expectedImages = uniquePosters.length ? COLUMN_COUNT * CARDS_PER_COLUMN : 0;
+  const expectedImages = uniquePosters.length
+    ? COLUMN_COUNT * CARDS_PER_COLUMN
+    : 0;
 
   useEffect(() => {
     document.documentElement.classList.toggle("app-is-loading", visible);
+    const shell = document.querySelector("#app-shell");
 
-    return () => document.documentElement.classList.remove("app-is-loading");
+    if (shell) {
+      shell.inert = visible;
+      shell.toggleAttribute("aria-hidden", visible);
+    }
+
+    return () => {
+      document.documentElement.classList.remove("app-is-loading");
+      if (shell) {
+        shell.inert = false;
+        shell.removeAttribute("aria-hidden");
+      }
+    };
   }, [visible]);
 
   useEffect(() => {

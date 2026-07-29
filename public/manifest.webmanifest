@@ -1,0 +1,49 @@
+{
+  "name": "RainFlix",
+  "short_name": "RainFlix",
+  "description": "A cinematic, touch-first movie and series discovery experience.",
+  "id": "./",
+  "start_url": "./#/home",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#030712",
+  "theme_color": "#030712",
+  "orientation": "any",
+  "categories": ["entertainment", "lifestyle"],
+  "icons": [
+    {
+      "src": "rainflix-r.png",
+      "sizes": "256x256",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "rainflix-r.png",
+      "sizes": "256x256",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Movies",
+      "short_name": "Movies",
+      "url": "./#/movies"
+    },
+    {
+      "name": "Series",
+      "short_name": "Series",
+      "url": "./#/series"
+    },
+    {
+      "name": "My List",
+      "short_name": "My List",
+      "url": "./#/library"
+    },
+    {
+      "name": "Search",
+      "short_name": "Search",
+      "url": "./#/search"
+    }
+  ]
+}

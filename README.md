@@ -42,17 +42,21 @@ without an application server.
 
 ## Features
 
-| Experience | Highlights |
-| --- | --- |
-| **Cinematic discovery** | Home, Movies, Series, Genre, and Year views powered by current TMDB feeds |
-| **Gesture-driven hero** | A diagonal peel transition that follows the pointer while swiping, settles naturally on release, and crossfades the page backdrop |
-| **Rich title previews** | Shareable preview URLs with synopsis, cast, genres, runtime, status, rating, title artwork, and trailers |
-| **History-aware navigation** | Browser Back closes a preview at the same scroll position; Forward reopens it |
-| **Flexible playback** | A compact provider selector, remembered source preference, fullscreen support, and movie or episode-specific embeds |
-| **Series navigation** | Season and episode selection with episode metadata and direct watch URLs |
-| **More to discover** | Similar titles, expandable browse grids, newest releases, trending titles, search, and filters |
-| **Responsive and accessible** | Mobile navigation drawer, keyboard focus management, reduced-motion support, semantic dialogs, and remote-control key handling |
-| **Fast repeat visits** | Lazy-loaded artwork plus bounded local caching for TMDB responses, title logos, loader posters, and player preferences |
+| Experience                    | Highlights                                                                                                                        |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| **Cinematic discovery**       | Home, Movies, Series, Genre, and Year views powered by current TMDB feeds                                                         |
+| **Gesture-driven hero**       | A diagonal peel transition that follows the pointer while swiping, settles naturally on release, and crossfades the page backdrop |
+| **Rich title previews**       | Shareable preview URLs with synopsis, cast, genres, runtime, status, rating, title artwork, and trailers                          |
+| **History-aware navigation**  | Browser Back closes a preview at the same scroll position; Forward reopens it                                                     |
+| **Personal library**          | Device-local My List bookmarks and Continue Watching links that remember the selected season and episode                          |
+| **Focused search**            | A dedicated, shareable search view with type, genre, and year filters                                                             |
+| **Flexible playback**         | A compact provider selector, remembered source preference, fullscreen support, and movie or episode-specific embeds               |
+| **Series navigation**         | Season and episode selection with episode metadata and direct watch URLs                                                          |
+| **More to discover**          | Similar titles, expandable browse grids, newest releases, trending titles, search, and filters                                    |
+| **Responsive and accessible** | Mobile navigation drawer, keyboard focus management, reduced-motion support, semantic dialogs, and remote-control key handling    |
+| **Fast repeat visits**        | Responsive TMDB artwork plus bounded caching for metadata, title logos, loader posters, and player preferences                    |
+| **Installable static app**    | A lightweight service worker caches RainFlix assets and catalog artwork without touching third-party player requests              |
+| **Resilient interface**       | Retry states plus a last-resort recovery screen that preserves saved titles and viewing history                                   |
 
 ## Tech Stack
 
@@ -102,6 +106,9 @@ window.RAINFLIX_CONFIG = {
   tmdbApiKey: "YOUR_TMDB_V3_API_KEY",
   tmdbRegion: "US",
   tmdbCacheTtlMs: 900000,
+  analyticsScriptUrl: "",
+  analyticsWebsiteId: "",
+  analyticsDomains: "",
   // Player base URLs...
 };
 ```
@@ -111,6 +118,7 @@ The configuration controls:
 - TMDB API, image, and regional settings
 - Cache lifetime and maximum stored entries
 - Initial loader timing and fallback timeout
+- Optional Umami-compatible analytics; it stays disabled while its fields are empty and respects Do Not Track
 - Base URLs for VidSrc, 2embed, MultiEmbed, VidLink, VidFast, VidSrcMe, and VidCore
 
 RainFlix is a static client application. Every value placed in
@@ -128,6 +136,8 @@ hosts without rewrite rules.
 #/series
 #/genre/action
 #/year/2025
+#/library
+#/search?q=batman&type=movie&year=2022
 #/watch/movie/533535/1/1
 #/home?preview=movie-533535
 ```
@@ -139,17 +149,19 @@ Preview URLs are history-aware and can also be opened directly.
 ```text
 RainFlix/
 |-- assets/                     Brand and README imagery
+|-- public/                     PWA manifest, service worker, and install assets
 |-- scripts/
 |   |-- config.js               Public runtime configuration
 |   `-- rainflix-api.js         TMDB data, caching, and embed URL builders
 |-- src/
 |   |-- components/             Header, cards, carousel, loader, and modal
 |   |-- hooks/                  Remote and keyboard navigation
-|   |-- pages/                  Catalog and watch experiences
+|   |-- pages/                  Catalog, search, library, and watch experiences
 |   |-- App.jsx                 Routes and application shell
 |   `-- main.jsx                React entry point
+|-- tests/                      Playwright browser smoke tests
 |-- styles/input.css            Tailwind layers and custom motion
-|-- .github/workflows/deploy.yml
+|-- .github/workflows/          Deployment and quality checks
 `-- vite.config.js
 ```
 
@@ -180,7 +192,7 @@ review each provider's terms before deploying a public instance.
 
 1. Fork the repository and create a focused branch.
 2. Make the change using the existing component and styling patterns.
-3. Run `npm run build`.
+3. Run `npm run check` and `npm run test:e2e`.
 4. Open a pull request with a short description and screenshots for visual changes.
 
 Bug reports and ideas are welcome in

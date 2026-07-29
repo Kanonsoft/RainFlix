@@ -7,10 +7,18 @@ import {
   useRef,
   useState,
 } from "react";
-import { Play, X } from "lucide-react";
+import { Bookmark, Check, Play, Share2, X } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { api, imageFallback, watchPath } from "../../lib/api.js";
+import { trackEvent } from "../../lib/analytics.js";
+import { backdropImageProps, posterImageProps } from "../../lib/images.js";
+import {
+  applyPageMetadata,
+  capturePageMetadata,
+  restorePageMetadata,
+} from "../../lib/metadata.js";
 import TitleArtwork from "../TitleArtwork.jsx";
+import { useLibrary } from "../library/LibraryProvider.jsx";
 
 const DetailsContext = createContext(null);
 const MODAL_HISTORY_KEY = "rainflixDetailsModal";
@@ -44,10 +52,25 @@ function searchWithoutPreview(search) {
 }
 
 function stateWithoutModal(state) {
-  const nextState =
-    state && typeof state === "object" ? { ...state } : {};
+  const nextState = state && typeof state === "object" ? { ...state } : {};
   delete nextState[MODAL_HISTORY_KEY];
   return nextState;
+}
+
+function setApplicationInert(value) {
+  const shell = document.querySelector("#app-shell");
+
+  if (!shell) {
+    return;
+  }
+
+  shell.inert = value;
+
+  if (value) {
+    shell.setAttribute("aria-hidden", "true");
+  } else {
+    shell.removeAttribute("aria-hidden");
+  }
 }
 
 function formatDate(value) {
@@ -106,6 +129,7 @@ function CastMember({ person }) {
             loading="lazy"
             decoding="async"
             draggable="false"
+            {...posterImageProps(person.image, "96px")}
           />
         ) : (
           <div className="grid aspect-[2/3] w-full place-items-center bg-blue-950/55 px-2 text-center text-xs font-bold text-slate-400">
@@ -127,12 +151,17 @@ function CastMember({ person }) {
   );
 }
 
-function DetailsContent({ details, onWatch, watchState }) {
+function DetailsContent({
+  details,
+  isSaved,
+  onToggleSaved,
+  onWatch,
+  watchState,
+}) {
   const [trailerActive, setTrailerActive] = useState(false);
+  const [shareStatus, setShareStatus] = useState("");
   const backdrop =
-    details.backdrop ||
-    details.poster ||
-    imageFallback(details.title, true);
+    details.backdrop || details.poster || imageFallback(details.title, true);
   const genres = details.genres || [];
   const cast = details.cast || [];
   const trailerKey = /^[A-Za-z0-9_-]+$/.test(details.trailerKey || "")
@@ -140,7 +169,35 @@ function DetailsContent({ details, onWatch, watchState }) {
     : "";
   const runtime = details.duration || details.runtime || "Not available";
 
-  useEffect(() => setTrailerActive(false), [details.id, details.mediaType]);
+  useEffect(() => {
+    setTrailerActive(false);
+    setShareStatus("");
+  }, [details.id, details.mediaType]);
+
+  const shareDetails = async () => {
+    const shareData = {
+      title: details.title,
+      text: details.synopsis,
+      url: window.location.href,
+    };
+
+    try {
+      if (typeof navigator.share === "function") {
+        await navigator.share(shareData);
+        setShareStatus("Shared");
+      } else {
+        await navigator.clipboard.writeText(shareData.url);
+        setShareStatus("Link copied");
+      }
+      trackEvent("title-share", { mediaType: details.mediaType });
+    } catch (error) {
+      if (error?.name !== "AbortError") {
+        setShareStatus("Sharing unavailable");
+      }
+    }
+
+    window.setTimeout(() => setShareStatus(""), 2200);
+  };
 
   return (
     <article>
@@ -152,8 +209,11 @@ function DetailsContent({ details, onWatch, watchState }) {
             alt=""
             decoding="async"
             draggable="false"
+            fetchPriority="high"
+            {...backdropImageProps(backdrop)}
             onError={(event) => {
               event.currentTarget.onerror = null;
+              event.currentTarget.removeAttribute("srcset");
               event.currentTarget.src = imageFallback(details.title, true);
             }}
           />
@@ -187,7 +247,10 @@ function DetailsContent({ details, onWatch, watchState }) {
           <p className="mb-3 text-xs font-black uppercase text-sky-300">
             {api.mediaLabel(details.mediaType)}
           </p>
-          <h2 id="titleDetailsHeading" className="max-w-3xl leading-tight text-slate-50">
+          <h2
+            id="titleDetailsHeading"
+            className="max-w-3xl leading-tight text-slate-50"
+          >
             <TitleArtwork
               logo={details.logo}
               title={details.title}
@@ -225,6 +288,23 @@ function DetailsContent({ details, onWatch, watchState }) {
             <Play className="h-4 w-4" fill="currentColor" aria-hidden="true" />
             Watch now
           </Link>
+          <button
+            className={`inline-flex items-center gap-2 rounded-lg border px-5 py-3 text-sm font-black transition duration-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-400/20 ${
+              isSaved
+                ? "border-sky-300/70 bg-sky-400/15 text-sky-200"
+                : "border-blue-800/80 bg-blue-950/45 text-slate-100 hover:border-sky-500 hover:text-sky-200"
+            }`}
+            type="button"
+            onClick={onToggleSaved}
+            aria-pressed={isSaved}
+          >
+            {isSaved ? (
+              <Check className="h-4 w-4" strokeWidth={3} aria-hidden="true" />
+            ) : (
+              <Bookmark className="h-4 w-4" aria-hidden="true" />
+            )}
+            {isSaved ? "In My List" : "My List"}
+          </button>
           {trailerKey ? (
             <button
               className="inline-flex items-center gap-2 rounded-lg border border-blue-800/80 bg-blue-950/45 px-5 py-3 text-sm font-black text-slate-100 transition duration-200 hover:border-sky-500 hover:text-sky-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-400/20"
@@ -236,6 +316,17 @@ function DetailsContent({ details, onWatch, watchState }) {
               {trailerActive ? "Restart trailer" : "Play trailer"}
             </button>
           ) : null}
+          <button
+            className="inline-flex items-center gap-2 rounded-lg border border-blue-800/80 bg-blue-950/45 px-5 py-3 text-sm font-black text-slate-100 transition duration-200 hover:border-sky-500 hover:text-sky-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-400/20"
+            type="button"
+            onClick={shareDetails}
+          >
+            <Share2 className="h-4 w-4" aria-hidden="true" />
+            Share
+          </button>
+          <span className="text-xs font-bold text-sky-300" aria-live="polite">
+            {shareStatus}
+          </span>
         </div>
 
         <dl className="mt-6 grid grid-cols-2 gap-x-5 gap-y-4 border-y border-blue-950/80 py-5 sm:grid-cols-4">
@@ -251,9 +342,7 @@ function DetailsContent({ details, onWatch, watchState }) {
             <dt className="text-xs font-bold uppercase text-slate-500">
               Runtime
             </dt>
-            <dd className="mt-1 text-sm font-bold text-slate-100">
-              {runtime}
-            </dd>
+            <dd className="mt-1 text-sm font-bold text-slate-100">{runtime}</dd>
           </div>
           <div>
             <dt className="text-xs font-bold uppercase text-slate-500">
@@ -329,6 +418,7 @@ function DetailsContent({ details, onWatch, watchState }) {
 export function DetailsProvider({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { isInMyList, toggleMyList } = useLibrary();
   const [modal, setModal] = useState({
     details: null,
     error: false,
@@ -344,6 +434,7 @@ export function DetailsProvider({ children }) {
     modalOpenRef.current = false;
     setModal((current) => ({ ...current, open: false }));
     document.documentElement.classList.remove("details-modal-open");
+    setApplicationInert(false);
 
     if (restoreFocus) {
       window.setTimeout(() => {
@@ -382,6 +473,7 @@ export function DetailsProvider({ children }) {
     });
     modalOpenRef.current = true;
     document.documentElement.classList.add("details-modal-open");
+    setApplicationInert(true);
 
     try {
       const details = await api.getDetails(mediaType, id);
@@ -407,6 +499,14 @@ export function DetailsProvider({ children }) {
       }
     }
   }, []);
+
+  useEffect(
+    () => () => {
+      document.documentElement.classList.remove("details-modal-open");
+      setApplicationInert(false);
+    },
+    [],
+  );
 
   const openDetails = useCallback(
     (mediaType, id) => {
@@ -465,38 +565,41 @@ export function DetailsProvider({ children }) {
     ],
   );
 
-  const closeDetails = useCallback((restoreFocus = true) => {
-    if (!modalOpenRef.current) {
-      return;
-    }
-
-    if (previewFromSearch(location.search)) {
-      if (location.state?.[MODAL_HISTORY_KEY]) {
-        navigate(-1);
-      } else {
-        navigate(
-          {
-            pathname: location.pathname,
-            search: searchWithoutPreview(location.search),
-            hash: location.hash,
-          },
-          {
-            replace: true,
-            state: stateWithoutModal(location.state),
-          },
-        );
+  const closeDetails = useCallback(
+    (restoreFocus = true) => {
+      if (!modalOpenRef.current) {
+        return;
       }
-    } else {
-      closeImmediately(restoreFocus);
-    }
-  }, [
-    closeImmediately,
-    location.hash,
-    location.pathname,
-    location.search,
-    location.state,
-    navigate,
-  ]);
+
+      if (previewFromSearch(location.search)) {
+        if (location.state?.[MODAL_HISTORY_KEY]) {
+          navigate(-1);
+        } else {
+          navigate(
+            {
+              pathname: location.pathname,
+              search: searchWithoutPreview(location.search),
+              hash: location.hash,
+            },
+            {
+              replace: true,
+              state: stateWithoutModal(location.state),
+            },
+          );
+        }
+      } else {
+        closeImmediately(restoreFocus);
+      }
+    },
+    [
+      closeImmediately,
+      location.hash,
+      location.pathname,
+      location.search,
+      location.state,
+      navigate,
+    ],
+  );
 
   useEffect(() => {
     const preview = previewFromSearch(location.search);
@@ -506,12 +609,7 @@ export function DetailsProvider({ children }) {
     } else if (modalOpenRef.current) {
       closeImmediately(true);
     }
-  }, [
-    closeImmediately,
-    loadDetails,
-    location.pathname,
-    location.search,
-  ]);
+  }, [closeImmediately, loadDetails, location.pathname, location.search]);
 
   useEffect(() => {
     if (!modal.open) {
@@ -566,6 +664,33 @@ export function DetailsProvider({ children }) {
     return () => document.removeEventListener("keydown", handleKeyDown, true);
   }, [closeDetails, modal.open]);
 
+  useEffect(() => {
+    if (!modal.open || !modal.details) {
+      return undefined;
+    }
+
+    const snapshot = capturePageMetadata();
+    const underlyingHash = `#${location.pathname}${searchWithoutPreview(
+      location.search,
+    )}${location.hash}`;
+    applyPageMetadata({
+      title: modal.details.title,
+      description: modal.details.synopsis,
+      image: modal.details.backdrop || modal.details.poster || "",
+    });
+    return () => {
+      if (window.location.hash === underlyingHash) {
+        restorePageMetadata(snapshot);
+      }
+    };
+  }, [
+    location.hash,
+    location.pathname,
+    location.search,
+    modal.details,
+    modal.open,
+  ]);
+
   const handleWatch = useCallback(() => {
     closeImmediately(false);
   }, [closeImmediately]);
@@ -582,6 +707,7 @@ export function DetailsProvider({ children }) {
         id="titleDetailsModal"
         className={`title-details-modal${modal.open ? " is-open" : ""}`}
         aria-hidden={!modal.open}
+        inert={!modal.open}
       >
         <button
           className="title-details-backdrop"
@@ -604,6 +730,7 @@ export function DetailsProvider({ children }) {
             onClick={() => closeDetails()}
             aria-label="Close title details"
             title="Close"
+            tabIndex={modal.open ? 0 : -1}
           >
             <X className="h-6 w-6" aria-hidden="true" />
           </button>
@@ -618,7 +745,8 @@ export function DetailsProvider({ children }) {
                   Details unavailable
                 </h2>
                 <p className="mt-3 text-sm text-slate-400">
-                  RainFlix could not load this title&apos;s information right now.
+                  RainFlix could not load this title&apos;s information right
+                  now.
                 </p>
               </div>
             </div>
@@ -626,6 +754,8 @@ export function DetailsProvider({ children }) {
           {modal.details ? (
             <DetailsContent
               details={modal.details}
+              isSaved={isInMyList(modal.details)}
+              onToggleSaved={() => toggleMyList(modal.details)}
               onWatch={handleWatch}
               watchState={stateWithoutModal(location.state)}
             />

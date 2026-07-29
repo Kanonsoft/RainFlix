@@ -7,7 +7,8 @@
       year: "2024",
       rating: "8.1",
       poster: "https://image.tmdb.org/t/p/w500/1pdfLvkbY9ohJlCjQH2CZjjYVvJ.jpg",
-      backdrop: "https://image.tmdb.org/t/p/w1280/xOMo8BRK7PfcJv9JCnx7s5hj0PX.jpg",
+      backdrop:
+        "https://image.tmdb.org/t/p/w1280/xOMo8BRK7PfcJv9JCnx7s5hj0PX.jpg",
       synopsis:
         "Paul Atreides unites with Chani and the Fremen while seeking revenge against the conspirators who destroyed his family.",
     },
@@ -18,7 +19,8 @@
       year: "2023",
       rating: "8.1",
       poster: "https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg",
-      backdrop: "https://image.tmdb.org/t/p/w1280/fm6KqXpk3M2HVveHwCrBSSBaO0V.jpg",
+      backdrop:
+        "https://image.tmdb.org/t/p/w1280/fm6KqXpk3M2HVveHwCrBSSBaO0V.jpg",
       synopsis:
         "The story of J. Robert Oppenheimer and the creation of the atomic bomb during World War II.",
     },
@@ -29,7 +31,8 @@
       year: "2024",
       rating: "7.6",
       poster: "https://image.tmdb.org/t/p/w500/8cdWjvZQUExUUTzyp4t6EDMubfO.jpg",
-      backdrop: "https://image.tmdb.org/t/p/w1280/yDHYTfA3R0jFYba16jBB1ef8oIt.jpg",
+      backdrop:
+        "https://image.tmdb.org/t/p/w1280/yDHYTfA3R0jFYba16jBB1ef8oIt.jpg",
       synopsis:
         "A listless Wade Wilson is pulled back into action when his universe faces an existential threat.",
     },
@@ -40,7 +43,8 @@
       year: "2024",
       rating: "7.5",
       poster: "https://image.tmdb.org/t/p/w500/iADOJ8Zymht2JPMoy3R7xceZprc.jpg",
-      backdrop: "https://image.tmdb.org/t/p/w1280/wNAhuOZ3Zf84jCIlrcI6JhgmY5q.jpg",
+      backdrop:
+        "https://image.tmdb.org/t/p/w1280/wNAhuOZ3Zf84jCIlrcI6JhgmY5q.jpg",
       synopsis:
         "Young Furiosa is swept into a brutal wasteland war before crossing paths with the warlord who will shape her fate.",
     },
@@ -51,7 +55,8 @@
       year: "2024",
       rating: "7.6",
       poster: "https://image.tmdb.org/t/p/w500/vpnVM9B6NMmQpWeZvzLvDESb2QY.jpg",
-      backdrop: "https://image.tmdb.org/t/p/w1280/p5ozvmdgsmbWe0H8Xk7Rc8SCwAB.jpg",
+      backdrop:
+        "https://image.tmdb.org/t/p/w1280/p5ozvmdgsmbWe0H8Xk7Rc8SCwAB.jpg",
       synopsis:
         "Riley's mind welcomes new emotions as she navigates the complicated shift into her teenage years.",
     },
@@ -62,7 +67,8 @@
       year: "2023",
       rating: "8.6",
       poster: "https://image.tmdb.org/t/p/w500/uKvVjHNqB5VmOrdxqAt2F7J78ED.jpg",
-      backdrop: "https://image.tmdb.org/t/p/w1280/uDgy6hyPd82kOHh6I95FLtLnj6p.jpg",
+      backdrop:
+        "https://image.tmdb.org/t/p/w1280/uDgy6hyPd82kOHh6I95FLtLnj6p.jpg",
       synopsis:
         "A hardened survivor escorts a teenager across a fractured America after a global pandemic changes everything.",
       seasons: 2,
@@ -75,7 +81,8 @@
       year: "2024",
       rating: "8.5",
       poster: "https://image.tmdb.org/t/p/w500/7O4iVfOMQmdCSxhOg1WnzG1AgYT.jpg",
-      backdrop: "https://image.tmdb.org/t/p/w1280/oFAukXiMPrwLpbulGmB5suEZlrm.jpg",
+      backdrop:
+        "https://image.tmdb.org/t/p/w1280/oFAukXiMPrwLpbulGmB5suEZlrm.jpg",
       synopsis:
         "A shipwrecked English pilot becomes entangled in the political struggle of feudal Japan.",
       seasons: 1,
@@ -88,7 +95,8 @@
       year: "2022",
       rating: "8.3",
       poster: "https://image.tmdb.org/t/p/w500/7QMsOTMUswlwxJP0rTTZfmz2tX2.jpg",
-      backdrop: "https://image.tmdb.org/t/p/w1280/etj8E2o0Bud0HkONVQPjyCkIvpv.jpg",
+      backdrop:
+        "https://image.tmdb.org/t/p/w1280/etj8E2o0Bud0HkONVQPjyCkIvpv.jpg",
       synopsis:
         "The Targaryen dynasty reaches a breaking point as family power turns into fire and blood.",
       seasons: 2,
@@ -101,7 +109,8 @@
       year: "2024",
       rating: "8.3",
       poster: "https://image.tmdb.org/t/p/w500/AnsSKR9LuK0T9bAOcPVA3PUvyWj.jpg",
-      backdrop: "https://image.tmdb.org/t/p/w1280/2meX1nMdScFOoV4370rqHWKmXhY.jpg",
+      backdrop:
+        "https://image.tmdb.org/t/p/w1280/2meX1nMdScFOoV4370rqHWKmXhY.jpg",
       synopsis:
         "A vault dweller steps into a bizarre and violent wasteland shaped by old-world ideals and new-world chaos.",
       seasons: 1,
@@ -114,7 +123,8 @@
       year: "2019",
       rating: "8.5",
       poster: "https://image.tmdb.org/t/p/w500/2zmTngn1tYC1AvfnrFLhxeD82hz.jpg",
-      backdrop: "https://image.tmdb.org/t/p/w1280/7cqKGQMnNabzOpi7qaIgZvQ7NGV.jpg",
+      backdrop:
+        "https://image.tmdb.org/t/p/w1280/7cqKGQMnNabzOpi7qaIgZvQ7NGV.jpg",
       synopsis:
         "A crew of vigilantes takes on celebrity superheroes corrupted by fame, power, and corporate control.",
       seasons: 4,
@@ -127,7 +137,8 @@
       year: "2022",
       rating: "7.7",
       poster: "https://image.tmdb.org/t/p/w500/74xTEgt7R36Fpooo50r9T25onhq.jpg",
-      backdrop: "https://image.tmdb.org/t/p/w1280/b0PlSFdDwbyK0cf5RxwDpaOJQvQ.jpg",
+      backdrop:
+        "https://image.tmdb.org/t/p/w1280/b0PlSFdDwbyK0cf5RxwDpaOJQvQ.jpg",
       synopsis:
         "Batman ventures into Gotham's underworld when a sadistic killer leaves behind a trail of cryptic clues.",
     },
@@ -138,7 +149,8 @@
       year: "2024",
       rating: "7.1",
       poster: "https://image.tmdb.org/t/p/w500/z1p34vh7dEOnLDmyCrlUVLuoDzd.jpg",
-      backdrop: "https://image.tmdb.org/t/p/w1280/1XDDXPXGiI8id7MrUxK36ke7gkX.jpg",
+      backdrop:
+        "https://image.tmdb.org/t/p/w1280/1XDDXPXGiI8id7MrUxK36ke7gkX.jpg",
       synopsis:
         "Godzilla and Kong face a colossal threat hidden deep within the world.",
     },
@@ -149,7 +161,8 @@
       year: "2024",
       rating: "8.3",
       poster: "https://image.tmdb.org/t/p/w500/wTnV3PCVW5O92JMrFvvrRcV39RU.jpg",
-      backdrop: "https://image.tmdb.org/t/p/w1280/v9acaWVVFdZT5yAU7J2QjwfhXyD.jpg",
+      backdrop:
+        "https://image.tmdb.org/t/p/w1280/v9acaWVVFdZT5yAU7J2QjwfhXyD.jpg",
       synopsis:
         "A robot stranded on an island learns to survive, adapt, and care for an orphaned gosling.",
     },
@@ -160,7 +173,8 @@
       year: "2024",
       rating: "6.9",
       poster: "https://image.tmdb.org/t/p/w500/sh7Rg8Er3tFcN9BpKIPOMvALgZd.jpg",
-      backdrop: "https://image.tmdb.org/t/p/w1280/z121dSTR7PY9KxKuvwiIFSYW8cf.jpg",
+      backdrop:
+        "https://image.tmdb.org/t/p/w1280/z121dSTR7PY9KxKuvwiIFSYW8cf.jpg",
       synopsis:
         "A team of journalists races across a fractured America as conflict reaches the nation's capital.",
     },
@@ -171,7 +185,8 @@
       year: "2016",
       rating: "8.6",
       poster: "https://image.tmdb.org/t/p/w500/49WJfeN0moxb9IPfGn8AIqMGskD.jpg",
-      backdrop: "https://image.tmdb.org/t/p/w1280/56v2KjBlU4XaOv9rVYEQypROD7P.jpg",
+      backdrop:
+        "https://image.tmdb.org/t/p/w1280/56v2KjBlU4XaOv9rVYEQypROD7P.jpg",
       synopsis:
         "Friends in a small town uncover secret experiments, supernatural forces, and one very unusual girl.",
       seasons: 4,
@@ -184,7 +199,8 @@
       year: "2022",
       rating: "8.2",
       poster: "https://image.tmdb.org/t/p/w500/sHFlbKS3WLqMnp9t2ghADIJFnuQ.jpg",
-      backdrop: "https://image.tmdb.org/t/p/w1280/bWdgYyAG8MeuN6m8RTdE6JrMdMS.jpg",
+      backdrop:
+        "https://image.tmdb.org/t/p/w1280/bWdgYyAG8MeuN6m8RTdE6JrMdMS.jpg",
       synopsis:
         "A young chef returns to Chicago to run his family's sandwich shop and rebuild the team around it.",
       seasons: 3,
@@ -197,7 +213,8 @@
       year: "2021",
       rating: "8.2",
       poster: "https://image.tmdb.org/t/p/w500/voHUmluYmKyleFkTu3lOXQG702u.jpg",
-      backdrop: "https://image.tmdb.org/t/p/w1280/rqDoCJEM3SNaX1h2PjCCVkgoql2.jpg",
+      backdrop:
+        "https://image.tmdb.org/t/p/w1280/rqDoCJEM3SNaX1h2PjCCVkgoql2.jpg",
       synopsis:
         "The God of Mischief steps out of his timeline and into a larger conflict across time itself.",
       seasons: 2,
@@ -210,7 +227,8 @@
       year: "2021",
       rating: "8.8",
       poster: "https://image.tmdb.org/t/p/w500/fqldf2t8ztc9aiwn3k6mlX3tvRT.jpg",
-      backdrop: "https://image.tmdb.org/t/p/w1280/rIe3PnM6S7IBUmvNwDkBMX0i9EZ.jpg",
+      backdrop:
+        "https://image.tmdb.org/t/p/w1280/rIe3PnM6S7IBUmvNwDkBMX0i9EZ.jpg",
       synopsis:
         "Two sisters stand on opposite sides of a brewing war between an idealistic city and its oppressed undercity.",
       seasons: 2,
@@ -223,7 +241,8 @@
       year: "2011",
       rating: "8.5",
       poster: "https://image.tmdb.org/t/p/w500/1XS1oqL89opfnbLl8WnZY1O1uJx.jpg",
-      backdrop: "https://image.tmdb.org/t/p/w1280/2OMB0ynKlyIenMJWI2Dy9IWT4c.jpg",
+      backdrop:
+        "https://image.tmdb.org/t/p/w1280/2OMB0ynKlyIenMJWI2Dy9IWT4c.jpg",
       synopsis:
         "Noble families fight for control of a vast kingdom while an ancient enemy gathers in the north.",
       seasons: 8,
@@ -236,7 +255,8 @@
       year: "2024",
       rating: "7.0",
       poster: "https://image.tmdb.org/t/p/w500/H6vke7zGiuLsz4v4RPeReb9rsv.jpg",
-      backdrop: "https://image.tmdb.org/t/p/w1280/4CcUgdiGe83MeqJW1NyJVmZqRrF.jpg",
+      backdrop:
+        "https://image.tmdb.org/t/p/w1280/4CcUgdiGe83MeqJW1NyJVmZqRrF.jpg",
       synopsis:
         "A tennis champion turned coach pushes her husband into a match against his former best friend and her former lover.",
     },
@@ -244,26 +264,81 @@
 
   const PAGE_SIZE = 12;
   const GENRES = [
-    { slug: "action-adventure", name: "Action & Adventure", movieGenreIds: [28, 12], tvGenreIds: [10759] },
-    { slug: "animation", name: "Animation", movieGenreIds: [16], tvGenreIds: [16] },
+    {
+      slug: "action-adventure",
+      name: "Action & Adventure",
+      movieGenreIds: [28, 12],
+      tvGenreIds: [10759],
+    },
+    {
+      slug: "animation",
+      name: "Animation",
+      movieGenreIds: [16],
+      tvGenreIds: [16],
+    },
     { slug: "comedy", name: "Comedy", movieGenreIds: [35], tvGenreIds: [35] },
     { slug: "crime", name: "Crime", movieGenreIds: [80], tvGenreIds: [80] },
-    { slug: "documentary", name: "Documentary", movieGenreIds: [99], tvGenreIds: [99] },
+    {
+      slug: "documentary",
+      name: "Documentary",
+      movieGenreIds: [99],
+      tvGenreIds: [99],
+    },
     { slug: "drama", name: "Drama", movieGenreIds: [18], tvGenreIds: [18] },
-    { slug: "family", name: "Family", movieGenreIds: [10751], tvGenreIds: [10751] },
-    { slug: "fantasy-scifi", name: "Fantasy & Sci-Fi", movieGenreIds: [14, 878], tvGenreIds: [10765] },
+    {
+      slug: "family",
+      name: "Family",
+      movieGenreIds: [10751],
+      tvGenreIds: [10751],
+    },
+    {
+      slug: "fantasy-scifi",
+      name: "Fantasy & Sci-Fi",
+      movieGenreIds: [14, 878],
+      tvGenreIds: [10765],
+    },
     { slug: "history", name: "History", movieGenreIds: [36], tvGenreIds: [] },
     { slug: "horror", name: "Horror", movieGenreIds: [27], tvGenreIds: [] },
     { slug: "kids", name: "Kids", movieGenreIds: [10751], tvGenreIds: [10762] },
     { slug: "music", name: "Music", movieGenreIds: [10402], tvGenreIds: [] },
-    { slug: "mystery", name: "Mystery", movieGenreIds: [9648], tvGenreIds: [9648] },
+    {
+      slug: "mystery",
+      name: "Mystery",
+      movieGenreIds: [9648],
+      tvGenreIds: [9648],
+    },
     { slug: "news", name: "News", movieGenreIds: [], tvGenreIds: [10763] },
-    { slug: "reality", name: "Reality", movieGenreIds: [], tvGenreIds: [10764] },
-    { slug: "romance-soap", name: "Romance & Soap", movieGenreIds: [10749], tvGenreIds: [10766] },
+    {
+      slug: "reality",
+      name: "Reality",
+      movieGenreIds: [],
+      tvGenreIds: [10764],
+    },
+    {
+      slug: "romance-soap",
+      name: "Romance & Soap",
+      movieGenreIds: [10749],
+      tvGenreIds: [10766],
+    },
     { slug: "talk", name: "Talk", movieGenreIds: [], tvGenreIds: [10767] },
-    { slug: "thriller", name: "Thriller", movieGenreIds: [53], tvGenreIds: [9648] },
-    { slug: "tv-movie", name: "TV Movie", movieGenreIds: [10770], tvGenreIds: [] },
-    { slug: "war-politics", name: "War & Politics", movieGenreIds: [10752], tvGenreIds: [10768] },
+    {
+      slug: "thriller",
+      name: "Thriller",
+      movieGenreIds: [53],
+      tvGenreIds: [9648],
+    },
+    {
+      slug: "tv-movie",
+      name: "TV Movie",
+      movieGenreIds: [10770],
+      tvGenreIds: [],
+    },
+    {
+      slug: "war-politics",
+      name: "War & Politics",
+      movieGenreIds: [10752],
+      tvGenreIds: [10768],
+    },
     { slug: "western", name: "Western", movieGenreIds: [37], tvGenreIds: [37] },
   ];
   const TMDB_CACHE_PREFIX = "rainflix:tmdb:v1:";
@@ -356,7 +431,9 @@
   function writeTitleLogoCache(cache) {
     try {
       const entries = Object.entries(cache)
-        .sort(([, left], [, right]) => (right.storedAt || 0) - (left.storedAt || 0))
+        .sort(
+          ([, left], [, right]) => (right.storedAt || 0) - (left.storedAt || 0),
+        )
         .slice(0, 100);
       titleLogoCache = Object.fromEntries(entries);
       window.localStorage.setItem(
@@ -417,7 +494,8 @@
   }
 
   function buildTmdbUrl(path, params = {}) {
-    const apiBaseUrl = config().tmdbApiBaseUrl || "https://api.themoviedb.org/3";
+    const apiBaseUrl =
+      config().tmdbApiBaseUrl || "https://api.themoviedb.org/3";
     const url = new URL(`${apiBaseUrl}/${path.replace(/^\//, "")}`);
 
     url.searchParams.set("language", "en-US");
@@ -492,7 +570,8 @@
   function mapTmdbTitle(item, fallbackType) {
     const mediaType = normalizeMediaType(item.media_type || fallbackType);
     const title = mediaType === "tv" ? item.name : item.title;
-    const releaseDate = mediaType === "tv" ? item.first_air_date : item.release_date;
+    const releaseDate =
+      mediaType === "tv" ? item.first_air_date : item.release_date;
 
     return {
       id: item.id,
@@ -501,7 +580,10 @@
       year: releaseDate ? releaseDate.slice(0, 4) : "TBA",
       rating: item.vote_average ? Number(item.vote_average).toFixed(1) : "NR",
       poster: imageUrl(item.poster_path, "w500"),
-      backdrop: imageUrl(item.backdrop_path, "w1280") || imageUrl(item.poster_path, "w780"),
+      backdrop:
+        imageUrl(item.backdrop_path, "w1280") ||
+        imageUrl(item.poster_path, "w780"),
+      genreIds: Array.isArray(item.genre_ids) ? item.genre_ids : [],
       synopsis: item.overview || "No synopsis available yet.",
     };
   }
@@ -517,7 +599,8 @@
         return languageDifference;
       }
 
-      const voteDifference = (right.vote_average || 0) - (left.vote_average || 0);
+      const voteDifference =
+        (right.vote_average || 0) - (left.vote_average || 0);
 
       if (voteDifference) {
         return voteDifference;
@@ -538,7 +621,8 @@
           (video.type === "Trailer" || video.type === "Teaser"),
       )
       .sort((left, right) => {
-        const officialDifference = Number(right.official) - Number(left.official);
+        const officialDifference =
+          Number(right.official) - Number(left.official);
 
         if (officialDifference) {
           return officialDifference;
@@ -581,7 +665,9 @@
       year: releaseDate ? releaseDate.slice(0, 4) : "TBA",
       rating: item.vote_average ? Number(item.vote_average).toFixed(1) : "NR",
       poster: imageUrl(item.poster_path, "w500"),
-      backdrop: imageUrl(item.backdrop_path, "w1280") || imageUrl(item.poster_path, "w780"),
+      backdrop:
+        imageUrl(item.backdrop_path, "w1280") ||
+        imageUrl(item.poster_path, "w780"),
       logo: preferredLogo(item.images),
       synopsis: item.overview || "No synopsis available yet.",
       tagline: item.tagline || "",
@@ -633,9 +719,13 @@
     }
 
     try {
-      const data = await tmdbFetch(`${normalizedType}/${id}/images`, {
-        include_image_language: "en,null",
-      }, { persist: false });
+      const data = await tmdbFetch(
+        `${normalizedType}/${id}/images`,
+        {
+          include_image_language: "en,null",
+        },
+        { persist: false },
+      );
       const url = preferredLogo(data);
       logoCache[cacheKey] = {
         url,
@@ -661,7 +751,10 @@
   function mapFallbackDetails(item) {
     const seasonCount = item.seasons || 1;
     const totalEpisodes = item.episodeCount || 8;
-    const episodesPerSeason = Math.max(1, Math.ceil(totalEpisodes / seasonCount));
+    const episodesPerSeason = Math.max(
+      1,
+      Math.ceil(totalEpisodes / seasonCount),
+    );
 
     return {
       ...item,
@@ -672,7 +765,10 @@
       status: item.mediaType === "tv" ? "Returning Series" : "Released",
       tagline: "",
       trailerKey: "",
-      runtime: item.mediaType === "tv" ? `${seasonCount} season${seasonCount === 1 ? "" : "s"}` : "",
+      runtime:
+        item.mediaType === "tv"
+          ? `${seasonCount} season${seasonCount === 1 ? "" : "s"}`
+          : "",
       seasons:
         item.mediaType === "tv"
           ? Array.from({ length: seasonCount }, (_, index) => ({
@@ -703,7 +799,10 @@
       return [];
     }
 
-    return Array.from({ length: limit }, (_, index) => posters[index % posters.length]);
+    return Array.from(
+      { length: limit },
+      (_, index) => posters[index % posters.length],
+    );
   }
 
   function fallbackPage(filter, page, limit = PAGE_SIZE) {
@@ -725,7 +824,11 @@
     };
   }
 
-  async function getTrending({ filter = "all", page = 1, limit = PAGE_SIZE } = {}) {
+  async function getTrending({
+    filter = "all",
+    page = 1,
+    limit = PAGE_SIZE,
+  } = {}) {
     const normalizedFilter = filter === "series" ? "tv" : filter;
 
     try {
@@ -740,7 +843,12 @@
       }
 
       const items = (data.results || [])
-        .filter((item) => item.media_type === "movie" || item.media_type === "tv" || endpointType !== "all")
+        .filter(
+          (item) =>
+            item.media_type === "movie" ||
+            item.media_type === "tv" ||
+            endpointType !== "all",
+        )
         .map((item) => mapTmdbTitle(item, endpointType))
         .filter((item) => item.poster || item.backdrop)
         .slice(0, limit);
@@ -758,7 +866,9 @@
   }
 
   function getGenre(slug) {
-    const cleanSlug = String(slug || "").trim().toLowerCase();
+    const cleanSlug = String(slug || "")
+      .trim()
+      .toLowerCase();
     return GENRES.find((genre) => genre.slug === cleanSlug) || null;
   }
 
@@ -1010,7 +1120,9 @@
 
       return {
         items: (data.results || [])
-          .filter((item) => item.media_type === "movie" || item.media_type === "tv")
+          .filter(
+            (item) => item.media_type === "movie" || item.media_type === "tv",
+          )
           .map((item) => mapTmdbTitle(item))
           .filter((item) => item.poster || item.backdrop)
           .slice(0, limit),
@@ -1125,7 +1237,9 @@
         );
       } else {
         tmdbResults = (data.results || [])
-          .filter((item) => item.media_type === "movie" || item.media_type === "tv")
+          .filter(
+            (item) => item.media_type === "movie" || item.media_type === "tv",
+          )
           .map((item) => mapTmdbTitle(item))
           .filter((item) => item.poster || item.backdrop);
       }
@@ -1153,7 +1267,8 @@
     }
 
     const fallback = FALLBACK_TITLES.find(
-      (item) => String(item.id) === String(id) && item.mediaType === normalizedType,
+      (item) =>
+        String(item.id) === String(id) && item.mediaType === normalizedType,
     );
 
     return fallback ? mapFallbackDetails(fallback) : null;
@@ -1207,7 +1322,9 @@
             episodeNumber: episode.episode_number,
             title: episode.name || `Episode ${episode.episode_number}`,
             runtime: episode.runtime ? `${episode.runtime} min` : "",
-            rating: episode.vote_average ? Number(episode.vote_average).toFixed(1) : "NR",
+            rating: episode.vote_average
+              ? Number(episode.vote_average).toFixed(1)
+              : "NR",
             image: imageUrl(episode.still_path, "w500"),
             synopsis: episode.overview || "No episode synopsis available yet.",
           })),
@@ -1293,7 +1410,13 @@
     return `${baseUrl}/embedtv`;
   }
 
-  function buildMultiEmbedUrl({ mediaType, id, season = 1, episode = 1, baseUrl }) {
+  function buildMultiEmbedUrl({
+    mediaType,
+    id,
+    season = 1,
+    episode = 1,
+    baseUrl,
+  }) {
     const normalizedType = normalizeMediaType(mediaType);
     const params = {
       video_id: id,
@@ -1405,31 +1528,41 @@
       {
         id: "vidsrc",
         label: "VidSrc",
-        baseUrl: cleanBaseUrl(config().vidsrcEmbedBaseUrl || "https://vidsrc.to/embed"),
+        baseUrl: cleanBaseUrl(
+          config().vidsrcEmbedBaseUrl || "https://vidsrc.to/embed",
+        ),
         mediaTypes: ["movie", "tv"],
       },
       {
         id: "2embed",
         label: "2embed",
-        baseUrl: cleanBaseUrl(config().twoEmbedBaseUrl || "https://www.2embed.cc/embed"),
+        baseUrl: cleanBaseUrl(
+          config().twoEmbedBaseUrl || "https://www.2embed.cc/embed",
+        ),
         mediaTypes: ["movie", "tv"],
       },
       {
         id: "multiembed",
         label: "MultiEmbed",
-        baseUrl: cleanBaseUrl(config().multiEmbedBaseUrl || "https://multiembed.mov"),
+        baseUrl: cleanBaseUrl(
+          config().multiEmbedBaseUrl || "https://multiembed.mov",
+        ),
         mediaTypes: ["movie", "tv"],
       },
       {
         id: "vidlink",
         label: "VidLink",
-        baseUrl: cleanBaseUrl(config().vidlinkEmbedBaseUrl || "https://vidlink.pro"),
+        baseUrl: cleanBaseUrl(
+          config().vidlinkEmbedBaseUrl || "https://vidlink.pro",
+        ),
         mediaTypes: ["movie", "tv"],
       },
       {
         id: "vidfast",
         label: "VidFast",
-        baseUrl: cleanBaseUrl(config().vidfastEmbedBaseUrl || "https://vidfast.vc"),
+        baseUrl: cleanBaseUrl(
+          config().vidfastEmbedBaseUrl || "https://vidfast.vc",
+        ),
         mediaTypes: ["movie", "tv"],
       },
       {
@@ -1450,7 +1583,9 @@
       },
     ];
 
-    return sources.filter((source) => source.mediaTypes.includes(normalizedType));
+    return sources.filter((source) =>
+      source.mediaTypes.includes(normalizedType),
+    );
   }
 
   function buildStreamUrl({
