@@ -1,15 +1,11 @@
-import { Bookmark, Check } from "lucide-react";
 import { Link } from "react-router";
 import { api, imageFallback } from "../lib/api.js";
 import { posterImageProps } from "../lib/images.js";
 import { useDetails } from "./details/DetailsProvider.jsx";
-import { useLibrary } from "./library/LibraryProvider.jsx";
 
 export function MediaCard({ item }) {
   const { openDetails } = useDetails();
-  const { isInMyList, toggleMyList } = useLibrary();
   const poster = item.poster || item.backdrop || imageFallback(item.title);
-  const saved = isInMyList(item);
   const mainClass =
     "block w-full text-left outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-sky-400/25";
   const cardContent = (
@@ -83,29 +79,6 @@ export function MediaCard({ item }) {
           {cardContent}
         </button>
       )}
-
-      <button
-        className={`absolute right-2 top-2 z-20 grid h-9 w-9 place-items-center rounded-full border shadow-lg backdrop-blur transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-400/30 ${
-          saved
-            ? "border-sky-300/70 bg-sky-400 text-slate-950"
-            : "border-white/20 bg-slate-950/78 text-slate-100 hover:border-sky-300 hover:text-sky-200"
-        }`}
-        type="button"
-        onClick={() => toggleMyList(item)}
-        aria-label={
-          saved
-            ? `Remove ${item.title} from My List`
-            : `Add ${item.title} to My List`
-        }
-        aria-pressed={saved}
-        title={saved ? "Remove from My List" : "Add to My List"}
-      >
-        {saved ? (
-          <Check className="h-4 w-4" strokeWidth={3} aria-hidden="true" />
-        ) : (
-          <Bookmark className="h-4 w-4" aria-hidden="true" />
-        )}
-      </button>
     </article>
   );
 }

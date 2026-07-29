@@ -42,13 +42,25 @@ test("supports dedicated search URLs and filters", async ({ page }) => {
 test("saves a title locally and shows it in My List", async ({ page }) => {
   await page.goto("/#/home");
 
-  const saveButton = page
-    .getByRole("button", { name: /^Add .* to My List$/ })
+  const detailsButton = page
+    .getByRole("button", { name: /^More information about / })
     .first();
+  await expect(detailsButton).toBeVisible({ timeout: 15000 });
+  const accessibleName = await detailsButton.getAttribute("aria-label");
+  const title = accessibleName.replace(/^More information about /, "");
+  await detailsButton.click();
+
+  const dialog = page.getByRole("dialog");
+  const saveButton = dialog.getByRole("button", {
+    name: "My List",
+    exact: true,
+  });
   await expect(saveButton).toBeVisible({ timeout: 15000 });
-  const accessibleName = await saveButton.getAttribute("aria-label");
-  const title = accessibleName.replace(/^Add /, "").replace(/ to My List$/, "");
   await saveButton.click();
+  await expect(
+    dialog.getByRole("button", { name: "In My List", exact: true }),
+  ).toBeVisible();
+  await dialog.getByRole("button", { name: "Close title details" }).click();
 
   await page.getByRole("link", { name: "My List", exact: true }).click();
   await expect(page).toHaveURL(/#\/library$/);
