@@ -173,6 +173,11 @@ self.addEventListener("fetch", (event) => {
   }
 
   if (url.hostname === "api.themoviedb.org") {
+    if (request.cache === "no-store") {
+      event.respondWith(fetch(request));
+      return;
+    }
+
     event.respondWith(networkFirst(request, DATA_CACHE));
   }
 });

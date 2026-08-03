@@ -521,14 +521,18 @@
     const requestUrl = buildTmdbUrl(path, params).toString();
     const cacheKey = `${TMDB_CACHE_PREFIX}${requestUrl}`;
     const shouldPersist = options.persist !== false;
+    const requestCache = options.cache || "default";
+    const inFlightKey = shouldPersist
+      ? requestUrl
+      : `${requestUrl}::${requestCache}`;
     const cached = shouldPersist ? readTmdbCache(cacheKey) : null;
 
     if (cached?.expiresAt > Date.now()) {
       return cached.data;
     }
 
-    if (inFlightTmdbRequests.has(requestUrl)) {
-      return inFlightTmdbRequests.get(requestUrl);
+    if (inFlightTmdbRequests.has(inFlightKey)) {
+      return inFlightTmdbRequests.get(inFlightKey);
     }
 
     const headers = {};
@@ -539,7 +543,10 @@
 
     const request = (async () => {
       try {
-        const response = await fetch(requestUrl, { cache: "default", headers });
+        const response = await fetch(requestUrl, {
+          cache: requestCache,
+          headers,
+        });
 
         if (!response.ok) {
           throw new Error(`TMDb request failed: ${response.status}`);
@@ -559,11 +566,11 @@
 
         throw error;
       } finally {
-        inFlightTmdbRequests.delete(requestUrl);
+        inFlightTmdbRequests.delete(inFlightKey);
       }
     })();
 
-    inFlightTmdbRequests.set(requestUrl, request);
+    inFlightTmdbRequests.set(inFlightKey, request);
     return request;
   }
 
@@ -792,17 +799,40 @@
     return [...FALLBACK_TITLES];
   }
 
-  function getLoaderPosters(limit = 28) {
-    const posters = FALLBACK_TITLES.map((item) => item.poster).filter(Boolean);
+  async function getLoaderPosters(limit = 35) {
+    const posterLimit = Math.max(1, Number.parseInt(limit, 10) || 35);
 
-    if (!posters.length) {
-      return [];
+    try {
+      const pageCount = Math.min(3, Math.ceil(posterLimit / 20));
+      const pages = await Promise.all(
+        Array.from({ length: pageCount }, (_, index) =>
+          tmdbFetch(
+            "trending/movie/week",
+            { page: index + 1 },
+            { cache: "no-store", persist: false },
+          ),
+        ),
+      );
+      const posters = [
+        ...new Set(
+          pages
+            .flatMap((page) => page?.results || [])
+            .map((item) => imageUrl(item.poster_path, "w500"))
+            .filter(Boolean),
+        ),
+      ];
+
+      if (posters.length) {
+        return posters.slice(0, posterLimit);
+      }
+    } catch (error) {
+      console.warn("RainFlix loader posters could not refresh:", error);
     }
 
-    return Array.from(
-      { length: limit },
-      (_, index) => posters[index % posters.length],
-    );
+    return FALLBACK_TITLES.filter((item) => item.mediaType === "movie")
+      .map((item) => item.poster)
+      .filter(Boolean)
+      .slice(0, posterLimit);
   }
 
   function fallbackPage(filter, page, limit = PAGE_SIZE) {

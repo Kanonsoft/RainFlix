@@ -140,6 +140,32 @@ test("records Continue Watching only after player interaction", async ({
       ),
     )
     .toBe(1);
+
+  await page.goto("/#/home");
+  const continueHeading = page.getByRole("heading", {
+    name: "Continue watching",
+  });
+  const trendingHeading = page.getByRole("heading", {
+    name: "Trending this week",
+  });
+  await expect(continueHeading).toBeVisible({ timeout: 15000 });
+  await expect(trendingHeading).toBeVisible();
+  const continueSection = continueHeading.locator("xpath=ancestor::section[1]");
+  await expect(
+    continueSection.getByRole("link", { name: /^Continue watching / }).first(),
+  ).toBeVisible();
+  expect(
+    await continueHeading.evaluate(
+      (heading, trending) => {
+        const section = heading.closest("section");
+        return Boolean(
+          section?.compareDocumentPosition(trending) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+        );
+      },
+      await trendingHeading.elementHandle(),
+    ),
+  ).toBe(true);
 });
 
 test.describe("mobile accessibility", () => {

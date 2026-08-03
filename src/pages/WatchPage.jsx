@@ -172,9 +172,6 @@ function DetailsPanel({
           <p className="mt-3 font-bold text-slate-100">
             S{season}:E{episode} {selectedEpisode.title}
           </p>
-          <p className="mt-2 text-sm leading-6 text-slate-400">
-            {selectedEpisode.synopsis}
-          </p>
         </div>
       ) : null}
     </aside>

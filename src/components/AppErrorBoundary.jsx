@@ -2,7 +2,7 @@ import { Component } from "react";
 import { RefreshCw, Trash2 } from "lucide-react";
 import rainflixLogo from "../../assets/rainflix-r.png";
 
-const CACHE_KEYS = ["rainflix:loader-posters:v1", "rainflix:title-logos:v1"];
+const CACHE_KEYS = ["rainflix:title-logos:v1"];
 const CACHE_PREFIXES = ["rainflix:tmdb:v1:"];
 
 function clearRainFlixCache() {

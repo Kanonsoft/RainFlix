@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router";
 import HeroCarousel from "../components/HeroCarousel.jsx";
 import { MediaGrid } from "../components/MediaCard.jsx";
-import { api, delay, preloadImage } from "../lib/api.js";
+import { useLibrary } from "../components/library/LibraryProvider.jsx";
+import { api, delay, preloadImage, watchPath } from "../lib/api.js";
 import { usePageMetadata } from "../lib/metadata.js";
 
 const BROWSE_ROWS_PER_BATCH = 5;
@@ -92,6 +93,7 @@ function sectionConfiguration({ filter, genre, year }) {
 
 export default function CatalogPage({ mode = "home", onBackdrop, onReady }) {
   const params = useParams();
+  const { recentlyViewed } = useLibrary();
   const genreSlug = mode === "genre" ? params.genre || "" : "";
   const genre = genreSlug ? api.getGenre(genreSlug) : null;
   const requestedYear =
@@ -493,6 +495,18 @@ export default function CatalogPage({ mode = "home", onBackdrop, onReady }) {
     () => carouselItems.slice(0, api.PAGE_SIZE),
     [carouselItems],
   );
+  const continueWatching = useMemo(
+    () =>
+      recentlyViewed.slice(0, api.PAGE_SIZE).map((item) => ({
+        ...item,
+        resumeLabel:
+          item.mediaType === "tv"
+            ? `S${item.season}:E${item.episode}`
+            : "Resume",
+        resumePath: watchPath(item, item.season, item.episode),
+      })),
+    [recentlyViewed],
+  );
 
   return (
     <section
@@ -522,7 +536,26 @@ export default function CatalogPage({ mode = "home", onBackdrop, onReady }) {
 
       <HeroCarousel items={heroItems} onBackdrop={onBackdrop} />
 
-      <section className="mt-10" aria-labelledby="trendingTitle">
+      {mode === "home" && continueWatching.length ? (
+        <section className="mt-10" aria-labelledby="continueWatchingTitle">
+          <div className="mb-5 flex items-end justify-between gap-6">
+            <h2
+              id="continueWatchingTitle"
+              className="text-3xl font-black text-slate-50"
+            >
+              Continue watching
+            </h2>
+          </div>
+          <MediaGrid items={continueWatching} />
+        </section>
+      ) : null}
+
+      <section
+        className={
+          mode === "home" && continueWatching.length ? "mt-12" : "mt-10"
+        }
+        aria-labelledby="trendingTitle"
+      >
         <div className="mb-5 flex items-end justify-between gap-6">
           <h1 id="trendingTitle" className="text-3xl font-black text-slate-50">
             {config.trendingTitle}

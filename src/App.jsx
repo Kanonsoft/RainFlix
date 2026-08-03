@@ -21,24 +21,8 @@ const LibraryPage = lazy(() => import("./pages/LibraryPage.jsx"));
 const SearchPage = lazy(() => import("./pages/SearchPage.jsx"));
 const WatchPage = lazy(() => import("./pages/WatchPage.jsx"));
 
-const LOADER_POSTER_CACHE_KEY = "rainflix:loader-posters:v1";
+const LEGACY_LOADER_POSTER_CACHE_KEY = "rainflix:loader-posters:v1";
 const BACKDROP_FADE_DURATION = 960;
-
-function initialLoaderPosters() {
-  try {
-    const cached = JSON.parse(
-      window.localStorage.getItem(LOADER_POSTER_CACHE_KEY) || "[]",
-    );
-
-    if (Array.isArray(cached) && cached.length) {
-      return cached;
-    }
-  } catch {
-    // The API's fallback posters are used when storage is unavailable.
-  }
-
-  return api.getLoaderPosters(35);
-}
 
 function routeIdentity(pathname) {
   const parts = pathname.split("/").filter(Boolean);
@@ -97,32 +81,50 @@ function AppShell() {
     revision: 0,
   });
   const [dataReady, setDataReady] = useState(false);
-  const [loaderPosters, setLoaderPosters] = useState(initialLoaderPosters);
+  const [loaderPosters, setLoaderPosters] = useState([]);
+  const [loaderPostersReady, setLoaderPostersReady] = useState(false);
   const bootCompleted = useRef(false);
   const requestedBackdrop = useRef("");
   const preloadedBackdrops = useRef(new Set());
   useRemoteNavigation();
 
-  const completeBoot = useCallback((posters = []) => {
-    const uniquePosters = [...new Set(posters.filter(Boolean))].slice(0, 35);
-
-    if (uniquePosters.length) {
-      setLoaderPosters(uniquePosters);
-
-      try {
-        window.localStorage.setItem(
-          LOADER_POSTER_CACHE_KEY,
-          JSON.stringify(uniquePosters),
-        );
-      } catch {
-        // Poster caching is optional.
-      }
-    }
-
+  const completeBoot = useCallback(() => {
     if (!bootCompleted.current) {
       bootCompleted.current = true;
       setDataReady(true);
     }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    try {
+      window.localStorage.removeItem(LEGACY_LOADER_POSTER_CACHE_KEY);
+    } catch {
+      // Storage cleanup is optional in restricted browsing modes.
+    }
+
+    api
+      .getLoaderPosters(35)
+      .then((posters) => {
+        if (!cancelled) {
+          setLoaderPosters(
+            [...new Set((posters || []).filter(Boolean))].slice(0, 35),
+          );
+        }
+      })
+      .catch((error) => {
+        console.warn("RainFlix loader could not prepare its posters:", error);
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoaderPostersReady(true);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const updateBackdrop = useCallback((imageUrl) => {
@@ -193,7 +195,10 @@ function AppShell() {
 
   return (
     <>
-      <AppLoader dataReady={dataReady} posters={loaderPosters} />
+      <AppLoader
+        dataReady={dataReady && loaderPostersReady}
+        posters={loaderPosters}
+      />
       <div className="ambient-backdrop" aria-hidden="true">
         {ambientBackdrop.previous ? (
           <div
