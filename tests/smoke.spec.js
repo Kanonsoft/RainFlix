@@ -141,7 +141,8 @@ test("records Continue Watching only after player interaction", async ({
     )
     .toBe(1);
 
-  await page.goto("/#/home");
+  await page.getByRole("link", { name: "RainFlix home" }).first().click();
+  await expect(page).toHaveURL(/#\/home$/);
   const continueHeading = page.getByRole("heading", {
     name: "Continue watching",
   });
