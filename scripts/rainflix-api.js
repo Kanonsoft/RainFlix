@@ -1003,6 +1003,7 @@
     page = 1,
     limit = PAGE_SIZE,
     sortBy = "popularity",
+    year = "",
   } = {}) {
     const genre = getGenre(slug);
     const normalizedFilter = filter === "series" ? "tv" : filter;
@@ -1015,6 +1016,35 @@
         mediaType === "movie" ? genre?.movieGenreIds : genre?.tvGenreIds;
       return genreIds?.length;
     });
+    const currentYear = new Date().getFullYear();
+    const requestedYear = /^\d{4}$/.test(String(year))
+      ? Number.parseInt(year, 10)
+      : 0;
+    const selectedYear = requestedYear
+      ? Math.min(currentYear, Math.max(1900, requestedYear))
+      : 0;
+    const startDate = selectedYear ? `${selectedYear}-01-01` : "";
+    const endDate = selectedYear
+      ? selectedYear === currentYear
+        ? today()
+        : `${selectedYear}-12-31`
+      : today();
+
+    const genreFallbackPage = () => {
+      const items = selectedYear
+        ? fallbackItems(normalizedFilter).filter(
+            (item) => item.year === String(selectedYear),
+          )
+        : fallbackItems(normalizedFilter);
+      const start = (page - 1) * limit;
+
+      return {
+        items: items.slice(start, start + limit),
+        page,
+        totalPages: Math.max(1, Math.ceil(items.length / limit)),
+        source: "demo",
+      };
+    };
 
     if (!genre || !mediaTypes.length) {
       return {
@@ -1045,11 +1075,17 @@
 
           if (mediaType === "movie") {
             params.include_video = "false";
-            params["primary_release_date.lte"] = today();
+            if (startDate) {
+              params["primary_release_date.gte"] = startDate;
+            }
+            params["primary_release_date.lte"] = endDate;
             params.region = config().tmdbRegion || "US";
           } else {
             params.include_null_first_air_dates = "false";
-            params["first_air_date.lte"] = today();
+            if (startDate) {
+              params["first_air_date.gte"] = startDate;
+            }
+            params["first_air_date.lte"] = endDate;
           }
 
           return {
@@ -1060,7 +1096,7 @@
       );
 
       if (responses.every(({ data }) => !data)) {
-        return fallbackPage(normalizedFilter, page, limit);
+        return genreFallbackPage();
       }
 
       const compareItems = (left, right) => {
@@ -1108,7 +1144,7 @@
       };
     } catch (error) {
       console.warn(error);
-      return fallbackPage(normalizedFilter, page, limit);
+      return genreFallbackPage();
     }
   }
 

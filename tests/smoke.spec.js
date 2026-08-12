@@ -39,6 +39,97 @@ test("supports dedicated search URLs and filters", async ({ page }) => {
   await expect(page).toHaveTitle(/Search: batman/);
 });
 
+test("browses with combined filters without horizontal overflow", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const discoverRequests = [];
+
+  await page.route("https://api.themoviedb.org/3/**", async (route) => {
+    const url = new URL(route.request().url());
+
+    if (url.pathname.includes("/discover/")) {
+      discoverRequests.push(url.toString());
+    }
+
+    await route.fulfill({
+      json: url.pathname.endsWith("/discover/movie")
+        ? {
+            page: 1,
+            results: [
+              {
+                id: 505,
+                title: "Filtered Movie",
+                release_date: "2024-05-10",
+                vote_average: 8.2,
+                genre_ids: [18],
+                poster_path: "/filtered-movie.jpg",
+                backdrop_path: "/filtered-movie-wide.jpg",
+                overview: "A movie returned by the combined browse filters.",
+              },
+            ],
+            total_pages: 1,
+          }
+        : { page: 1, results: [], total_pages: 1 },
+    });
+  });
+
+  await page.goto("/#/search?type=movie&genre=drama&year=2024");
+
+  await expect(
+    page.getByRole("heading", { name: "Browse 2024 Drama movies" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Filtered Movie", { exact: true }).first(),
+  ).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Type" })).toHaveValue(
+    "movie",
+  );
+  await expect(page.getByRole("combobox", { name: "Genre" })).toHaveValue(
+    "drama",
+  );
+  await expect(page.getByRole("combobox", { name: "Year" })).toHaveValue(
+    "2024",
+  );
+
+  await expect.poll(() => discoverRequests.length).toBeGreaterThan(0);
+  const movieRequest = new URL(
+    discoverRequests.find((request) =>
+      new URL(request).pathname.endsWith("/discover/movie"),
+    ),
+  );
+  expect(movieRequest.searchParams.get("with_genres")).toBe("18");
+  expect(movieRequest.searchParams.get("primary_release_date.gte")).toBe(
+    "2024-01-01",
+  );
+  expect(movieRequest.searchParams.get("primary_release_date.lte")).toBe(
+    "2024-12-31",
+  );
+  expect(
+    discoverRequests.some((request) =>
+      new URL(request).pathname.endsWith("/discover/tv"),
+    ),
+  ).toBe(false);
+
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => document.documentElement.scrollWidth - window.innerWidth,
+      ),
+    )
+    .toBeLessThanOrEqual(1);
+
+  const searchForm = await page.getByRole("search").boundingBox();
+  expect(searchForm).not.toBeNull();
+  expect(
+    Math.abs(
+      searchForm.x +
+        searchForm.width / 2 -
+        (await page.evaluate(() => window.innerWidth / 2)),
+    ),
+  ).toBeLessThanOrEqual(1);
+});
+
 test("searches people and production companies and links them from details", async ({
   page,
 }) => {

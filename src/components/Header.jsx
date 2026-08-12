@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, Menu, Search, X } from "lucide-react";
+import { ArrowRight, Menu, Search, SlidersHorizontal, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router";
 import rainflixWordmark from "../../assets/rainflix-wordmark.png";
@@ -302,13 +302,15 @@ export default function Header() {
   const openSearchPage = () => {
     const cleanQuery = query.trim();
 
-    if (cleanQuery.length < 2) {
+    if (cleanQuery.length === 1) {
       searchInputRef.current?.focus();
       return;
     }
 
     setSearchOpen(false);
-    navigate(`/search?q=${encodeURIComponent(cleanQuery)}`);
+    navigate(
+      cleanQuery ? `/search?q=${encodeURIComponent(cleanQuery)}` : "/search",
+    );
   };
   const primaryClass = (name) =>
     `header-nav-link${state.primary === name ? " is-active" : ""}`;
@@ -631,6 +633,17 @@ export default function Header() {
                   <X className="h-5 w-5" aria-hidden="true" />
                 </button>
               </label>
+
+              {query.trim().length < 2 ? (
+                <Link
+                  className="absolute right-0 top-full mt-2 flex w-full items-center justify-between border border-blue-900/80 bg-slate-950/95 px-4 py-3 text-sm font-black text-sky-300 shadow-2xl shadow-black/45 backdrop-blur-xl transition hover:bg-sky-400/10 hover:text-sky-200 focus-visible:bg-sky-400/10 focus-visible:outline-none"
+                  to="/search"
+                  onClick={() => setSearchOpen(false)}
+                >
+                  Browse with filters
+                  <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+                </Link>
+              ) : null}
 
               {query.trim().length >= 2 ? (
                 <div
