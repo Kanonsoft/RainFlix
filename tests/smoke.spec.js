@@ -39,6 +39,155 @@ test("supports dedicated search URLs and filters", async ({ page }) => {
   await expect(page).toHaveTitle(/Search: batman/);
 });
 
+test("searches people and production companies and links them from details", async ({
+  page,
+}) => {
+  const movie = {
+    id: 101,
+    media_type: "movie",
+    title: "Actor Movie",
+    release_date: "2024-01-01",
+    vote_average: 8,
+    popularity: 50,
+    poster_path: "/actor-movie.jpg",
+    backdrop_path: "/actor-movie-wide.jpg",
+    overview: "A movie connected to the selected person.",
+  };
+  const series = {
+    id: 202,
+    media_type: "tv",
+    name: "Actor Series",
+    first_air_date: "2023-01-01",
+    vote_average: 7.5,
+    popularity: 40,
+    poster_path: "/actor-series.jpg",
+    backdrop_path: "/actor-series-wide.jpg",
+    overview: "A series connected to the selected person.",
+  };
+
+  await page.route("https://api.themoviedb.org/3/**", async (route) => {
+    const url = new URL(route.request().url());
+    const query = (url.searchParams.get("query") || "").toLowerCase();
+    let body = { results: [] };
+
+    if (url.pathname.endsWith("/search/multi")) {
+      body =
+        query === "a24"
+          ? { results: [] }
+          : query === "zendaya"
+            ? {
+                results: [
+                  {
+                    id: 20,
+                    media_type: "person",
+                    name: "Zendaya",
+                    popularity: 100,
+                    known_for: [movie],
+                  },
+                ],
+              }
+            : { results: [movie] };
+    } else if (url.pathname.endsWith("/search/company")) {
+      body =
+        query === "a24"
+          ? { results: [{ id: 41077, name: "A24", popularity: 100 }] }
+          : { results: [] };
+    } else if (url.pathname.endsWith("/person/20")) {
+      body = {
+        id: 20,
+        name: "Zendaya",
+        combined_credits: { cast: [movie, series] },
+      };
+    } else if (url.pathname.endsWith("/discover/movie")) {
+      body = url.searchParams.get("with_companies")
+        ? { results: [{ ...movie, title: "Studio Movie" }] }
+        : { results: [] };
+    } else if (url.pathname.endsWith("/discover/tv")) {
+      body = url.searchParams.get("with_companies")
+        ? { results: [{ ...series, name: "Studio Series" }] }
+        : { results: [] };
+    } else if (url.pathname.endsWith("/movie/101")) {
+      body = {
+        ...movie,
+        genres: [{ id: 18, name: "Drama" }],
+        images: { logos: [] },
+        credits: {
+          cast: [
+            {
+              id: 20,
+              name: "Zendaya",
+              character: "Lead",
+              profile_path: "/zendaya.jpg",
+            },
+          ],
+        },
+        production_companies: [{ id: 41077, name: "A24" }],
+        videos: { results: [] },
+      };
+    }
+
+    await route.fulfill({ json: body });
+  });
+
+  await page.goto("/#/search?q=Zendaya");
+  await expect(
+    page.getByText("Actor Movie", { exact: true }).first(),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Actor Series", { exact: true }).first(),
+  ).toBeVisible();
+  await expect(page.locator("#appLoader")).toHaveClass(/is-hidden/, {
+    timeout: 15000,
+  });
+
+  const searchInput = page.locator("#catalogSearch");
+  await searchInput.fill("A24");
+  await expect(searchInput).toHaveValue("A24");
+  await searchInput.press("Enter");
+  await expect(page).toHaveURL(/q=A24/);
+  await expect(
+    page.getByText("Studio Movie", { exact: true }).first(),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Studio Series", { exact: true }).first(),
+  ).toBeVisible();
+
+  await searchInput.fill("sample");
+  await searchInput.press("Enter");
+  await expect(page).toHaveURL(/q=sample/);
+  await page
+    .getByRole("button", { name: "More information about Actor Movie" })
+    .click();
+  const dialog = page.getByRole("dialog");
+  const actorLink = dialog.getByRole("link", {
+    name: "View movies and series featuring Zendaya",
+  });
+  await expect(actorLink).toBeVisible();
+  await expect(
+    dialog.getByRole("link", { name: "View movies and series from A24" }),
+  ).toBeVisible();
+  await actorLink.click();
+  await expect(page).toHaveURL(/person=20/);
+  await expect(page.getByText("Filmography", { exact: true })).toBeVisible();
+  await page.goBack();
+  await expect(page).toHaveURL(/#\/search\?q=sample$/);
+
+  await page
+    .getByRole("button", { name: "More information about Actor Movie" })
+    .click();
+  await page
+    .getByRole("dialog")
+    .getByRole("link", { name: "View movies and series from A24" })
+    .click();
+  await expect(page).toHaveURL(/company=41077/);
+  await expect(
+    page.getByText("Production catalog", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Studio Movie", { exact: true }).first(),
+  ).toBeVisible();
+});
+
 test("saves a title locally and shows it in My List", async ({ page }) => {
   await page.goto("/#/home");
 

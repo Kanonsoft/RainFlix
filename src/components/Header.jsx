@@ -590,7 +590,7 @@ export default function Header() {
                   id="globalSearch"
                   className="w-full min-w-0 bg-transparent text-sm text-slate-100 outline-none placeholder:text-slate-500"
                   type="search"
-                  placeholder="Search movies and series"
+                  placeholder="Search titles, people, or studios"
                   autoComplete="off"
                   value={query}
                   ref={searchInputRef}
@@ -682,7 +682,7 @@ export default function Header() {
                     searchState.searched &&
                     !searchState.results.length ? (
                       <div className="px-4 py-3 text-sm text-slate-400">
-                        No titles found.
+                        No related titles found.
                       </div>
                     ) : null}
                     {!searchState.loading && searchState.searched ? (

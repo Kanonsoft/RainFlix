@@ -8,9 +8,18 @@ import { usePageMetadata } from "../lib/metadata.js";
 
 const SEARCH_LIMIT = 20;
 
+function numericSearchParam(searchParams, name) {
+  const value = searchParams.get(name) || "";
+  return /^\d+$/.test(value) ? value : "";
+}
+
 export default function SearchPage({ onBackdrop, onReady }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const query = (searchParams.get("q") || "").trim();
+  const personId = numericSearchParam(searchParams, "person");
+  const companyId = personId ? "" : numericSearchParam(searchParams, "company");
+  const relationshipType = personId ? "person" : companyId ? "company" : "";
+  const relationshipId = personId || companyId;
   const type = ["movie", "tv"].includes(searchParams.get("type"))
     ? searchParams.get("type")
     : "all";
@@ -35,10 +44,16 @@ export default function SearchPage({ onBackdrop, onReady }) {
   );
 
   usePageMetadata({
-    title: query ? `Search: ${query}` : "Search",
+    title: query
+      ? `${relationshipType === "person" ? "Titles with" : relationshipType === "company" ? "Titles from" : "Search"}: ${query}`
+      : "Search",
     description: query
-      ? `Search RainFlix for ${query}.`
-      : "Search RainFlix movies and television series.",
+      ? relationshipType === "person"
+        ? `Browse movies and television series featuring ${query}.`
+        : relationshipType === "company"
+          ? `Browse movies and television series produced by ${query}.`
+          : `Search RainFlix for ${query}.`
+      : "Search RainFlix movies, television series, people, and production companies.",
     image: state.results[0]?.backdrop || state.results[0]?.poster || "",
   });
 
@@ -47,7 +62,7 @@ export default function SearchPage({ onBackdrop, onReady }) {
   useEffect(() => {
     const id = ++requestId.current;
 
-    if (query.length < 2) {
+    if (!relationshipId && query.length < 2) {
       setState({ error: false, loading: false, results: [] });
       onReady?.([]);
       return undefined;
@@ -56,8 +71,13 @@ export default function SearchPage({ onBackdrop, onReady }) {
     let cancelled = false;
     setState((current) => ({ ...current, error: false, loading: true }));
 
-    api
-      .search(query, SEARCH_LIMIT)
+    const searchRequest = personId
+      ? api.getPersonTitles(personId)
+      : companyId
+        ? api.getCompanyTitles(companyId)
+        : api.search(query, SEARCH_LIMIT);
+
+    searchRequest
       .then((results) => {
         if (cancelled || id !== requestId.current) {
           return;
@@ -84,7 +104,15 @@ export default function SearchPage({ onBackdrop, onReady }) {
     return () => {
       cancelled = true;
     };
-  }, [onBackdrop, onReady, query, retryVersion]);
+  }, [
+    companyId,
+    onBackdrop,
+    onReady,
+    personId,
+    query,
+    relationshipId,
+    retryVersion,
+  ]);
 
   const genre = genreSlug ? api.getGenre(genreSlug) : null;
   const filteredResults = useMemo(
@@ -136,6 +164,9 @@ export default function SearchPage({ onBackdrop, onReady }) {
       next.delete("q");
     }
 
+    next.delete("person");
+    next.delete("company");
+
     setSearchParams(next);
   };
 
@@ -144,12 +175,17 @@ export default function SearchPage({ onBackdrop, onReady }) {
     if (query) {
       next.set("q", query);
     }
+    if (relationshipType && relationshipId) {
+      next.set(relationshipType, relationshipId);
+    }
     setSearchParams(next);
   };
 
   const statusText = state.loading
-    ? `Searching for ${query}`
-    : query.length < 2
+    ? relationshipType
+      ? `Loading titles related to ${query}`
+      : `Searching for ${query}`
+    : !relationshipId && query.length < 2
       ? "Enter at least two characters to search."
       : `${filteredResults.length} result${
           filteredResults.length === 1 ? "" : "s"
@@ -162,7 +198,11 @@ export default function SearchPage({ onBackdrop, onReady }) {
     >
       <header className="border-b border-blue-950/80 pb-7">
         <p className="text-xs font-black uppercase text-sky-300">
-          Find your next title
+          {relationshipType === "person"
+            ? "Filmography"
+            : relationshipType === "company"
+              ? "Production catalog"
+              : "Find your next title"}
         </p>
         <h1
           id="searchPageTitle"
@@ -191,7 +231,8 @@ export default function SearchPage({ onBackdrop, onReady }) {
             type="search"
             value={inputValue}
             onChange={(event) => setInputValue(event.target.value)}
-            placeholder="Search movies and series"
+            placeholder="Search titles, people, or studios"
+            aria-label="Search titles, people, or studios"
             autoComplete="off"
           />
           <button
@@ -271,9 +312,15 @@ export default function SearchPage({ onBackdrop, onReady }) {
             id="searchResultsTitle"
             className="text-2xl font-black text-slate-50 md:text-3xl"
           >
-            {query ? `Results for "${query}"` : "Results"}
+            {query
+              ? relationshipType === "person"
+                ? `Movies and series with ${query}`
+                : relationshipType === "company"
+                  ? `Movies and series from ${query}`
+                  : `Results for "${query}"`
+              : "Results"}
           </h2>
-          {!state.loading && query.length >= 2 ? (
+          {!state.loading && (relationshipId || query.length >= 2) ? (
             <span className="text-sm font-bold text-slate-500">
               {filteredResults.length}
             </span>
@@ -299,9 +346,11 @@ export default function SearchPage({ onBackdrop, onReady }) {
             loading={state.loading}
             browse
             emptyText={
-              query.length < 2
+              !relationshipId && query.length < 2
                 ? "Enter at least two characters to search."
-                : "No titles match these filters."
+                : relationshipType
+                  ? "No related titles match these filters."
+                  : "No titles match these filters."
             }
           />
         )}

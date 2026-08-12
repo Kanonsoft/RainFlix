@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Bookmark, Check, Play, Share2, X } from "lucide-react";
+import { Bookmark, Building2, Check, Play, Share2, X } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { api, imageFallback, watchPath } from "../../lib/api.js";
 import { trackEvent } from "../../lib/analytics.js";
@@ -97,6 +97,22 @@ function trailerUrl(trailerKey) {
   return `https://www.youtube-nocookie.com/embed/${trailerKey}?${params}`;
 }
 
+function relatedSearchPath(type, id, name) {
+  const params = new URLSearchParams({ q: name || "" });
+  params.set(type, String(id));
+  return `/search?${params.toString()}`;
+}
+
+function followsInCurrentTab(event) {
+  return (
+    event.button === 0 &&
+    !event.altKey &&
+    !event.ctrlKey &&
+    !event.metaKey &&
+    !event.shiftKey
+  );
+}
+
 function DetailsSkeleton() {
   return (
     <>
@@ -117,45 +133,80 @@ function DetailsSkeleton() {
   );
 }
 
-function CastMember({ person }) {
+function CastMember({ onFollowRelated, person, relatedState }) {
   return (
-    <figure className="w-24 shrink-0">
-      <div className="overflow-hidden rounded-lg bg-slate-950">
-        {person.image ? (
-          <img
-            className="aspect-[2/3] w-full object-cover"
-            src={person.image}
-            alt={`${person.name} portrait`}
-            loading="lazy"
-            decoding="async"
-            draggable="false"
-            {...posterImageProps(person.image, "96px")}
-          />
-        ) : (
-          <div className="grid aspect-[2/3] w-full place-items-center bg-blue-950/55 px-2 text-center text-xs font-bold text-slate-400">
+    <Link
+      className="group/cast block w-24 shrink-0 rounded-lg outline-none focus-visible:ring-4 focus-visible:ring-sky-400/25"
+      to={relatedSearchPath("person", person.id, person.name)}
+      replace
+      state={relatedState}
+      onClick={(event) => {
+        if (followsInCurrentTab(event)) {
+          onFollowRelated();
+        }
+      }}
+      aria-label={`View movies and series featuring ${person.name}`}
+    >
+      <figure>
+        <div className="overflow-hidden rounded-lg bg-slate-950 transition duration-300 group-hover/cast:ring-2 group-hover/cast:ring-sky-400/60">
+          {person.image ? (
+            <img
+              className="aspect-[2/3] w-full object-cover transition duration-300 group-hover/cast:scale-105"
+              src={person.image}
+              alt={`${person.name} portrait`}
+              loading="lazy"
+              decoding="async"
+              draggable="false"
+              {...posterImageProps(person.image, "96px")}
+            />
+          ) : (
+            <div className="grid aspect-[2/3] w-full place-items-center bg-blue-950/55 px-2 text-center text-xs font-bold text-slate-400">
+              {person.name}
+            </div>
+          )}
+        </div>
+        <figcaption className="mt-2">
+          <span className="line-clamp-2 block text-xs font-bold leading-4 text-slate-100 transition group-hover/cast:text-sky-200">
             {person.name}
-          </div>
-        )}
-      </div>
-      <figcaption className="mt-2">
-        <span className="line-clamp-2 block text-xs font-bold leading-4 text-slate-100">
-          {person.name}
-        </span>
-        {person.character ? (
-          <span className="mt-1 line-clamp-2 block text-[0.7rem] leading-4 text-slate-500">
-            {person.character}
           </span>
-        ) : null}
-      </figcaption>
-    </figure>
+          {person.character ? (
+            <span className="mt-1 line-clamp-2 block text-[0.7rem] leading-4 text-slate-500">
+              {person.character}
+            </span>
+          ) : null}
+        </figcaption>
+      </figure>
+    </Link>
+  );
+}
+
+function ProductionCompany({ company, onFollowRelated, relatedState }) {
+  return (
+    <Link
+      className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-blue-800/70 px-3 py-2 text-xs font-bold text-sky-200 transition hover:border-sky-400 hover:bg-sky-400/10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-400/20"
+      to={relatedSearchPath("company", company.id, company.name)}
+      replace
+      state={relatedState}
+      onClick={(event) => {
+        if (followsInCurrentTab(event)) {
+          onFollowRelated();
+        }
+      }}
+      aria-label={`View movies and series from ${company.name}`}
+    >
+      <Building2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+      <span>{company.name}</span>
+    </Link>
   );
 }
 
 function DetailsContent({
   details,
   isSaved,
+  onFollowRelated,
   onToggleSaved,
   onWatch,
+  relatedState,
   watchState,
 }) {
   const [trailerActive, setTrailerActive] = useState(false);
@@ -164,6 +215,7 @@ function DetailsContent({
     details.backdrop || details.poster || imageFallback(details.title, true);
   const genres = details.genres || [];
   const cast = details.cast || [];
+  const productionCompanies = details.productionCompanies || [];
   const trailerKey = /^[A-Za-z0-9_-]+$/.test(details.trailerKey || "")
     ? details.trailerKey
     : "";
@@ -405,7 +457,33 @@ function DetailsContent({
             </h3>
             <div className="mt-4 flex gap-4 overflow-x-auto pb-3">
               {cast.map((person) => (
-                <CastMember person={person} key={person.id || person.name} />
+                <CastMember
+                  onFollowRelated={onFollowRelated}
+                  person={person}
+                  relatedState={relatedState}
+                  key={person.id || person.name}
+                />
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        {productionCompanies.length ? (
+          <section className="mt-7" aria-labelledby="detailsProductionTitle">
+            <h3
+              id="detailsProductionTitle"
+              className="text-lg font-black text-slate-50"
+            >
+              Production companies
+            </h3>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {productionCompanies.map((company) => (
+                <ProductionCompany
+                  company={company}
+                  onFollowRelated={onFollowRelated}
+                  relatedState={relatedState}
+                  key={company.id}
+                />
               ))}
             </div>
           </section>
@@ -695,6 +773,10 @@ export function DetailsProvider({ children }) {
     closeImmediately(false);
   }, [closeImmediately]);
 
+  const handleFollowRelated = useCallback(() => {
+    closeImmediately(false);
+  }, [closeImmediately]);
+
   const value = useMemo(
     () => ({ closeDetails, openDetails }),
     [closeDetails, openDetails],
@@ -755,8 +837,10 @@ export function DetailsProvider({ children }) {
             <DetailsContent
               details={modal.details}
               isSaved={isInMyList(modal.details)}
+              onFollowRelated={handleFollowRelated}
               onToggleSaved={() => toggleMyList(modal.details)}
               onWatch={handleWatch}
+              relatedState={stateWithoutModal(location.state)}
               watchState={stateWithoutModal(location.state)}
             />
           ) : null}

@@ -595,6 +595,66 @@
     };
   }
 
+  function uniqueTitles(items = [], limit = Number.POSITIVE_INFINITY) {
+    const seen = new Set();
+
+    return items
+      .filter((item) => {
+        if (!item?.id || !["movie", "tv"].includes(item.mediaType)) {
+          return false;
+        }
+
+        const key = `${item.mediaType}:${item.id}`;
+        if (seen.has(key)) {
+          return false;
+        }
+
+        seen.add(key);
+        return true;
+      })
+      .slice(0, limit);
+  }
+
+  function mapRelatedTitles(items = [], fallbackType) {
+    return items
+      .filter(
+        (item) =>
+          item?.adult !== true &&
+          ["movie", "tv"].includes(item?.media_type || fallbackType),
+      )
+      .sort(
+        (left, right) =>
+          Number(right.popularity || 0) - Number(left.popularity || 0) ||
+          Number(right.vote_count || 0) - Number(left.vote_count || 0),
+      )
+      .map((item) => mapTmdbTitle(item, fallbackType))
+      .filter((item) => item.poster || item.backdrop);
+  }
+
+  function relationshipScore(item, query) {
+    const name = String(item?.name || "")
+      .trim()
+      .toLocaleLowerCase();
+    const cleanQuery = String(query || "")
+      .trim()
+      .toLocaleLowerCase();
+
+    if (!name || !cleanQuery) {
+      return 0;
+    }
+
+    const relevance =
+      name === cleanQuery
+        ? 3
+        : name.startsWith(cleanQuery)
+          ? 2
+          : name.includes(cleanQuery)
+            ? 1
+            : 0;
+
+    return relevance ? relevance * 1_000_000 + Number(item.popularity || 0) : 0;
+  }
+
   function preferredLogo(images) {
     const logos = [...(images?.logos || [])];
 
@@ -687,6 +747,13 @@
         character: person.character || "",
         image: imageUrl(person.profile_path, "w185"),
       })),
+      productionCompanies: (item.production_companies || [])
+        .filter((company) => company.id && company.name)
+        .map((company) => ({
+          id: company.id,
+          name: company.name,
+          logo: imageUrl(company.logo_path, "w185"),
+        })),
       trailerKey: preferredTrailer(item.videos),
       duration:
         normalizedType === "tv"
@@ -768,6 +835,7 @@
       cast: [],
       duration: "",
       genres: [],
+      productionCompanies: [],
       releaseDate: item.year || "",
       status: item.mediaType === "tv" ? "Returning Series" : "Released",
       tagline: "",
@@ -1242,6 +1310,83 @@
     }
   }
 
+  async function getPersonTitles(personId, limit = Number.POSITIVE_INFINITY) {
+    const cleanId = String(personId || "").trim();
+
+    if (!/^\d+$/.test(cleanId)) {
+      return [];
+    }
+
+    try {
+      const data = await tmdbFetch(`person/${cleanId}`, {
+        append_to_response: "combined_credits",
+      });
+      const credits =
+        data?.combined_credits ||
+        (await tmdbFetch(`person/${cleanId}/combined_credits`));
+
+      if (!credits) {
+        return [];
+      }
+
+      return uniqueTitles(
+        mapRelatedTitles([...(credits.cast || []), ...(credits.crew || [])]),
+        limit,
+      );
+    } catch (error) {
+      console.warn("RainFlix could not load this person's credits:", error);
+      return [];
+    }
+  }
+
+  async function getCompanyTitles(companyId, limit = 120) {
+    const cleanId = String(companyId || "").trim();
+
+    if (!/^\d+$/.test(cleanId)) {
+      return [];
+    }
+
+    try {
+      const pageCount = Math.min(
+        3,
+        Math.max(1, Math.ceil(Math.max(1, Number(limit) || 120) / 40)),
+      );
+      const requests = [];
+
+      for (let page = 1; page <= pageCount; page += 1) {
+        requests.push(
+          tmdbFetch("discover/movie", {
+            include_adult: "false",
+            include_video: "false",
+            page,
+            sort_by: "popularity.desc",
+            with_companies: cleanId,
+          }),
+          tmdbFetch("discover/tv", {
+            include_adult: "false",
+            include_null_first_air_dates: "false",
+            page,
+            sort_by: "popularity.desc",
+            with_companies: cleanId,
+          }),
+        );
+      }
+
+      const feeds = await Promise.allSettled(requests);
+      const titles = feeds.flatMap((feed, index) =>
+        mapRelatedTitles(
+          feed.status === "fulfilled" ? feed.value?.results || [] : [],
+          index % 2 === 0 ? "movie" : "tv",
+        ),
+      );
+
+      return uniqueTitles(titles, limit);
+    } catch (error) {
+      console.warn("RainFlix could not load this company's titles:", error);
+      return [];
+    }
+  }
+
   async function search(query, limit = 12) {
     const cleanQuery = String(query || "").trim();
 
@@ -1252,11 +1397,17 @@
     let tmdbResults = [];
 
     try {
-      const data = await tmdbFetch("search/multi", {
-        query: cleanQuery,
-        page: 1,
-        include_adult: "false",
-      });
+      const [data, companyData] = await Promise.all([
+        tmdbFetch("search/multi", {
+          query: cleanQuery,
+          page: 1,
+          include_adult: "false",
+        }),
+        tmdbFetch("search/company", {
+          query: cleanQuery,
+          page: 1,
+        }).catch(() => ({ results: [] })),
+      ]);
 
       if (!data) {
         const loweredQuery = cleanQuery.toLowerCase();
@@ -1266,12 +1417,47 @@
             .includes(loweredQuery),
         );
       } else {
-        tmdbResults = (data.results || [])
+        const directTitles = (data.results || [])
           .filter(
             (item) => item.media_type === "movie" || item.media_type === "tv",
           )
           .map((item) => mapTmdbTitle(item))
           .filter((item) => item.poster || item.backdrop);
+        const people = (data.results || [])
+          .filter((item) => item.media_type === "person")
+          .sort(
+            (left, right) =>
+              relationshipScore(right, cleanQuery) -
+              relationshipScore(left, cleanQuery),
+          );
+        const companies = (companyData?.results || []).sort(
+          (left, right) =>
+            relationshipScore(right, cleanQuery) -
+            relationshipScore(left, cleanQuery),
+        );
+        const knownFor = people
+          .slice(0, 3)
+          .flatMap((person) => person.known_for || [])
+          .filter(
+            (item) => item.media_type === "movie" || item.media_type === "tv",
+          )
+          .map((item) => mapTmdbTitle(item))
+          .filter((item) => item.poster || item.backdrop);
+        const relatedRequests = [];
+
+        if (relationshipScore(people[0], cleanQuery) > 0) {
+          relatedRequests.push(getPersonTitles(people[0].id, limit));
+        }
+
+        if (relationshipScore(companies[0], cleanQuery) > 0) {
+          relatedRequests.push(getCompanyTitles(companies[0].id, limit));
+        }
+
+        const relatedTitles = (await Promise.all(relatedRequests)).flat();
+        tmdbResults = uniqueTitles(
+          [...directTitles, ...knownFor, ...relatedTitles],
+          limit,
+        );
       }
     } catch (error) {
       console.warn(error);
@@ -1715,9 +1901,11 @@
     getDetails,
     getGenre,
     getGenreTitles,
+    getCompanyTitles,
     getLoaderPosters,
     getNewestMovies,
     getNewestSeries,
+    getPersonTitles,
     getSeasonDetails,
     getSimilar,
     getTitleLogos,
