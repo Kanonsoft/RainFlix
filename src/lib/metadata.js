@@ -66,10 +66,10 @@ export function applyPageMetadata({
   description = DEFAULT_DESCRIPTION,
   image = "",
   title = DEFAULT_TITLE,
+  url = window.location.href,
 } = {}) {
   const pageTitle = title === DEFAULT_TITLE ? title : `${title} | RainFlix`;
   const socialImage = image || DEFAULT_IMAGE;
-  const url = window.location.href;
 
   document.title = pageTitle;
   setMeta('meta[name="description"]', { name: "description" }, description);

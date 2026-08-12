@@ -342,6 +342,49 @@ test("opens a route-backed preview and browser Back closes it", async ({
   await expect(page).toHaveTitle(/Search: batman/);
 });
 
+test("shares one ordered message that links directly to the watch page", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    window.__rainflixSharedData = null;
+    Object.defineProperty(navigator, "share", {
+      configurable: true,
+      value: async (data) => {
+        window.__rainflixSharedData = data;
+      },
+    });
+  });
+  await page.goto("/#/home");
+
+  const detailsButton = page
+    .getByRole("button", { name: /^More information about / })
+    .first();
+  await expect(detailsButton).toBeVisible({ timeout: 15000 });
+  const accessibleName = await detailsButton.getAttribute("aria-label");
+  const title = accessibleName.replace(/^More information about /, "");
+  await detailsButton.click();
+
+  const dialog = page.getByRole("dialog");
+  const synopsis = (
+    await dialog.locator("#detailsSynopsisTitle + p").innerText()
+  ).trim();
+  await dialog.getByRole("button", { name: "Share" }).click();
+  await expect(dialog.getByText("Shared", { exact: true })).toBeVisible();
+
+  const shareData = await page.evaluate(() => window.__rainflixSharedData);
+  expect(Object.keys(shareData)).toEqual(["text"]);
+  expect(shareData.text.startsWith(`${title}\n\n${synopsis}\n\n`)).toBe(true);
+  expect(shareData.text.split(synopsis)).toHaveLength(2);
+
+  const sharedUrl = new URL(shareData.text.split("\n\n").at(-1));
+  expect(sharedUrl.hash).toMatch(/^#\/watch\/(movie|tv)\/\d+\/1\/1$/);
+  expect(sharedUrl.href).not.toContain("preview=");
+  await expect(page.locator('meta[property="og:url"]')).toHaveAttribute(
+    "content",
+    sharedUrl.href,
+  );
+});
+
 test("records Continue Watching only after player interaction", async ({
   page,
 }) => {

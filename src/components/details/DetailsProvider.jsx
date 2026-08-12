@@ -103,6 +103,19 @@ function relatedSearchPath(type, id, name) {
   return `/search?${params.toString()}`;
 }
 
+function titleWatchUrl(details) {
+  const appUrl = new URL(import.meta.env.BASE_URL, window.location.origin);
+  appUrl.hash = watchPath(details);
+  return appUrl.href;
+}
+
+function titleShareText(details) {
+  return [details.title, details.synopsis, titleWatchUrl(details)]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean)
+    .join("\n\n");
+}
+
 function followsInCurrentTab(event) {
   return (
     event.button === 0 &&
@@ -228,19 +241,15 @@ function DetailsContent({
   }, [details.id, details.mediaType]);
 
   const shareDetails = async () => {
-    const shareData = {
-      title: details.title,
-      text: details.synopsis,
-      url: window.location.href,
-    };
+    const shareText = titleShareText(details);
 
     try {
       if (typeof navigator.share === "function") {
-        await navigator.share(shareData);
+        await navigator.share({ text: shareText });
         setShareStatus("Shared");
       } else {
-        await navigator.clipboard.writeText(shareData.url);
-        setShareStatus("Link copied");
+        await navigator.clipboard.writeText(shareText);
+        setShareStatus("Share text copied");
       }
       trackEvent("title-share", { mediaType: details.mediaType });
     } catch (error) {
@@ -774,6 +783,7 @@ export function DetailsProvider({ children }) {
       title: modal.details.title,
       description: modal.details.synopsis,
       image: modal.details.backdrop || modal.details.poster || "",
+      url: titleWatchUrl(modal.details),
     });
     return () => {
       if (window.location.hash === underlyingHash) {
