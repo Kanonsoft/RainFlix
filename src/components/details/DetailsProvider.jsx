@@ -214,6 +214,7 @@ function DetailsContent({
   const backdrop =
     details.backdrop || details.poster || imageFallback(details.title, true);
   const genres = details.genres || [];
+  const genreLinks = details.genreLinks || [];
   const cast = details.cast || [];
   const productionCompanies = details.productionCompanies || [];
   const trailerKey = /^[A-Za-z0-9_-]+$/.test(details.trailerKey || "")
@@ -435,14 +436,32 @@ function DetailsContent({
               Genres
             </h3>
             <div className="mt-3 flex flex-wrap gap-2">
-              {genres.map((genre) => (
-                <span
-                  className="rounded-full border border-blue-800/70 px-3 py-1 text-xs font-bold text-sky-200"
-                  key={genre}
-                >
-                  {genre}
-                </span>
-              ))}
+              {genreLinks.length
+                ? genreLinks.map((genre) => (
+                    <Link
+                      className="rounded-full border border-blue-800/70 px-3 py-1 text-xs font-bold text-sky-200 transition hover:border-sky-400 hover:bg-sky-400/10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-400/20"
+                      to={`/genre/${encodeURIComponent(genre.slug)}`}
+                      replace
+                      state={relatedState}
+                      onClick={(event) => {
+                        if (followsInCurrentTab(event)) {
+                          onFollowRelated();
+                        }
+                      }}
+                      aria-label={`Browse ${genre.name} movies and series`}
+                      key={genre.slug}
+                    >
+                      {genre.name}
+                    </Link>
+                  ))
+                : genres.map((genre) => (
+                    <span
+                      className="rounded-full border border-blue-800/70 px-3 py-1 text-xs font-bold text-sky-200"
+                      key={genre}
+                    >
+                      {genre}
+                    </span>
+                  ))}
             </div>
           </section>
         ) : null}

@@ -177,6 +177,20 @@ test("searches people and production companies and links them from details", asy
     .click();
   await page
     .getByRole("dialog")
+    .getByRole("link", { name: "Browse Drama movies and series" })
+    .click();
+  await expect(page).toHaveURL(/#\/genre\/drama$/);
+  await expect(
+    page.getByRole("heading", { name: "Popular Drama" }),
+  ).toBeVisible();
+  await page.goBack();
+  await expect(page).toHaveURL(/#\/search\?q=sample$/);
+
+  await page
+    .getByRole("button", { name: "More information about Actor Movie" })
+    .click();
+  await page
+    .getByRole("dialog")
     .getByRole("link", { name: "View movies and series from A24" })
     .click();
   await expect(page).toHaveURL(/company=41077/);

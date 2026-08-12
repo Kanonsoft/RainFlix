@@ -655,6 +655,31 @@
     return relevance ? relevance * 1_000_000 + Number(item.popularity || 0) : 0;
   }
 
+  function mapDetailGenres(genres = [], mediaType) {
+    const idKey =
+      normalizeMediaType(mediaType) === "tv" ? "tvGenreIds" : "movieGenreIds";
+    const mapped = genres
+      .map((sourceGenre) => {
+        const candidates = GENRES.filter((genre) =>
+          genre[idKey].includes(Number(sourceGenre.id)),
+        );
+        const exactName = candidates.find(
+          (genre) =>
+            genre.name.toLocaleLowerCase() ===
+            String(sourceGenre.name || "").toLocaleLowerCase(),
+        );
+
+        return exactName || candidates[0] || null;
+      })
+      .filter(Boolean);
+
+    return mapped.filter(
+      (genre, index) =>
+        mapped.findIndex((candidate) => candidate.slug === genre.slug) ===
+        index,
+    );
+  }
+
   function preferredLogo(images) {
     const logos = [...(images?.logos || [])];
 
@@ -741,6 +766,7 @@
       releaseDate: releaseDate || "",
       status: item.status || "",
       genres: (item.genres || []).map((genre) => genre.name).filter(Boolean),
+      genreLinks: mapDetailGenres(item.genres || [], normalizedType),
       cast: (item.credits?.cast || []).slice(0, 10).map((person) => ({
         id: person.id,
         name: person.name || "Unknown cast member",
@@ -835,6 +861,7 @@
       cast: [],
       duration: "",
       genres: [],
+      genreLinks: [],
       productionCompanies: [],
       releaseDate: item.year || "",
       status: item.mediaType === "tv" ? "Returning Series" : "Released",
