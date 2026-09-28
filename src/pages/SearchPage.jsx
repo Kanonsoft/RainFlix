@@ -2,8 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { LoaderCircle, Search, X } from "lucide-react";
 import { useSearchParams } from "react-router";
 import { MediaGrid } from "../components/MediaCard.jsx";
-import { api } from "../lib/api.js";
-import { trackEvent } from "../lib/analytics.js";
+import { api, trackEvent } from "../lib/api.js";
 import { usePageMetadata } from "../lib/metadata.js";
 
 const SEARCH_LIMIT = 20;

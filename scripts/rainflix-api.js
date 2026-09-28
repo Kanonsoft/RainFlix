@@ -752,6 +752,7 @@
 
     return {
       id: item.id,
+      imdbId: item.external_ids?.imdb_id || item.imdb_id || "",
       mediaType: normalizedType,
       title: normalizedType === "tv" ? item.name : item.title,
       year: releaseDate ? releaseDate.slice(0, 4) : "TBA",
@@ -1529,6 +1530,23 @@
     return tmdbResults.slice(0, limit);
   }
 
+  async function getDetailsByImdb(mediaType, imdbId) {
+    if (!["movie", "tv"].includes(mediaType) || !/^tt\d+$/.test(imdbId))
+      return null;
+    const found = await tmdbFetch(`find/${imdbId}`, {
+      external_source: "imdb_id",
+    });
+    const match = (
+      mediaType === "tv" ? found?.tv_results : found?.movie_results
+    )?.[0];
+    if (!match?.id) return null;
+    const data = await tmdbFetch(`${mediaType}/${match.id}`, {
+      append_to_response: "external_ids,images,credits,videos",
+      include_image_language: "en,null",
+    });
+    return data ? mapTmdbDetails(data, mediaType) : null;
+  }
+
   async function getDetails(mediaType, id) {
     const normalizedType = normalizeMediaType(mediaType);
 
@@ -1586,7 +1604,7 @@
     };
   }
 
-  async function getSeasonDetails(id, seasonNumber = 1) {
+  async function getSeasonDetails(id, seasonNumber = 1, options = {}) {
     const cleanSeason = Number.parseInt(seasonNumber, 10) || 1;
 
     try {
@@ -1605,6 +1623,7 @@
               ? Number(episode.vote_average).toFixed(1)
               : "NR",
             image: imageUrl(episode.still_path, "w500"),
+            releaseDate: episode.air_date || "",
             synopsis: episode.overview || "No episode synopsis available yet.",
           })),
         };
@@ -1613,6 +1632,8 @@
       console.warn(error);
     }
 
+    if (options.strict)
+      throw new Error("TMDb could not load this season. Try again.");
     const fallback = FALLBACK_TITLES.find(
       (item) => String(item.id) === String(id) && item.mediaType === "tv",
     );
@@ -1962,6 +1983,7 @@
     createImageFallback,
     escapeHtml,
     getDetails,
+    getDetailsByImdb,
     getGenre,
     getGenreTitles,
     getCompanyTitles,

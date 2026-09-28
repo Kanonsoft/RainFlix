@@ -40,6 +40,8 @@ function isVisible(element) {
 }
 
 function activeScope() {
+  const playback = document.querySelector("#fullscreenPlayback");
+  if (playback) return playback;
   const modal = document.querySelector("#titleDetailsModal.is-open");
 
   if (modal) {
@@ -221,6 +223,11 @@ function isBackEvent(event) {
 }
 
 function closeTopLayer() {
+  const playerClose = document.querySelector("[data-playback-close]");
+  if (playerClose) {
+    playerClose.click();
+    return true;
+  }
   const detailsClose = document.querySelector(
     "#titleDetailsModal.is-open [data-details-close]",
   );

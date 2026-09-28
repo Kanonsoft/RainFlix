@@ -1,10 +1,8 @@
 import { Link } from "react-router";
-import { api, imageFallback } from "../lib/api.js";
+import { api, imageFallback, watchPath } from "../lib/api.js";
 import { posterImageProps } from "../lib/images.js";
-import { useDetails } from "./details/DetailsProvider.jsx";
 
 export function MediaCard({ item }) {
-  const { openDetails } = useDetails();
   const poster = item.poster || item.backdrop || imageFallback(item.title);
   const mainClass =
     "block w-full text-left outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-sky-400/25";
@@ -52,7 +50,7 @@ export function MediaCard({ item }) {
           </span>
           <span>{item.year}</span>
           <span className="rounded-full bg-sky-400/15 px-2 py-1 font-black uppercase text-sky-300">
-            {api.mediaLabel(item.mediaType)}
+            {item.typeLabel || api.mediaLabel(item.mediaType)}
           </span>
         </div>
       </div>
@@ -61,24 +59,17 @@ export function MediaCard({ item }) {
 
   return (
     <article className="catalog-card group relative overflow-hidden rounded-lg border border-blue-900/70 bg-slate-950 transition duration-300 hover:-translate-y-1 hover:border-sky-500/70 focus-within:-translate-y-1 focus-within:border-sky-500/70">
-      {item.resumePath ? (
-        <Link
-          className={mainClass}
-          to={item.resumePath}
-          aria-label={`Continue watching ${item.title}`}
-        >
-          {cardContent}
-        </Link>
-      ) : (
-        <button
-          className={mainClass}
-          type="button"
-          onClick={() => openDetails(item.mediaType, item.id)}
-          aria-label={`More information about ${item.title}`}
-        >
-          {cardContent}
-        </button>
-      )}
+      <Link
+        className={mainClass}
+        to={item.resumePath || item.detailPath || watchPath(item)}
+        aria-label={
+          item.resumePath
+            ? `Continue watching ${item.title}`
+            : `More information about ${item.title}`
+        }
+      >
+        {cardContent}
+      </Link>
     </article>
   );
 }

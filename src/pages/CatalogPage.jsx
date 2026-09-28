@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router";
 import HeroCarousel from "../components/HeroCarousel.jsx";
+import AddonCatalogRows from "../components/AddonCatalogRows.jsx";
 import { MediaGrid } from "../components/MediaCard.jsx";
 import { useLibrary } from "../components/library/LibraryProvider.jsx";
 import { api, delay, preloadImage, watchPath } from "../lib/api.js";
@@ -603,6 +604,8 @@ export default function CatalogPage({ mode = "home", onBackdrop, onReady }) {
           />
         </section>
       ) : null}
+
+      {mode === "home" ? <AddonCatalogRows /> : null}
 
       <section className="mt-12" aria-labelledby="browseTitle">
         <div className="mb-5">

@@ -247,9 +247,12 @@ test("searches people and production companies and links them from details", asy
   await searchInput.press("Enter");
   await expect(page).toHaveURL(/q=sample/);
   await page
-    .getByRole("button", { name: "More information about Actor Movie" })
+    .getByRole("link", { name: "More information about Actor Movie" })
     .click();
-  const dialog = page.getByRole("dialog");
+  const dialog = page.getByRole("region", {
+    name: "Title details",
+    exact: true,
+  });
   const actorLink = dialog.getByRole("link", {
     name: "View movies and series featuring Zendaya",
   });
@@ -261,13 +264,15 @@ test("searches people and production companies and links them from details", asy
   await expect(page).toHaveURL(/person=20/);
   await expect(page.getByText("Filmography", { exact: true })).toBeVisible();
   await page.goBack();
+  await expect(page).toHaveURL(/#\/title\/movie\/101$/);
+  await page.goBack();
   await expect(page).toHaveURL(/#\/search\?q=sample$/);
 
   await page
-    .getByRole("button", { name: "More information about Actor Movie" })
+    .getByRole("link", { name: "More information about Actor Movie" })
     .click();
   await page
-    .getByRole("dialog")
+    .getByRole("region", { name: "Title details", exact: true })
     .getByRole("link", { name: "Browse Drama movies and series" })
     .click();
   await expect(page).toHaveURL(/#\/genre\/drama$/);
@@ -275,13 +280,15 @@ test("searches people and production companies and links them from details", asy
     page.getByRole("heading", { name: "Popular Drama" }),
   ).toBeVisible();
   await page.goBack();
+  await expect(page).toHaveURL(/#\/title\/movie\/101$/);
+  await page.goBack();
   await expect(page).toHaveURL(/#\/search\?q=sample$/);
 
   await page
-    .getByRole("button", { name: "More information about Actor Movie" })
+    .getByRole("link", { name: "More information about Actor Movie" })
     .click();
   await page
-    .getByRole("dialog")
+    .getByRole("region", { name: "Title details", exact: true })
     .getByRole("link", { name: "View movies and series from A24" })
     .click();
   await expect(page).toHaveURL(/company=41077/);
@@ -297,14 +304,17 @@ test("saves a title locally and shows it in My List", async ({ page }) => {
   await page.goto("/#/home");
 
   const detailsButton = page
-    .getByRole("button", { name: /^More information about / })
+    .getByRole("link", { name: /^More information about / })
     .first();
   await expect(detailsButton).toBeVisible({ timeout: 15000 });
   const accessibleName = await detailsButton.getAttribute("aria-label");
   const title = accessibleName.replace(/^More information about /, "");
   await detailsButton.click();
 
-  const dialog = page.getByRole("dialog");
+  const dialog = page.getByRole("region", {
+    name: "Title details",
+    exact: true,
+  });
   const saveButton = dialog.getByRole("button", {
     name: "My List",
     exact: true,
@@ -314,35 +324,40 @@ test("saves a title locally and shows it in My List", async ({ page }) => {
   await expect(
     dialog.getByRole("button", { name: "In My List", exact: true }),
   ).toBeVisible();
-  await dialog.getByRole("button", { name: "Close title details" }).click();
+  await page.goBack();
 
   await page.getByRole("link", { name: "My List", exact: true }).click();
   await expect(page).toHaveURL(/#\/library$/);
   await expect(page.getByText(title, { exact: true }).first()).toBeVisible();
 });
 
-test("opens a route-backed preview and browser Back closes it", async ({
+test("opens a title page instead of a preview and browser Back returns to the catalog", async ({
   page,
 }) => {
   await page.goto("/#/home");
 
   const detailsButton = page
-    .getByRole("button", { name: /^More information about / })
+    .getByRole("link", { name: /^More information about / })
     .first();
   await expect(detailsButton).toBeVisible({ timeout: 15000 });
   await detailsButton.click();
 
-  await expect(page.getByRole("dialog")).toBeVisible();
-  await expect(page).toHaveURL(/preview=/);
+  await expect(
+    page.getByRole("region", { name: "Title details", exact: true }),
+  ).toBeVisible();
+  await expect(page).toHaveURL(/#\/title\//);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await page.goBack();
-  await expect(page.getByRole("dialog")).toBeHidden();
+  await expect(
+    page.getByRole("region", { name: "Title details", exact: true }),
+  ).toBeHidden();
   await expect(page).not.toHaveURL(/preview=/);
 
   await page.goto("/#/search?q=batman");
   await expect(page).toHaveTitle(/Search: batman/);
 });
 
-test("shares one ordered message that links directly to the watch page", async ({
+test("shares one ordered message linking to the title page", async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -357,17 +372,18 @@ test("shares one ordered message that links directly to the watch page", async (
   await page.goto("/#/home");
 
   const detailsButton = page
-    .getByRole("button", { name: /^More information about / })
+    .getByRole("link", { name: /^More information about / })
     .first();
   await expect(detailsButton).toBeVisible({ timeout: 15000 });
   const accessibleName = await detailsButton.getAttribute("aria-label");
   const title = accessibleName.replace(/^More information about /, "");
   await detailsButton.click();
 
-  const dialog = page.getByRole("dialog");
-  const synopsis = (
-    await dialog.locator("#detailsSynopsisTitle + p").innerText()
-  ).trim();
+  const dialog = page.getByRole("region", {
+    name: "Title details",
+    exact: true,
+  });
+  const synopsis = (await dialog.locator("#titleSynopsis").innerText()).trim();
   await dialog.getByRole("button", { name: "Share" }).click();
   await expect(dialog.getByText("Shared", { exact: true })).toBeVisible();
 
@@ -377,7 +393,7 @@ test("shares one ordered message that links directly to the watch page", async (
   expect(shareData.text.split(synopsis)).toHaveLength(2);
 
   const sharedUrl = new URL(shareData.text.split("\n\n").at(-1));
-  expect(sharedUrl.hash).toMatch(/^#\/watch\/(movie|tv)\/\d+\/1\/1$/);
+  expect(sharedUrl.hash).toMatch(/^#\/title\/(movie|tv)\/\d+(?:\?.*)?$/);
   expect(sharedUrl.href).not.toContain("preview=");
   await expect(page.locator('meta[property="og:url"]')).toHaveAttribute(
     "content",
@@ -392,13 +408,12 @@ test("records Continue Watching only after player interaction", async ({
   await page.goto("/#/home");
 
   await page
-    .getByRole("button", { name: /^More information about / })
+    .getByRole("link", { name: /^More information about / })
     .first()
     .click();
-  const dialog = page.getByRole("dialog");
-  const watchLink = dialog.getByRole("link", { name: "Watch now" });
-  await expect(watchLink).toBeVisible({ timeout: 15000 });
-  await watchLink.click();
+  await page
+    .getByRole("button", { name: "Play with VidSrc", exact: true })
+    .click();
 
   const frame = page.locator("#playerShell iframe");
   await expect(frame).toBeVisible({ timeout: 15000 });
@@ -438,6 +453,7 @@ test("records Continue Watching only after player interaction", async ({
     )
     .toBe(1);
 
+  await page.getByRole("button", { name: "Close player" }).click();
   await page.getByRole("link", { name: "RainFlix home" }).first().click();
   await expect(page).toHaveURL(/#\/home$/);
   const continueHeading = page.getByRole("heading", {

@@ -6,8 +6,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { api } from "../../lib/api.js";
-import { trackEvent } from "../../lib/analytics.js";
+import { api, trackEvent } from "../../lib/api.js";
 
 const LibraryContext = createContext(null);
 const MY_LIST_KEY = "rainflix:my-list:v1";

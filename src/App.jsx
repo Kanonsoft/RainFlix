@@ -10,16 +10,24 @@ import { Navigate, Route, Routes, useLocation } from "react-router";
 import AppLoader from "./components/AppLoader.jsx";
 import Footer from "./components/Footer.jsx";
 import Header from "./components/Header.jsx";
-import PrivacyAnalytics from "./components/PrivacyAnalytics.jsx";
 import { DetailsProvider } from "./components/details/DetailsProvider.jsx";
 import { LibraryProvider } from "./components/library/LibraryProvider.jsx";
 import useRemoteNavigation from "./hooks/useRemoteNavigation.js";
-import { api } from "./lib/api.js";
+import { api, config } from "./lib/api.js";
 import CatalogPage from "./pages/CatalogPage.jsx";
 
 const LibraryPage = lazy(() => import("./pages/LibraryPage.jsx"));
+const AddonsPage = lazy(() => import("./pages/AddonsPage.jsx"));
+const AddonCatalogPage = lazy(() => import("./pages/AddonCatalogPage.jsx"));
+const AddonTitlePage = lazy(() => import("./pages/AddonTitlePage.jsx"));
 const SearchPage = lazy(() => import("./pages/SearchPage.jsx"));
 const WatchPage = lazy(() => import("./pages/WatchPage.jsx"));
+const TitlePage = lazy(() => import("./pages/TitlePage.jsx"));
+const PrivacyAnalytics = lazy(() =>
+  import("./components/PrivacyAnalytics.jsx").catch(() => ({
+    default: () => null,
+  })),
+);
 
 const LEGACY_LOADER_POSTER_CACHE_KEY = "rainflix:loader-posters:v1";
 const BACKDROP_FADE_DURATION = 960;
@@ -237,6 +245,32 @@ function AppShell() {
         <main id="app-view" className="flex-1 outline-none" tabIndex="-1">
           <Suspense fallback={<RouteFallback />}>
             <Routes>
+              <Route
+                path="/title/:mediaType/:id"
+                element={
+                  <TitlePage
+                    onReady={completeBoot}
+                    onBackdrop={updateBackdrop}
+                  />
+                }
+              />
+              <Route
+                path="/addon/:addonId/catalog/:type/:catalogId"
+                element={<AddonCatalogPage onReady={completeBoot} />}
+              />
+              <Route
+                path="/addon/:addonId/title/:type/:id"
+                element={
+                  <AddonTitlePage
+                    onReady={completeBoot}
+                    onBackdrop={updateBackdrop}
+                  />
+                }
+              />
+              <Route
+                path="/addons"
+                element={<AddonsPage onReady={completeBoot} />}
+              />
               <Route path="/" element={<Navigate replace to="/home" />} />
               <Route
                 path="/home"
@@ -322,7 +356,11 @@ function AppShell() {
         <Footer />
       </div>
       <ScrollManager />
-      <PrivacyAnalytics />
+      {config.analyticsScriptUrl && config.analyticsWebsiteId ? (
+        <Suspense fallback={null}>
+          <PrivacyAnalytics />
+        </Suspense>
+      ) : null}
     </>
   );
 }

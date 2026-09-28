@@ -1,3 +1,5 @@
+importScripts(new URL("webtorrent-sw.min.js", self.location.href).href);
+
 const BUILD_VERSION =
   new URL(self.location.href).searchParams.get("build") || "app";
 const CACHE_VERSION = `rainflix-${BUILD_VERSION.replace(

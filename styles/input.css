@@ -2,6 +2,24 @@
 @tailwind components;
 @tailwind utilities;
 
+.player-overlay-control {
+  opacity: 1;
+  transition: opacity 180ms ease;
+}
+
+.fullscreen-playback[data-controls-visible="false"]
+  .player-overlay-control:not(:hover):not(:focus-visible):not(
+    [aria-expanded="true"]
+  ) {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .player-overlay-control {
+    transition: none;
+  }
+}
+
 :root {
   color-scheme: dark;
   scrollbar-color: #1f6f9b #030712;

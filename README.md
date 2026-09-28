@@ -34,7 +34,7 @@
 
 RainFlix is a responsive React interface for exploring movies and television
 series through live TMDB data. It combines fast catalog browsing with cinematic
-motion, detailed title previews, flexible embedded players, and navigation that
+motion, shared title pages, flexible embedded players, and navigation that
 works across phones, desktops, keyboards, and TV remotes.
 
 The entire application builds to static files, so it can run on GitHub Pages
@@ -46,11 +46,11 @@ without an application server.
 | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | **Cinematic discovery**       | Home, Movies, Series, Genre, and Year views powered by current TMDB feeds                                                         |
 | **Gesture-driven hero**       | A diagonal peel transition that follows the pointer while swiping, settles naturally on release, and crossfades the page backdrop |
-| **Rich title previews**       | Shareable preview URLs with synopsis, cast, genres, runtime, status, rating, title artwork, and trailers                          |
-| **History-aware navigation**  | Browser Back closes a preview at the same scroll position; Forward reopens it                                                     |
+| **Rich title pages**          | Shareable title URLs with synopsis, cast, genres, runtime, status, rating, title logos, and fullscreen trailers                   |
+| **History-aware navigation**  | Browser Back closes fullscreen playback; Forward never restarts a stream automatically                                            |
 | **Personal library**          | Device-local My List bookmarks and Continue Watching links that remember the selected season and episode                          |
 | **Focused search**            | A dedicated, shareable search view with type, genre, and year filters                                                             |
-| **Flexible playback**         | A compact provider selector, remembered source preference, fullscreen support, and movie or episode-specific embeds               |
+| **Flexible playback**         | Compact provider and torrent-mode selectors, remembered preferences, fullscreen support, and movie or episode-specific embeds     |
 | **Series navigation**         | Season and episode selection with episode metadata and direct watch URLs                                                          |
 | **More to discover**          | Similar titles, expandable browse grids, newest releases, trending titles, search, and filters                                    |
 | **Responsive and accessible** | Mobile navigation drawer, keyboard focus management, reduced-motion support, semantic dialogs, and remote-control key handling    |
@@ -66,6 +66,7 @@ without an application server.
 - [Tailwind CSS 3](https://tailwindcss.com/) plus focused custom animation styles
 - [Lucide React](https://lucide.dev/) for interface icons
 - [TMDB API](https://developer.themoviedb.org/docs/getting-started) for movie and series metadata
+- [WebTorrent](https://webtorrent.io/) for optional in-browser WebRTC torrent playback
 - GitHub Actions and GitHub Pages for continuous deployment
 
 ## Quick Start
@@ -100,6 +101,11 @@ Vite writes the deployable application to `dist/`.
 ## Configuration
 
 Runtime settings live in [`scripts/config.js`](scripts/config.js).
+
+Linked configuration and development notes for Obsidian are in
+[`docs/obsidian/`](docs/obsidian/README.md), including the
+[Yastream setup](docs/obsidian/Yastream.md) and
+[Torrentio setup](docs/obsidian/Torrentio.md).
 
 ```js
 window.RAINFLIX_CONFIG = {
@@ -138,11 +144,11 @@ hosts without rewrite rules.
 #/year/2025
 #/library
 #/search?q=batman&type=movie&year=2022
-#/watch/movie/533535/1/1
-#/home?preview=movie-533535
+#/title/movie/533535
+#/title/tv/1399?season=1&episode=1
 ```
 
-Preview URLs are history-aware and can also be opened directly.
+Title URLs open directly. Old watch and preview links redirect to the shared title page.
 
 ## Project Structure
 
@@ -154,9 +160,9 @@ RainFlix/
 |   |-- config.js               Public runtime configuration
 |   `-- rainflix-api.js         TMDB data, caching, and embed URL builders
 |-- src/
-|   |-- components/             Header, cards, carousel, loader, and modal
+|   |-- components/             Header, cards, carousel, loader, and player
 |   |-- hooks/                  Remote and keyboard navigation
-|   |-- pages/                  Catalog, search, library, and watch experiences
+|   |-- pages/                  Catalog, search, library, and title experiences
 |   |-- App.jsx                 Routes and application shell
 |   `-- main.jsx                React entry point
 |-- tests/                      Playwright browser smoke tests
@@ -180,10 +186,22 @@ Actions builds, so generated assets load correctly from `/RainFlix/`.
 
 ## Playback Notes
 
-RainFlix does not host, proxy, extract, or control video files. The watch page
-loads configured third-party players in iframes. Playback availability, ads,
-subtitles, casting support, regional access, and server uptime are controlled
-by those providers.
+RainFlix does not host or proxy video files. Shared title pages list configured
+iframe players and installed add-ons beside the details. Clicking a player opens
+fullscreen playback. Add-ons with multiple streams show source choices first;
+a single playable source opens immediately after the provider lookup.
+Yastream and Torrentio remain optional adapters, disabled by default.
+Torrentio is also available: direct HTTP(S) sources use the native player,
+while torrent sources offer three manual modes. Browser WebTorrent is the
+default pure-static option and reaches WebRTC peers only. An existing
+[Stremio Service](docs/obsidian/Stremio%20Service.md) at
+`http://127.0.0.1:11470` can handle conventional torrent swarms, and External
+mode keeps magnet links available. Browser codec and network restrictions still
+apply. A source click or the sole result of an explicit provider click authorizes
+transfer; opening a title or changing service settings does not.
+Availability, regional access, media CORS, and codec support depend on the
+provider and browser. See the [playback notes](docs/obsidian/Title%20Playback.md) for
+configuration, subtitles, and limitations.
 
 Use only providers and media for which you have the necessary rights, and
 review each provider's terms before deploying a public instance.

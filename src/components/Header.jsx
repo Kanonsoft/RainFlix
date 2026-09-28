@@ -12,7 +12,7 @@ function routeState(pathname) {
   const routeName = parts[0] || "home";
   let primary = routeName;
 
-  if (routeName === "watch") {
+  if (routeName === "watch" || routeName === "title") {
     primary = api.normalizeMediaType(parts[1]) === "tv" ? "series" : "movies";
   }
 
@@ -400,6 +400,9 @@ export default function Header() {
           <Link className={mobilePrimaryClass("series")} to="/series">
             Series
           </Link>
+          <Link className={mobilePrimaryClass("addons")} to="/addons">
+            Add-ons
+          </Link>
           <Link className={mobilePrimaryClass("library")} to="/library">
             My List
           </Link>
@@ -509,6 +512,9 @@ export default function Header() {
             </Link>
             <Link className={primaryClass("series")} to="/series">
               Series
+            </Link>
+            <Link className={primaryClass("addons")} to="/addons">
+              Add-ons
             </Link>
             <Link className={primaryClass("library")} to="/library">
               My List

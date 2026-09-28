@@ -3,9 +3,26 @@ import "../../scripts/rainflix-api.js";
 
 export const api = window.RainFlixApi;
 export const config = window.RAINFLIX_CONFIG;
+export const TELEMETRY_EVENT = "rainflix:telemetry";
 
 if (!api) {
   throw new Error("RainFlix API failed to initialize.");
+}
+
+export function trackEvent(name, data) {
+  if (!name) {
+    return;
+  }
+
+  try {
+    window.dispatchEvent(
+      new CustomEvent(TELEMETRY_EVENT, {
+        detail: { data, name },
+      }),
+    );
+  } catch {
+    // Optional telemetry must never interrupt the application.
+  }
 }
 
 export function watchPath(item, season = 1, episode = 1) {
@@ -16,10 +33,10 @@ export function watchPath(item, season = 1, episode = 1) {
     return "/home";
   }
 
-  return `/watch/${encodeURIComponent(mediaType)}/${encodeURIComponent(id)}/${Math.max(
-    1,
-    Number.parseInt(season, 10) || 1,
-  )}/${Math.max(1, Number.parseInt(episode, 10) || 1)}`;
+  const path = `/title/${encodeURIComponent(mediaType)}/${encodeURIComponent(id)}`;
+  return mediaType === "tv"
+    ? `${path}?season=${Math.max(1, Number.parseInt(season, 10) || 1)}&episode=${Math.max(1, Number.parseInt(episode, 10) || 1)}`
+    : path;
 }
 
 export function imageFallback(title, wide = false) {
