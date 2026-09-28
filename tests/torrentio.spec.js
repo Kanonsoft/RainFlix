@@ -318,7 +318,12 @@ test("uses IMDb episode IDs and ignores old responses after navigation or provid
     ),
   );
   await selectPlayer(page, "torrentio");
-  await expect(page.getByText("Finding streams")).toBeVisible();
+  await expect(
+    page.getByRole("progressbar", { name: /Finding Torrentio streams/ }),
+  ).toBeVisible();
+  await expect(page.getByText("Finding streams", { exact: true })).toHaveCount(
+    0,
+  );
   await expect.poll(() => requests.length).toBe(1);
   await selectEpisode(page, 2, "torrentio");
   await expect(page.getByRole("link", { name: "Open torrent" })).toBeVisible();

@@ -11,26 +11,24 @@ import {
 import { MediaGrid } from "./MediaCard.jsx";
 
 function CatalogRow({ addon, catalog }) {
-  const [feed, setFeed] = useState({ items: [], loading: true });
-  const [revision, setRevision] = useState(0);
+  const [items, setItems] = useState([]);
   const requiresInput = catalogExtras(catalog).some(
     (extra) => extra.isRequired && extra.name !== "skip",
   );
   useEffect(() => {
     if (requiresInput) return;
     const controller = new AbortController();
-    setFeed({ items: [], loading: true });
+    setItems([]);
     getAddonCatalog(addon, catalog, { skip: 0 }, controller.signal)
       .then(({ items }) => {
-        if (!controller.signal.aborted)
-          setFeed({ items: items.slice(0, 12), loading: false });
+        if (!controller.signal.aborted) setItems(items.slice(0, 12));
       })
-      .catch((error) => {
-        if (!controller.signal.aborted)
-          setFeed({ items: [], loading: false, error: error.message });
+      .catch(() => {
+        if (!controller.signal.aborted) setItems([]);
       });
     return () => controller.abort();
-  }, [addon, catalog, requiresInput, revision]);
+  }, [addon, catalog, requiresInput]);
+  if (requiresInput || !items.length) return null;
   return (
     <section
       className="mt-12"
@@ -50,24 +48,7 @@ function CatalogRow({ addon, catalog }) {
           Browse catalog
         </Link>
       </div>
-      {requiresInput ? (
-        <p className="text-sm text-slate-400">
-          Choose filters in this catalog to see titles.
-        </p>
-      ) : feed.error ? (
-        <div role="status" className="text-sm text-slate-400">
-          <p>{feed.error}</p>
-          <button
-            type="button"
-            onClick={() => setRevision((value) => value + 1)}
-            className="mt-2 min-h-11 text-sky-300 underline"
-          >
-            Retry catalog
-          </button>
-        </div>
-      ) : (
-        <MediaGrid items={feed.items} loading={feed.loading} />
-      )}
+      <MediaGrid items={items} />
     </section>
   );
 }

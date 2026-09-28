@@ -7,7 +7,7 @@ import {
   useState,
 } from "react";
 import { createPortal, flushSync } from "react-dom";
-import { ArrowLeft, LoaderCircle, Maximize, Play, X } from "lucide-react";
+import { ArrowLeft, Maximize, Play, X } from "lucide-react";
 import { useLocation, useNavigate } from "react-router";
 import { api, config, trackEvent } from "../lib/api.js";
 import { supports, useAddons } from "../lib/addons.js";
@@ -347,6 +347,7 @@ export default function TitlePlayers({
     (selection.id === "trailer"
       ? trailer
       : sources.find((source) => source.id === selection.id));
+  const lookupPending = Boolean(chosenProvider && !sourcesVisible && !active);
   const close = useCallback(() => {
     setSelection(null);
     navigate(-1);
@@ -390,11 +391,11 @@ export default function TitlePlayers({
     },
   }));
   useEffect(() => {
-    if (chosenProviderId && showSources) {
+    if (chosenProviderId && (showSources || lookupPending)) {
       sourceBack.current?.focus({ preventScroll: true });
       if (sourcePanel.current) sourcePanel.current.scrollTop = 0;
     }
-  }, [chosenProviderId, showSources]);
+  }, [chosenProviderId, showSources, lookupPending]);
   useEffect(() => {
     if (!hasEpisodePicker) return;
     const target = episodeChosen
@@ -428,22 +429,26 @@ export default function TitlePlayers({
       className="flex max-h-[min(42rem,75svh)] min-h-0 flex-col"
     >
       <div className="mb-3 flex min-h-11 shrink-0 items-center gap-3">
-        {(showSources || (episodePicker && episodeChosen)) && (
+        {(lookupPending || showSources || (episodePicker && episodeChosen)) && (
           <button
             ref={sourceBack}
             type="button"
             aria-label={
-              showSources
-                ? "Back to players"
-                : `Back to ${episodeLabel.toLowerCase()}`
+              lookupPending
+                ? "Cancel stream lookup"
+                : showSources
+                  ? "Back to players"
+                  : `Back to ${episodeLabel.toLowerCase()}`
             }
             title={
-              showSources
-                ? "Back to players"
-                : `Back to ${episodeLabel.toLowerCase()}`
+              lookupPending
+                ? "Cancel stream lookup"
+                : showSources
+                  ? "Back to players"
+                  : `Back to ${episodeLabel.toLowerCase()}`
             }
             onClick={
-              showSources
+              showSources || lookupPending
                 ? backToPlayers
                 : () => {
                     setProviderChoice("");
@@ -482,6 +487,15 @@ export default function TitlePlayers({
       >
         {!episodeChosen ? (
           episodePicker
+        ) : lookupPending ? (
+          <div className="relative min-h-56" aria-busy="true">
+            <PlaybackLoader
+              active
+              title={details.title}
+              logo={details.logo}
+              message={`Finding ${chosenProvider.label} streams`}
+            />
+          </div>
         ) : showSources ? null : !canPlay ? (
           <p role="status" className="text-sm text-slate-400">
             No episodes are available for this title.
@@ -513,26 +527,11 @@ export default function TitlePlayers({
                 }}
                 aria-label={`Play with ${source.label}`}
               >
-                {source.id === providerChoice ? (
-                  <LoaderCircle
-                    className="h-4 w-4 shrink-0 animate-spin text-sky-300"
-                    aria-hidden="true"
-                  />
-                ) : (
-                  <Play
-                    className="h-4 w-4 shrink-0 text-sky-300"
-                    aria-hidden="true"
-                  />
-                )}
+                <Play
+                  className="h-4 w-4 shrink-0 text-sky-300"
+                  aria-hidden="true"
+                />
                 <span className="min-w-0 break-words">{source.label}</span>
-                {source.id === providerChoice && (
-                  <span
-                    role="status"
-                    className="ml-auto text-xs font-normal text-slate-400"
-                  >
-                    Finding streams
-                  </span>
-                )}
               </button>
             ))}
           </div>

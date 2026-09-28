@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ExternalLink, LoaderCircle, Play, RefreshCw } from "lucide-react";
+import { ExternalLink, Play, RefreshCw } from "lucide-react";
 import { config } from "../lib/api.js";
 import { addonProvider } from "../lib/addons.js";
 import { getYastreamStreams, getYastreamSubtitles } from "../lib/yastream.js";
@@ -15,6 +15,7 @@ import {
   withStremioService,
 } from "../lib/stremio-service.js";
 import TorrentPlaybackSettings from "./TorrentPlaybackSettings.jsx";
+import PlaybackLoader from "./PlaybackLoader.jsx";
 
 const providers = {
   yastream: {
@@ -106,6 +107,18 @@ export default function AddonSources({
   )
     return null;
 
+  if (loading)
+    return (
+      <div className="relative min-h-56" aria-busy="true">
+        <PlaybackLoader
+          active
+          title={details.title}
+          logo={details.logo}
+          message={`Finding ${provider.label} streams`}
+        />
+      </div>
+    );
+
   return (
     <section aria-label={`${provider.label} streams`} className="min-w-0">
       <div className="mb-2 flex items-center justify-between gap-3">
@@ -120,15 +133,7 @@ export default function AddonSources({
           <RefreshCw className="h-4 w-4" aria-hidden="true" />
         </button>
       </div>
-      {loading ? (
-        <p
-          role="status"
-          className="flex items-center gap-2 py-4 text-sm text-slate-400"
-        >
-          <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
-          Finding streams
-        </p>
-      ) : !streams.length ? (
+      {!streams.length ? (
         <div className="py-3 text-sm">
           <p role="status" className="text-slate-400">
             {feed.error ||

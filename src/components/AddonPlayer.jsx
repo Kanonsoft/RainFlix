@@ -350,13 +350,13 @@ function StreamVideo({
       <div className={frameClass}>
         <video
           ref={videoRef}
-          className="h-full w-full object-contain"
-          controls
+          className={`h-full w-full object-contain ${loading || error ? "invisible" : ""}`}
+          controls={!loading && !error}
           autoPlay={autoStart || stream.requiresStart}
           playsInline
           preload="auto"
           poster={poster}
-          tabIndex={0}
+          tabIndex={loading || error ? -1 : 0}
           aria-label={`${title} ${provider.label} player`}
           onKeyDown={(event) => {
             // Keep native playback shortcuts within the video, away from page navigation.
@@ -383,67 +383,71 @@ function StreamVideo({
             externalUrl={stream.externalUrl}
           />
         ) : null}
-        {(subtitles.length > 0 || subtitleLookupError) && (
-          <div
-            className="absolute left-3 top-3 z-30"
-            onKeyDown={(event) => {
-              if (event.key === "Escape" && captionsOpen) {
-                event.preventDefault();
-                event.stopPropagation();
-                setCaptionsOpen(false);
-                captionsButton.current?.focus();
-              }
-            }}
-          >
-            <button
-              ref={captionsButton}
-              className="player-overlay-control grid h-11 w-11 place-items-center rounded-lg bg-black/75 text-white focus-visible:ring-2 focus-visible:ring-sky-400"
-              type="button"
-              aria-label="Subtitles"
-              title="Subtitles"
-              aria-expanded={captionsOpen}
-              aria-controls="playerCaptions"
-              onClick={() => setCaptionsOpen((open) => !open)}
+        {!loading &&
+          !error &&
+          (subtitles.length > 0 || subtitleLookupError) && (
+            <div
+              className="absolute left-3 top-3 z-30"
+              onKeyDown={(event) => {
+                if (event.key === "Escape" && captionsOpen) {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setCaptionsOpen(false);
+                  captionsButton.current?.focus();
+                }
+              }}
             >
-              <Captions className="h-5 w-5" aria-hidden="true" />
-            </button>
-            {captionsOpen && (
-              <div
-                id="playerCaptions"
-                role="group"
+              <button
+                ref={captionsButton}
+                className="player-overlay-control grid h-11 w-11 place-items-center rounded-lg bg-black/75 text-white focus-visible:ring-2 focus-visible:ring-sky-400"
+                type="button"
                 aria-label="Subtitles"
-                className="mt-2 max-h-[calc(100dvh-8rem)] w-56 max-w-[calc(100vw-6rem)] overflow-y-auto rounded-lg border border-white/20 bg-neutral-950/95 p-2 shadow-xl"
+                title="Subtitles"
+                aria-expanded={captionsOpen}
+                aria-controls="playerCaptions"
+                onClick={() => setCaptionsOpen((open) => !open)}
               >
-                <p className="px-3 py-2 text-xs font-bold text-slate-400">
-                  Subtitles
-                </p>
-                {[{ url: "", label: "Off" }, ...subtitles].map((subtitle) => (
-                  <button
-                    type="button"
-                    key={subtitle.url}
-                    aria-pressed={subtitleUrl === subtitle.url}
-                    className="flex min-h-11 w-full items-center gap-2 rounded px-3 text-left text-sm hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-sky-400"
-                    onClick={() => {
-                      setSubtitleUrl(subtitle.url);
-                      setCaptionsOpen(false);
-                      captionsButton.current?.focus();
-                    }}
-                  >
-                    <span className="flex-1 break-words">{subtitle.label}</span>
-                    {subtitleUrl === subtitle.url && (
-                      <Check className="h-4 w-4" aria-hidden="true" />
-                    )}
-                  </button>
-                ))}
-                {(subtitleError || subtitleLookupError) && (
-                  <p className="p-3 text-xs text-amber-200" role="status">
-                    {subtitleError || "Some subtitles could not be loaded."}
+                <Captions className="h-5 w-5" aria-hidden="true" />
+              </button>
+              {captionsOpen && (
+                <div
+                  id="playerCaptions"
+                  role="group"
+                  aria-label="Subtitles"
+                  className="mt-2 max-h-[calc(100dvh-8rem)] w-56 max-w-[calc(100vw-6rem)] overflow-y-auto rounded-lg border border-white/20 bg-neutral-950/95 p-2 shadow-xl"
+                >
+                  <p className="px-3 py-2 text-xs font-bold text-slate-400">
+                    Subtitles
                   </p>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+                  {[{ url: "", label: "Off" }, ...subtitles].map((subtitle) => (
+                    <button
+                      type="button"
+                      key={subtitle.url}
+                      aria-pressed={subtitleUrl === subtitle.url}
+                      className="flex min-h-11 w-full items-center gap-2 rounded px-3 text-left text-sm hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-sky-400"
+                      onClick={() => {
+                        setSubtitleUrl(subtitle.url);
+                        setCaptionsOpen(false);
+                        captionsButton.current?.focus();
+                      }}
+                    >
+                      <span className="flex-1 break-words">
+                        {subtitle.label}
+                      </span>
+                      {subtitleUrl === subtitle.url && (
+                        <Check className="h-4 w-4" aria-hidden="true" />
+                      )}
+                    </button>
+                  ))}
+                  {(subtitleError || subtitleLookupError) && (
+                    <p className="p-3 text-xs text-amber-200" role="status">
+                      {subtitleError || "Some subtitles could not be loaded."}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
       </div>
     </>
   );

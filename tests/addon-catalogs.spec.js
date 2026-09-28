@@ -82,7 +82,10 @@ const metadata = {
   ],
 };
 
-async function setup({ page, baseURL }) {
+async function setup(
+  { page, baseURL },
+  addons = [catalogAddon, metadataAddon, streamAddon],
+) {
   await mockPlayback({ page, baseURL }, false);
   await page.addInitScript(
     (addons) =>
@@ -90,7 +93,7 @@ async function setup({ page, baseURL }) {
         "rainflix:addons:session:v1",
         JSON.stringify(addons),
       ),
-    [catalogAddon, metadataAddon, streamAddon],
+    addons,
   );
   await page.route("https://metadata.example/**", (route) =>
     route.fulfill({ json: { meta: metadata } }),
@@ -234,6 +237,63 @@ test("required catalog extras gate requests and errors can be retried", async ({
   await expect(page.getByRole("alert")).toContainText("500");
   await page.getByRole("button", { name: "Retry catalog" }).click();
   await expect(page.getByText("No titles found.")).toBeVisible();
+});
+
+test("home hides empty, invalid, failed and input-only catalog rows", async ({
+  page,
+  baseURL,
+}) => {
+  await setup({ page, baseURL }, [
+    {
+      ...catalogAddon,
+      manifest: {
+        ...catalogAddon.manifest,
+        catalogs: [
+          ...catalogAddon.manifest.catalogs,
+          ...["empty", "invalid", "failed"].map((id) => ({
+            id,
+            type: "series",
+            name: id,
+          })),
+        ],
+      },
+    },
+  ]);
+  let release;
+  const pending = new Promise((resolve) => {
+    release = resolve;
+  });
+  const requests = [];
+  await page.route("https://catalog.example/**", async (route) => {
+    const url = route.request().url();
+    requests.push(url);
+    if (url.endsWith("/failed.json")) return route.fulfill({ status: 500 });
+    if (url.endsWith("/empty.json"))
+      return route.fulfill({ json: { metas: [] } });
+    if (url.endsWith("/invalid.json"))
+      return route.fulfill({ json: { metas: [{ name: "No ID" }] } });
+    await pending;
+    return route.fulfill({ json: { metas: [preview] } });
+  });
+  await page.goto("/#/home");
+  await expect(page.locator("#appLoader")).toHaveClass(/is-hidden/, {
+    timeout: 15000,
+  });
+  await expect.poll(() => new Set(requests).size).toBe(4);
+  await expect(
+    page.getByRole("region", { name: /^Test Catalog:/ }),
+  ).toHaveCount(0);
+  release();
+  await expect(
+    page.getByRole("region", {
+      name: "Test Catalog: Featured shows - Series",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: /^Test Catalog:/ }),
+  ).toHaveCount(1);
+  expect(requests.some((url) => url.includes("/series/search"))).toBe(false);
 });
 
 test("home adds catalogs and disabling the owner removes them", async ({

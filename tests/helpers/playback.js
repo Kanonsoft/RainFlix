@@ -100,8 +100,7 @@ export async function selectPlayer(page, id) {
     ).toBeVisible();
   }
   const back = page.getByRole("button", {
-    name: "Back to players",
-    exact: true,
+    name: /^(Back to players|Cancel stream lookup)$/,
   });
   if (await back.count()) await back.click();
   const labels = {
@@ -133,8 +132,7 @@ export async function selectCaptions(page, label) {
 export async function selectEpisode(page, episode, provider) {
   await closePlayer(page);
   const sourceBack = page.getByRole("button", {
-    name: "Back to players",
-    exact: true,
+    name: /^(Back to players|Cancel stream lookup)$/,
   });
   if (await sourceBack.count()) await sourceBack.click();
   const episodeBack = page.getByRole("button", {

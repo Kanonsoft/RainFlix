@@ -229,7 +229,12 @@ test("reports playback and header requirements, and cancels stale episode lookup
   });
   await openPlayer(page, "tv");
   await selectPlayer(page, "yastream");
-  await expect(page.getByText("Finding streams")).toBeVisible();
+  await expect(
+    page.getByRole("progressbar", { name: /Finding Yastream streams/ }),
+  ).toBeVisible();
+  await expect(page.getByText("Finding streams", { exact: true })).toHaveCount(
+    0,
+  );
   await selectEpisode(page, 2, "yastream");
   await selectStream(page, "1");
   await expect(

@@ -78,6 +78,8 @@ for (const width of [390, 1440]) {
       name: /Playback Test: Buffering/,
     });
     await expect(loader).toHaveAttribute("aria-valuenow", "25");
+    await expect(video).toBeHidden();
+    await expect(video).toHaveJSProperty("controls", false);
     await expect(loader.locator("img")).toHaveCount(2);
     await expect
       .poll(() =>
@@ -104,6 +106,8 @@ for (const width of [390, 1440]) {
     });
     await video.evaluate((node) => node.dispatchEvent(new Event("canplay")));
     await expect(loader).toHaveCount(0);
+    await expect(video).toBeVisible();
+    await expect(video).toHaveJSProperty("controls", true);
     await expect(page.locator(".playback-loader")).toHaveAttribute(
       "aria-valuenow",
       "50",
