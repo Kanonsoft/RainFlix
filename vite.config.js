@@ -7,7 +7,11 @@ const githubPagesBase =
     ? `/${repositoryName}/`
     : "/";
 
-export default defineConfig({
-  base: process.env.GITHUB_ACTIONS ? githubPagesBase : "/",
+export default defineConfig(({ command, isPreview }) => ({
+  // CI smoke tests use the development server at /, not the deployment subfolder.
+  base:
+    (command === "build" || isPreview) && process.env.GITHUB_ACTIONS === "true"
+      ? githubPagesBase
+      : "/",
   plugins: [react()],
-});
+}));

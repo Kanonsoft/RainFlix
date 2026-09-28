@@ -965,12 +965,43 @@ html.details-modal-open {
   will-change: opacity, transform;
 }
 
+.playback-logo-fill {
+  clip-path: inset(0 100% 0 0);
+  transition: clip-path 450ms ease-out;
+}
+
+.playback-logo.is-buffering {
+  animation: playback-logo-heartbeat 3.6s ease-in-out infinite;
+  transform-origin: center;
+}
+
+@keyframes playback-logo-heartbeat {
+  0%,
+  60%,
+  100% {
+    transform: scale(1);
+  }
+  20% {
+    transform: scale(1.035);
+  }
+  34% {
+    transform: scale(1.01);
+  }
+  44% {
+    transform: scale(1.025);
+  }
+}
+
 .rainflix-progress {
   animation: rainflix-carousel-progress 8s linear forwards;
   transform-origin: left center;
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .playback-logo.is-buffering {
+    animation: none;
+    transform: none;
+  }
   html {
     scroll-behavior: auto;
   }

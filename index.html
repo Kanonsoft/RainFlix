@@ -46,7 +46,80 @@
     <link rel="preconnect" href="https://image.tmdb.org" crossorigin />
   </head>
   <body class="min-h-screen bg-rain-ink text-slate-100 antialiased">
-    <div id="root"></div>
+    <style>
+      body {
+        margin: 0;
+        background: #030712;
+        color: #f1f5f9;
+      }
+      #startupFallback {
+        min-height: 100svh;
+        display: grid;
+        place-content: center;
+        gap: 16px;
+        padding: 24px;
+        box-sizing: border-box;
+        text-align: center;
+        font-family: system-ui, sans-serif;
+      }
+      #startupFallback strong {
+        color: #38bdf8;
+        font-size: 32px;
+      }
+      #startupFallback p {
+        margin: 0;
+        max-width: 32rem;
+        line-height: 1.6;
+      }
+      #startupRetry {
+        min-height: 44px;
+        justify-self: center;
+        border: 1px solid #38bdf8;
+        border-radius: 8px;
+        padding: 8px 20px;
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+      }
+    </style>
+    <div id="root">
+      <div id="startupFallback" role="status">
+        <strong>RainFlix</strong>
+        <p id="startupMessage">Starting RainFlix...</p>
+        <button id="startupRetry" type="button" hidden>Reload</button>
+        <noscript>JavaScript is required to open RainFlix.</noscript>
+      </div>
+    </div>
+    <script>
+      (() => {
+        const fallback = document.getElementById("startupFallback");
+        const retry = document.getElementById("startupRetry");
+        const fail = () => {
+          if (!fallback.isConnected) return;
+          document.getElementById("startupMessage").textContent =
+            "RainFlix could not start. Reload to try again. If this continues, the site may need to be redeployed.";
+          retry.hidden = false;
+        };
+        retry.addEventListener("click", () => window.location.reload());
+        const timer = window.setTimeout(fail, 12000);
+        const onError = (event) => {
+          if (
+            event.target?.tagName === "SCRIPT" &&
+            event.target.type === "module"
+          )
+            fail();
+        };
+        window.addEventListener("error", onError, true);
+        window.addEventListener(
+          "rainflix:mounted",
+          () => {
+            window.clearTimeout(timer);
+            window.removeEventListener("error", onError, true);
+          },
+          { once: true },
+        );
+      })();
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

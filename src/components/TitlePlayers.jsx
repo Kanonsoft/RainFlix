@@ -11,8 +11,16 @@ import { ArrowLeft, LoaderCircle, Maximize, Play, X } from "lucide-react";
 import { useLocation, useNavigate } from "react-router";
 import { api, config, trackEvent } from "../lib/api.js";
 import { supports, useAddons } from "../lib/addons.js";
+import {
+  framePlaybackEvent,
+  playbackIdentity,
+  readPlaybackPosition,
+  resumedFrameUrl,
+  savePlaybackProgress,
+} from "../lib/playback-progress.js";
 import AddonPlayer from "./AddonPlayer.jsx";
 import AddonSources from "./AddonSources.jsx";
+import PlaybackLoader from "./PlaybackLoader.jsx";
 
 const ignorePlayback = () => {};
 
@@ -26,65 +34,103 @@ function requestFullscreen(element) {
   }
 }
 
-function FramePlayer({ source, title, onStarted }) {
+function FramePlayer({
+  source,
+  details,
+  season,
+  episode,
+  onStarted,
+  onProgress,
+}) {
   const frame = useRef(null);
+  const callbacks = useRef({ onStarted, onProgress });
   const [loading, setLoading] = useState(true);
   useEffect(() => {
+    callbacks.current = { onStarted, onProgress };
+  }, [onStarted, onProgress]);
+  useEffect(() => {
     const origin = new URL(source.url).origin;
+    let played = false;
+    let lastSample;
+    const flushPosition = () => {
+      if (lastSample) callbacks.current.onProgress?.(lastSample, true);
+    };
+    const visibilityChange = () => {
+      if (document.visibilityState === "hidden") flushPosition();
+    };
     const receive = (event) => {
       if (
-        event.origin === origin &&
-        event.source === frame.current?.contentWindow &&
-        event.data?.type === "PLAYER_EVENT" &&
-        ["play", "playing"].includes(
-          String(event.data?.data?.event || "").toLowerCase(),
-        )
+        event.origin !== origin ||
+        event.source !== frame.current?.contentWindow
       )
-        onStarted();
+        return;
+      const playback = framePlaybackEvent(event.data, details, season, episode);
+      if (!playback) return;
+      if (["play", "playing"].includes(playback.name)) {
+        played = true;
+        callbacks.current.onStarted?.();
+      }
+      if (played && playback.sample) {
+        lastSample = playback.sample;
+        callbacks.current.onProgress?.(
+          lastSample,
+          ["pause", "seeked", "ended"].includes(playback.name),
+        );
+      }
     };
     let timer;
     const blur = () => {
       timer = window.setTimeout(() => {
-        if (document.activeElement === frame.current) onStarted();
+        if (document.activeElement === frame.current)
+          callbacks.current.onStarted?.();
       }, 0);
     };
     window.addEventListener("message", receive);
     window.addEventListener("blur", blur);
+    window.addEventListener("pagehide", flushPosition);
+    document.addEventListener("visibilitychange", visibilityChange);
     return () => {
+      flushPosition();
       window.clearTimeout(timer);
       window.removeEventListener("message", receive);
       window.removeEventListener("blur", blur);
+      window.removeEventListener("pagehide", flushPosition);
+      document.removeEventListener("visibilitychange", visibilityChange);
     };
-  }, [source.url, onStarted]);
+  }, [source.url, details, season, episode]);
   return (
     <div id="playerShell" className="relative h-full min-h-0 w-full bg-black">
-      {loading && (
-        <div
-          className="pointer-events-none absolute inset-0 grid place-items-center"
-          role="status"
-        >
-          <LoaderCircle
-            className="h-8 w-8 animate-spin text-sky-300"
-            aria-label="Loading player"
-          />
-        </div>
-      )}
       <iframe
         ref={frame}
         className="absolute inset-0 h-full w-full border-0"
         src={source.url}
-        title={`${title} ${source.label} player`}
+        title={`${details.title} ${source.label} player`}
         allow="autoplay *; encrypted-media *; fullscreen *; picture-in-picture *"
         allowFullScreen
         referrerPolicy="origin"
         onLoad={() => setLoading(false)}
         onPointerDown={onStarted}
       />
+      <PlaybackLoader
+        active={loading}
+        title={details.title}
+        logo={details.logo}
+        message="Loading player"
+      />
     </div>
   );
 }
 
-function Playback({ source, details, onStarted, onClose, children }) {
+function Playback({
+  source,
+  details,
+  season,
+  episode,
+  onStarted,
+  onProgress,
+  onClose,
+  children,
+}) {
   const root = useRef(null);
   const closeButton = useRef(null);
   const [controlsVisible, setControlsVisible] = useState(true);
@@ -180,8 +226,11 @@ function Playback({ source, details, onStarted, onClose, children }) {
       {children || (
         <FramePlayer
           source={source}
-          title={details.title}
+          details={details}
+          season={season}
+          episode={episode}
           onStarted={onStarted}
+          onProgress={onProgress}
         />
       )}
       <div className="pointer-events-none absolute right-3 top-3 z-40 flex gap-2">
@@ -234,6 +283,14 @@ export default function TitlePlayers({
   const sourceBack = useRef(null);
   const sourcePanel = useRef(null);
   const providerButtons = useRef(new Map());
+  const progressIdentity = useMemo(
+    () => playbackIdentity(details, season, episode),
+    [details, season, episode],
+  );
+  const recordProgress = useCallback(
+    (sample, flush) => savePlaybackProgress(progressIdentity, sample, flush),
+    [progressIdentity],
+  );
   const sources = useMemo(() => {
     const tmdb = details.tmdbDetails;
     return [
@@ -304,9 +361,18 @@ export default function TitlePlayers({
     const token = crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`;
     const params = new URLSearchParams(location.search);
     params.set("play", "1");
+    const resumePosition =
+      source.id === "trailer" ? 0 : readPlaybackPosition(progressIdentity);
+    started.current = false;
     // Mount and request fullscreen during the provider click's user activation.
     flushSync(() => {
-      setSelection({ id: source.id, token, playback });
+      setSelection({
+        id: source.id,
+        token,
+        playback,
+        resumePosition,
+        frameUrl: source.url ? resumedFrameUrl(source, resumePosition) : null,
+      });
       navigate(
         { pathname: location.pathname, search: `?${params}` },
         { state: { rainflixPlayback: token } },
@@ -500,9 +566,12 @@ export default function TitlePlayers({
       {active && (
         <Playback
           key={selection.token}
-          source={active}
+          source={{ ...active, url: selection.frameUrl || active.url }}
           details={details}
+          season={season}
+          episode={episode}
           onStarted={active.id === "trailer" ? ignorePlayback : markStarted}
+          onProgress={active.id === "trailer" ? ignorePlayback : recordProgress}
           onClose={close}
         >
           {selection.playback && (
@@ -511,6 +580,8 @@ export default function TitlePlayers({
               season={season}
               episode={episode}
               onStarted={markStarted}
+              onProgress={recordProgress}
+              resumePosition={selection.resumePosition}
               onRetry={() => {
                 close();
                 setProviderChoice(active.id);

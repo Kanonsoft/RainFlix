@@ -184,6 +184,12 @@ the Vite project, uploads `dist/`, and deploys the resulting artifact.
 `vite.config.js` automatically applies the repository base path during GitHub
 Actions builds, so generated assets load correctly from `/RainFlix/`.
 
+Do not publish the repository root using **Deploy from a branch**: it serves
+unbuilt React source and can overwrite the workflow's built site. A deployed
+page referencing `/src/main.jsx` is a sign of this configuration problem.
+The deployment workflow checks the publishing source before uploading.
+`npm run test:pages` verifies the production build under `/RainFlix/` locally.
+
 ## Playback Notes
 
 RainFlix does not host or proxy video files. Shared title pages list configured

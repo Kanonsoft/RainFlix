@@ -30,6 +30,20 @@ Playback pushes a non-secret `play=1` history entry. Back, Escape/remote Back, o
 
 Continue Watching records native media only after `playing`. Iframes keep the existing validated playback-message/interaction tracking. Trailers never enter Continue Watching.
 
+## Buffering Artwork
+
+`PlaybackLoader` displays a dim title logo with an opaque left-to-right reveal. Missing/broken logos fall back to the title text. Native MP4/HLS/torrent video uses the browser's actual contiguous buffered range ahead of the playhead, targeting up to eight seconds (or the shorter remaining duration). This is playable-buffer readiness, not total-file download progress. `canplay`/`playing` hides the indicator without inventing a 100% value; a later `waiting` event measures it again.
+
+The whole logo has a subtle, slow double pulse over 3.6 seconds, independent of the measured fill. Waiting for metadata, unknown duration, or an iframe's initial load shows only the faint pulsing logo, never a simulated filling sweep. Reduced-motion disables the pulse and fill transitions. Cross-origin iframe buffering after initial load remains controlled by the provider.
+
+## Playback Positions
+
+`src/lib/playback-progress.js` stores timestamps in seconds, keyed by title and season/episode rather than provider or stream. TMDb/IMDb identities use `rainflix:playback-progress:v1` in localStorage, bounded to 200 entries. Only the content key, position, duration, completion flag, and update time are persisted, never source URLs, credentials, or add-on responses. Custom add-on identities retain positions in bounded memory only; live channels and trailers are excluded. Installed add-ons remain session-scoped; see [[Add-ons]]. Clearing Continue Watching also clears saved positions.
+
+Native video records only after `playing`, keeps current samples in memory, and writes at most every five seconds during playback. Pause, completed seeking, page hide/backgrounding, and player cleanup flush the final sample before media resources are destroyed. A source/provider click snapshots the saved timestamp; the next native player seeks after metadata arrives (retrying when it can play). Finished videos restart at zero. A saved position beyond the new stream's duration also restarts at zero. Different cuts/editions can still have different timelines. Browser storage is per-device and per-origin, not account sync; unavailable storage falls back to memory.
+
+For iframes, both the exact source window and configured origin must match. Validated `PLAYER_EVENT` messages can provide timestamps after a play event; included title/episode identifiers must match the selection. Focus alone can retain the existing Continue Watching interaction behavior but never supplies a timestamp. Only supported providers receive `startAt`: VidLink, VidFast, and VidCore. Iframes without progress messages or seek support cannot guarantee cross-player resume. VidLink documents that its own saved progress may take priority over `startAt`; RainFlix does not clear provider storage or bypass iframe isolation. See [VidLink documentation](https://vidlink.pro/) and [VidFast documentation](https://vidfast.vc/); VidCore follows the supplied endpoint reference.
+
 ## Verification
 
 Run `npm run check` and `npm run test:e2e`. The tests use deterministic media/add-on fixtures; they verify application behavior, not live provider availability. Include desktop/mobile carousel overflow, artwork fallback, native/full-window playback, single/multiple source gating, subtitles, Back/Close, and resource cleanup.

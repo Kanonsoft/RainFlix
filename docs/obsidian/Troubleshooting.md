@@ -22,6 +22,12 @@ Related: [[Configuration]], [[Yastream]], [[Torrentio]], [[Architecture]].
 | Browser torrent finds a file but cannot play | Try another source or Stremio Service; the browser may not support its container, video codec, or audio codec               |
 | Blank page in an ad-blocking browser         | Reload after updating RainFlix; analytics is optional and must not be part of the required startup graph                    |
 
+## GitHub Pages Startup
+
+If the deployed HTML contains `/src/main.jsx`, the repository source was published instead of the Vite build. In repository Settings > Pages > Build and deployment, set Source to **GitHub Actions**, then run **Deploy RainFlix to GitHub Pages** again. Do not deploy the repository root from a branch; it can overwrite the correct `dist/` artifact. The deployment workflow now checks this setting before publishing. The startup fallback shows a dark recovery screen if entry modules cannot load, but it cannot repair an incorrect hosting source.
+
+The development server stays at `/` even inside GitHub Actions. Only builds/previews infer the Pages subfolder from `GITHUB_REPOSITORY`. Applying `/RainFlix/` to the development server breaks test-only root imports and WebTorrent fixtures. Run `npm run test:pages` to build and test the actual production bundle under `/RainFlix/`; the CI smoke job runs this after the development tests.
+
 ## Torrentio
 
 - **Only Open torrent appears:** change **Torrent playback** from External to Browser WebTorrent or Stremio Service.

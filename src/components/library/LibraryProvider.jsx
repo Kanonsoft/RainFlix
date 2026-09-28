@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import { api, trackEvent } from "../../lib/api.js";
+import { clearPlaybackProgress } from "../../lib/playback-progress.js";
 
 const LibraryContext = createContext(null);
 const MY_LIST_KEY = "rainflix:my-list:v1";
@@ -125,7 +126,10 @@ export function LibraryProvider({ children }) {
     );
   }, []);
 
-  const clearRecentlyViewed = useCallback(() => setRecentlyViewed([]), []);
+  const clearRecentlyViewed = useCallback(() => {
+    clearPlaybackProgress();
+    setRecentlyViewed([]);
+  }, []);
 
   const value = useMemo(
     () => ({

@@ -41,6 +41,8 @@ Analytics is outside the required application module graph. When its configurati
 
 Each title/season/episode has its own player instance. Each stream selection destroys the previous video's HLS instance, listeners, timers, and text cues. Abort signals prevent late provider responses from replacing the current episode.
 
+`src/lib/playback-progress.js` owns the bounded, provider-independent timestamp history. `TitlePlayers` snapshots the resume position only after a playback selection, validates iframe events, and supplies supported iframe start parameters. `AddonPlayer` restores native position and records only after playing, flushing before teardown. The buffering logo uses actual playable-buffer coverage and a separate slow pulse; unknown progress never animates a fake fill. See [[Title Playback#Buffering Artwork]] and [[Title Playback#Playback Positions]].
+
 ## Maintenance
 
 Update [[Configuration]] when adding settings, [[Yastream]] or [[Torrentio]] when changing request or playback behavior, and [[Troubleshooting]] for new failure states. Keep credential values in their source of truth rather than copying them into notes.

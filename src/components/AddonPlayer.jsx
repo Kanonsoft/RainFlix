@@ -1,23 +1,35 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Captions,
-  Check,
-  ExternalLink,
-  LoaderCircle,
-  Play,
-  RefreshCw,
-} from "lucide-react";
+import { Captions, Check, ExternalLink, Play, RefreshCw } from "lucide-react";
 import { parse } from "@plussub/srt-vtt-parser";
 import { addonFetch } from "../lib/addon-streams.js";
 import { startBrowserTorrent } from "../lib/browser-torrent.js";
+import PlaybackLoader from "./PlaybackLoader.jsx";
+
+function bufferedReadiness(video) {
+  if (!video.readyState || !Number.isFinite(video.duration)) return null;
+  const position = video.currentTime;
+  // This measures the next playable buffer, not the whole file's download progress.
+  const target = Math.min(8, Math.max(0.1, video.duration - position));
+  for (let index = 0; index < video.buffered.length; index++) {
+    if (
+      video.buffered.start(index) <= position &&
+      video.buffered.end(index) >= position
+    )
+      return Math.min(1, (video.buffered.end(index) - position) / target);
+  }
+  return 0;
+}
 
 function StreamVideo({
   stream,
   title,
   poster,
+  logo,
   subtitles,
   subtitleLookupError,
   onStarted,
+  onProgress,
+  resumePosition = 0,
   onRetry,
   provider,
   settings,
@@ -26,7 +38,9 @@ function StreamVideo({
 }) {
   const videoRef = useRef(null);
   const captionRef = useRef(null);
+  const callbacks = useRef({ onStarted, onProgress });
   const [loading, setLoading] = useState(!stream.blockedReason);
+  const [bufferProgress, setBufferProgress] = useState(null);
   const [loadingMessage, setLoadingMessage] = useState("Loading stream");
   const [error, setError] = useState(stream.blockedReason);
   const [subtitleUrl, setSubtitleUrl] = useState("");
@@ -39,6 +53,10 @@ function StreamVideo({
     : "relative aspect-video w-full overflow-hidden bg-black";
 
   useEffect(() => {
+    callbacks.current = { onStarted, onProgress };
+  }, [onStarted, onProgress]);
+
+  useEffect(() => {
     const video = videoRef.current;
     if (!video || stream.blockedReason || !started) return undefined;
     let cancelled = false;
@@ -49,6 +67,63 @@ function StreamVideo({
     let failed = false;
     let mediaReady = false;
     let recoveredMedia = false;
+    let played = false;
+    let completed = false;
+    let resumePending = Number.isFinite(resumePosition) && resumePosition > 0;
+    let lastSample;
+    const restorePosition = () => {
+      if (
+        !resumePending ||
+        !Number.isFinite(video.duration) ||
+        video.duration <= 0
+      )
+        return;
+      try {
+        video.currentTime =
+          resumePosition < video.duration ? resumePosition : 0;
+        resumePending = false;
+      } catch {
+        // Some engines expose duration before seeking is ready; retry on canplay.
+      }
+    };
+    const savePosition = (flush = false) => {
+      if (!played) return;
+      if (
+        !resumePending &&
+        !video.seeking &&
+        video.readyState > 0 &&
+        Number.isFinite(video.duration) &&
+        video.duration > 0
+      ) {
+        lastSample = {
+          position: video.currentTime,
+          duration: video.duration,
+          completed: completed || video.ended,
+        };
+      }
+      if (lastSample) callbacks.current.onProgress?.(lastSample, flush);
+    };
+    const timeUpdate = () => savePosition();
+    const flushPosition = () => savePosition(true);
+    const visibilityChange = () => {
+      if (document.visibilityState === "hidden") flushPosition();
+    };
+    const playing = () => {
+      if (cancelled || failed) return;
+      restorePosition();
+      played = true;
+      completed = false;
+      callbacks.current.onStarted?.();
+      savePosition();
+    };
+    const ended = () => {
+      if (cancelled || failed) return;
+      completed = true;
+      flushPosition();
+    };
+    const updateProgress = () => {
+      if (!cancelled && !failed) setBufferProgress(bufferedReadiness(video));
+    };
     const fail = (reason) => {
       if (cancelled || failed) return;
       failed = true;
@@ -77,19 +152,33 @@ function StreamVideo({
       if (cancelled || failed) return;
       mediaReady = true;
       window.clearTimeout(timer);
+      updateProgress();
       setLoading(false);
     };
     const waiting = () => {
       if (cancelled || failed) return;
       window.clearTimeout(timer);
       setLoading(true);
+      updateProgress();
       setLoadingMessage("Buffering stream");
       timer = window.setTimeout(
         fail,
         Number(stream.playbackTimeoutMs || settings.playbackTimeoutMs) || 25000,
       );
     };
-    video.addEventListener("loadeddata", ready);
+    video.addEventListener("loadedmetadata", restorePosition);
+    video.addEventListener("durationchange", restorePosition);
+    video.addEventListener("canplay", restorePosition);
+    video.addEventListener("playing", playing);
+    video.addEventListener("timeupdate", timeUpdate);
+    video.addEventListener("pause", flushPosition);
+    video.addEventListener("seeked", flushPosition);
+    video.addEventListener("ended", ended);
+    window.addEventListener("pagehide", flushPosition);
+    document.addEventListener("visibilitychange", visibilityChange);
+    video.addEventListener("progress", updateProgress);
+    video.addEventListener("loadedmetadata", updateProgress);
+    video.addEventListener("durationchange", updateProgress);
     video.addEventListener("playing", ready);
     video.addEventListener("canplay", ready);
     video.addEventListener("waiting", waiting);
@@ -143,10 +232,23 @@ function StreamVideo({
     attach().catch(fail);
 
     return () => {
+      flushPosition();
       cancelled = true;
       torrentController.abort();
       window.clearTimeout(timer);
-      video.removeEventListener("loadeddata", ready);
+      video.removeEventListener("loadedmetadata", restorePosition);
+      video.removeEventListener("durationchange", restorePosition);
+      video.removeEventListener("canplay", restorePosition);
+      video.removeEventListener("playing", playing);
+      video.removeEventListener("timeupdate", timeUpdate);
+      video.removeEventListener("pause", flushPosition);
+      video.removeEventListener("seeked", flushPosition);
+      video.removeEventListener("ended", ended);
+      window.removeEventListener("pagehide", flushPosition);
+      document.removeEventListener("visibilitychange", visibilityChange);
+      video.removeEventListener("progress", updateProgress);
+      video.removeEventListener("loadedmetadata", updateProgress);
+      video.removeEventListener("durationchange", updateProgress);
       video.removeEventListener("playing", ready);
       video.removeEventListener("canplay", ready);
       video.removeEventListener("waiting", waiting);
@@ -157,7 +259,7 @@ function StreamVideo({
       video.removeAttribute("src");
       video.load();
     };
-  }, [stream, started, settings.playbackTimeoutMs]);
+  }, [stream, started, settings.playbackTimeoutMs, resumePosition]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -256,7 +358,6 @@ function StreamVideo({
           poster={poster}
           tabIndex={0}
           aria-label={`${title} ${provider.label} player`}
-          onPlaying={onStarted}
           onKeyDown={(event) => {
             // Keep native playback shortcuts within the video, away from page navigation.
             if (
@@ -268,20 +369,13 @@ function StreamVideo({
             }
           }}
         />
-        {loading && !error ? (
-          <div
-            className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/55 p-4 text-center"
-            role="status"
-          >
-            <LoaderCircle
-              className="h-7 w-7 animate-spin text-sky-300"
-              aria-hidden="true"
-            />
-            <span className="max-w-md text-sm font-bold text-slate-100">
-              {loadingMessage}
-            </span>
-          </div>
-        ) : null}
+        <PlaybackLoader
+          active={loading && !error}
+          title={title}
+          logo={logo}
+          progress={bufferProgress}
+          message={loadingMessage}
+        />
         {error ? (
           <PlayerMessage
             message={error}
@@ -355,18 +449,12 @@ function StreamVideo({
   );
 }
 
-function PlayerMessage({ message, onRetry, loading = false, externalUrl }) {
+function PlayerMessage({ message, onRetry, externalUrl }) {
   return (
     <div
       className="absolute inset-0 flex flex-col items-center justify-center gap-3 overflow-y-auto bg-slate-950/95 p-4 text-center"
       role="status"
     >
-      {loading ? (
-        <LoaderCircle
-          className="h-7 w-7 shrink-0 animate-spin text-sky-300"
-          aria-hidden="true"
-        />
-      ) : null}
       <p className="max-w-md text-sm text-slate-300">{message}</p>
       {externalUrl ? (
         <a
@@ -400,6 +488,8 @@ export default function AddonPlayer({
   season,
   episode,
   onStarted,
+  onProgress,
+  resumePosition,
   onRetry,
 }) {
   const [subtitles, setSubtitles] = useState([]);
@@ -436,9 +526,12 @@ export default function AddonPlayer({
         stream={stream}
         title={details.title}
         poster={details.backdrop || details.poster}
+        logo={details.logo}
         subtitles={allSubtitles}
         subtitleLookupError={subtitleError}
         onStarted={onStarted}
+        onProgress={onProgress}
+        resumePosition={resumePosition}
         onRetry={onRetry}
         provider={provider}
         settings={settings}

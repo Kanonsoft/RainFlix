@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "format:check": "prettier --check .",
     "test:e2e": "playwright test",
+    "test:pages": "playwright test --config playwright.pages.config.mjs",
     "check": "npm run lint && npm run format:check && npm run build"
   },
   "devDependencies": {
