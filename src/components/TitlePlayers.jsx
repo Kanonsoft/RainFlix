@@ -1,6 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { createPortal, flushSync } from "react-dom";
-import { LoaderCircle, Maximize, Play, X } from "lucide-react";
+import { ArrowLeft, LoaderCircle, Maximize, Play, X } from "lucide-react";
 import { useLocation, useNavigate } from "react-router";
 import { api, config, trackEvent } from "../lib/api.js";
 import { supports, useAddons } from "../lib/addons.js";
@@ -203,12 +210,18 @@ function Playback({ source, details, onStarted, onClose, children }) {
 }
 
 export default function TitlePlayers({
+  ref,
   details,
   season,
   episode,
   canPlay,
   onStarted,
   trailerKey,
+  episodePicker,
+  episodeLabel,
+  episodeTitle,
+  episodeChosen = true,
+  onBackToEpisodes,
 }) {
   const installed = useAddons();
   const location = useLocation();
@@ -216,7 +229,11 @@ export default function TitlePlayers({
   const [selection, setSelection] = useState(null);
   const [providerChoice, setProviderChoice] = useState("");
   const [providerRevision, setProviderRevision] = useState(0);
+  const [sourcesVisible, setSourcesVisible] = useState(false);
   const started = useRef(false);
+  const sourceBack = useRef(null);
+  const sourcePanel = useRef(null);
+  const providerButtons = useRef(new Map());
   const sources = useMemo(() => {
     const tmdb = details.tmdbDetails;
     return [
@@ -253,6 +270,10 @@ export default function TitlePlayers({
   const chosenProvider = sources.find(
     (source) => source.id === providerChoice && !source.url,
   );
+  const chosenProviderId = chosenProvider?.id;
+  const showSources = Boolean(chosenProvider && sourcesVisible);
+  const hasEpisodePicker = Boolean(episodePicker);
+  const revealSources = useCallback(() => setSourcesVisible(true), []);
   const trailer = useMemo(
     () =>
       trailerKey
@@ -294,6 +315,38 @@ export default function TitlePlayers({
     requestFullscreen(document.getElementById("fullscreenPlayback"));
     trackEvent("player-source", { source: source.addon ? "addon" : source.id });
   };
+  useImperativeHandle(ref, () => ({
+    playTrailer() {
+      if (!trailer) return;
+      setProviderChoice("");
+      setSourcesVisible(false);
+      start(trailer);
+    },
+  }));
+  useEffect(() => {
+    if (chosenProviderId && showSources) {
+      sourceBack.current?.focus({ preventScroll: true });
+      if (sourcePanel.current) sourcePanel.current.scrollTop = 0;
+    }
+  }, [chosenProviderId, showSources]);
+  useEffect(() => {
+    if (!hasEpisodePicker) return;
+    const target = episodeChosen
+      ? sourceBack.current
+      : sourcePanel.current?.querySelector(
+          '[data-video-id][aria-pressed="true"]',
+        );
+    target?.focus({ preventScroll: true });
+  }, [episodeChosen, hasEpisodePicker]);
+  const backToPlayers = () => {
+    const id = providerChoice;
+    flushSync(() => {
+      setProviderChoice("");
+      setSourcesVisible(false);
+    });
+    providerButtons.current.get(id)?.focus({ preventScroll: true });
+    if (sourcePanel.current) sourcePanel.current.scrollTop = 0;
+  };
   // Stop on pop immediately, even when React coalesces rapid router transitions.
   useEffect(() => {
     const stop = () => setSelection(null);
@@ -304,76 +357,146 @@ export default function TitlePlayers({
     if (selection && !active) setSelection(null);
   }, [selection, active]);
   return (
-    <section aria-labelledby="titlePlayersHeading">
-      {trailer && (
-        <button
-          type="button"
-          className="mb-6 inline-flex min-h-11 items-center gap-2 rounded-lg border border-white/20 px-4 text-sm font-bold hover:border-sky-400 focus-visible:ring-2 focus-visible:ring-sky-400"
-          onClick={() => {
-            setProviderChoice("");
-            start(trailer);
-          }}
-        >
-          <Play className="h-4 w-4" aria-hidden="true" />
-          Play trailer
-        </button>
-      )}
-      <h2 id="titlePlayersHeading" className="mb-3 text-lg font-bold">
-        Players
-      </h2>
-      {!canPlay ? (
-        <p role="status" className="text-sm text-slate-400">
-          No episodes are available for this title.
-        </p>
-      ) : !sources.length ? (
-        <p role="status" className="text-sm text-slate-400">
-          No enabled stream add-on supports this title.
-        </p>
-      ) : (
-        <div className="grid min-w-0 gap-1">
-          {sources.map((source) => (
-            <button
-              key={source.id}
-              type="button"
-              className="flex min-h-12 w-full min-w-0 items-center gap-3 rounded-lg px-3 text-left text-sm font-bold transition hover:bg-white/10 hover:text-sky-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
-              onClick={() => {
-                if (source.url) {
-                  setProviderChoice("");
-                  start(source);
-                } else {
-                  setProviderChoice(source.id);
-                  setProviderRevision((value) => value + 1);
-                }
-              }}
-              aria-label={`Play with ${source.label}`}
-              aria-expanded={
-                !source.url ? source.id === providerChoice : undefined
-              }
-            >
-              <Play
-                className="h-4 w-4 shrink-0 text-sky-300"
-                aria-hidden="true"
-              />
-              <span className="min-w-0 break-words">{source.label}</span>
-            </button>
-          ))}
+    <section
+      aria-labelledby="titlePlayersHeading"
+      className="flex max-h-[min(42rem,75svh)] min-h-0 flex-col"
+    >
+      <div className="mb-3 flex min-h-11 shrink-0 items-center gap-3">
+        {(showSources || (episodePicker && episodeChosen)) && (
+          <button
+            ref={sourceBack}
+            type="button"
+            aria-label={
+              showSources
+                ? "Back to players"
+                : `Back to ${episodeLabel.toLowerCase()}`
+            }
+            title={
+              showSources
+                ? "Back to players"
+                : `Back to ${episodeLabel.toLowerCase()}`
+            }
+            onClick={
+              showSources
+                ? backToPlayers
+                : () => {
+                    setProviderChoice("");
+                    setSourcesVisible(false);
+                    onBackToEpisodes();
+                  }
+            }
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-lg hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
+          >
+            <ArrowLeft className="h-5 w-5" aria-hidden="true" />
+          </button>
+        )}
+        <div className="min-w-0">
+          <h2
+            id="titlePlayersHeading"
+            className="min-w-0 break-words text-lg font-bold"
+          >
+            {!episodeChosen
+              ? episodeLabel
+              : showSources
+                ? chosenProvider.label
+                : "Players"}
+          </h2>
+          {hasEpisodePicker && episodeChosen && (
+            <p className="mt-1 break-words text-xs leading-5 text-slate-400">
+              {episodeLabel === "Episodes" ? `S${season} E${episode}: ` : ""}
+              {episodeTitle}
+            </p>
+          )}
         </div>
-      )}
-      {chosenProvider && (
-        <AddonSources
-          key={chosenProvider.id}
-          source={chosenProvider}
-          details={
-            !chosenProvider.addon && details.tmdbDetails
-              ? details.tmdbDetails
-              : details
-          }
-          season={season}
-          episode={episode}
-          revision={providerRevision}
-          onPlay={(playback) => start(chosenProvider, playback)}
-        />
-      )}
+      </div>
+      <div
+        ref={sourcePanel}
+        data-source-list
+        className="min-h-0 overflow-y-auto overscroll-y-contain pr-1 [scrollbar-gutter:stable]"
+      >
+        {!episodeChosen ? (
+          episodePicker
+        ) : showSources ? null : !canPlay ? (
+          <p role="status" className="text-sm text-slate-400">
+            No episodes are available for this title.
+          </p>
+        ) : !sources.length ? (
+          <p role="status" className="text-sm text-slate-400">
+            No enabled stream add-on supports this title.
+          </p>
+        ) : (
+          <div className="grid min-w-0 gap-1">
+            {sources.map((source) => (
+              <button
+                key={source.id}
+                ref={(node) => {
+                  if (node) providerButtons.current.set(source.id, node);
+                  else providerButtons.current.delete(source.id);
+                }}
+                type="button"
+                className="flex min-h-12 w-full min-w-0 items-center gap-3 rounded-lg px-3 text-left text-sm font-bold transition hover:bg-white/10 hover:text-sky-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
+                onClick={() => {
+                  if (source.url) {
+                    setProviderChoice("");
+                    start(source);
+                  } else {
+                    setProviderChoice(source.id);
+                    setSourcesVisible(false);
+                    setProviderRevision((value) => value + 1);
+                  }
+                }}
+                aria-label={`Play with ${source.label}`}
+              >
+                {source.id === providerChoice ? (
+                  <LoaderCircle
+                    className="h-4 w-4 shrink-0 animate-spin text-sky-300"
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <Play
+                    className="h-4 w-4 shrink-0 text-sky-300"
+                    aria-hidden="true"
+                  />
+                )}
+                <span className="min-w-0 break-words">{source.label}</span>
+                {source.id === providerChoice && (
+                  <span
+                    role="status"
+                    className="ml-auto text-xs font-normal text-slate-400"
+                  >
+                    Finding streams
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+        {chosenProvider && episodeChosen && (
+          <div hidden={!showSources}>
+            <AddonSources
+              key={chosenProvider.id}
+              source={chosenProvider}
+              details={
+                !chosenProvider.addon && details.tmdbDetails
+                  ? details.tmdbDetails
+                  : details
+              }
+              season={season}
+              episode={episode}
+              revision={providerRevision}
+              onReady={revealSources}
+              visible={showSources}
+              onPlay={(playback, single = false) => {
+                if (single) {
+                  setProviderChoice("");
+                  setSourcesVisible(false);
+                }
+                start(chosenProvider, playback);
+              }}
+            />
+          </div>
+        )}
+      </div>
       {active && (
         <Playback
           key={selection.token}
@@ -390,6 +513,7 @@ export default function TitlePlayers({
               onStarted={markStarted}
               onRetry={() => {
                 close();
+                setProviderChoice(active.id);
                 setProviderRevision((value) => value + 1);
               }}
             />

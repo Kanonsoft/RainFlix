@@ -32,6 +32,8 @@ export default function AddonSources({
   season,
   episode,
   onPlay,
+  onReady,
+  visible = true,
   revision = 0,
 }) {
   const provider = useMemo(
@@ -84,25 +86,30 @@ export default function AddonSources({
     if (loading || autoHandled.current) return;
     if (streams.length !== 1 || streams[0].blockedReason) {
       autoHandled.current = true;
+      onReady?.();
       return;
     }
     // Only a fresh provider lookup can auto-start its sole stream, never a settings change.
     const timer = window.setTimeout(() => {
       autoHandled.current = true;
-      onPlay({ stream: streams[0], provider, settings, details });
+      onPlay({ stream: streams[0], provider, settings, details }, true);
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [loading, streams, provider, settings, details, onPlay]);
+  }, [loading, streams, provider, settings, details, onPlay, onReady]);
+
+  if (
+    !visible ||
+    (!loading &&
+      streams.length === 1 &&
+      !streams[0].blockedReason &&
+      !autoHandled.current)
+  )
+    return null;
 
   return (
-    <section
-      aria-label={`${provider.label} streams`}
-      className="mt-4 min-w-0 border-t border-white/15 pt-4"
-    >
+    <section aria-label={`${provider.label} streams`} className="min-w-0">
       <div className="mb-2 flex items-center justify-between gap-3">
-        <h3 className="min-w-0 break-words text-sm font-bold">
-          {provider.label}
-        </h3>
+        <h3 className="min-w-0 break-words text-sm font-bold">Streams</h3>
         <button
           type="button"
           className="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-sky-300 hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-sky-400"

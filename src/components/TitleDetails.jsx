@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
-import { Bookmark, Check, Share2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Bookmark, Check, Play, Share2 } from "lucide-react";
 import { Link, useLocation } from "react-router";
 import { api, imageFallback, trackEvent } from "../lib/api.js";
 import { usePageMetadata } from "../lib/metadata.js";
 import { useLibrary } from "./library/LibraryProvider.jsx";
+import EpisodeList from "./EpisodeList.jsx";
 import RelatedCarousel from "./RelatedCarousel.jsx";
 import TitleArtwork from "./TitleArtwork.jsx";
 import TitlePlayers from "./TitlePlayers.jsx";
@@ -12,8 +13,6 @@ const actionClass =
   "inline-flex min-h-11 items-center gap-2 rounded-lg border border-white/20 px-4 text-sm font-bold transition hover:border-sky-400 hover:text-sky-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400";
 const linkClass =
   "text-sky-200 underline decoration-white/20 underline-offset-4 hover:decoration-sky-300 focus-visible:outline-sky-300";
-const controlClass =
-  "h-11 w-full min-w-0 max-w-full truncate rounded-lg border border-white/20 bg-slate-950 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400";
 
 function relatedPath(type, item) {
   return `/search?${new URLSearchParams({ q: item.name, [type]: item.id })}`;
@@ -24,6 +23,8 @@ function Content({ meta, requestedVideo, onVideoChange }) {
   const { isInMyList, toggleMyList, recordViewed } = useLibrary();
   const [shareStatus, setShareStatus] = useState("");
   const [similar, setSimilar] = useState([]);
+  const [episodeChosen, setEpisodeChosen] = useState(false);
+  const players = useRef(null);
   const tmdb = meta.tmdbDetails;
   const saved = tmdb && isInMyList(tmdb);
   const videos = meta.isLive ? [] : meta.videos || [];
@@ -38,8 +39,10 @@ function Content({ meta, requestedVideo, onVideoChange }) {
         videos.map((video) => video.season).filter((value) => value !== null),
       ),
     ].sort((a, b) => a - b);
+  const selectedSeason =
+    selectedVideo?.season ?? meta.selectedSeason ?? seasons[0];
   const episodeOptions = seasons.length
-    ? videos.filter((video) => video.season === selectedVideo?.season)
+    ? videos.filter((video) => video.season === selectedSeason)
     : videos;
   const videoId = meta.isLive
     ? meta.addonId
@@ -56,6 +59,7 @@ function Content({ meta, requestedVideo, onVideoChange }) {
   );
   const season = selectedVideo?.season ?? 1;
   const episode = selectedVideo?.episode ?? 1;
+  const hasEpisodes = seasons.length > 0 || videos.length > 0;
   const trailerKey = /^[A-Za-z0-9_-]+$/.test(meta.trailerKey || "")
     ? meta.trailerKey
     : "";
@@ -99,7 +103,7 @@ function Content({ meta, requestedVideo, onVideoChange }) {
 
   return (
     <>
-      <div className="grid min-w-0 items-start gap-10 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="grid min-w-0 items-start gap-10 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_440px]">
         <article className="min-w-0">
           <div className="grid min-w-0 gap-6 sm:grid-cols-[160px_minmax(0,1fr)]">
             <img
@@ -144,7 +148,11 @@ function Content({ meta, requestedVideo, onVideoChange }) {
               >
                 {meta.synopsis}
               </p>
-              <div className="mt-5 flex flex-wrap items-center gap-3">
+              <div
+                className="mt-5 flex flex-wrap items-center gap-3"
+                role="group"
+                aria-label="Title actions"
+              >
                 {tmdb && (
                   <button
                     className={actionClass}
@@ -164,6 +172,16 @@ function Content({ meta, requestedVideo, onVideoChange }) {
                   <Share2 className="h-4 w-4" aria-hidden="true" />
                   Share
                 </button>
+                {trailerKey && (
+                  <button
+                    className={actionClass}
+                    type="button"
+                    onClick={() => players.current?.playTrailer()}
+                  >
+                    <Play className="h-4 w-4" aria-hidden="true" />
+                    Play trailer
+                  </button>
+                )}
               </div>
               <p role="status" className="mt-2 text-xs text-sky-300">
                 {shareStatus}
@@ -256,61 +274,42 @@ function Content({ meta, requestedVideo, onVideoChange }) {
           )}
         </article>
         <aside
-          className="min-w-0 border-t border-white/15 pt-6 lg:border-l lg:border-t-0 lg:pl-7 lg:pt-0"
+          className="min-w-0 border-t border-white/15 pt-6 lg:sticky lg:top-24 lg:border-l lg:border-t-0 lg:pl-7 lg:pt-0"
           aria-label="Playback options"
         >
-          {(seasons.length > 0 || videos.length > 0) && (
-            <div className="mb-6 grid min-w-0 gap-4">
-              {seasons.length > 0 && (
-                <label className="grid min-w-0 gap-2 text-sm">
-                  Season
-                  <select
-                    className={controlClass}
-                    value={selectedVideo?.season ?? seasons[0]}
-                    onChange={(event) =>
-                      onVideoChange(
-                        meta.tmdbSeasons
-                          ? `${meta.imdbId || meta.id}:${event.target.value}:1`
-                          : videos.find(
-                              (video) =>
-                                video.season === Number(event.target.value),
-                            ).id,
-                      )
-                    }
-                  >
-                    {seasons.map((value) => (
-                      <option value={value} key={value}>
-                        Season {value}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
-              {videos.length > 0 && (
-                <label className="grid min-w-0 gap-2 text-sm">
-                  {meta.addonType === "series" ? "Episode" : "Video"}
-                  <select
-                    className={controlClass}
-                    value={selectedVideo?.id || ""}
-                    onChange={(event) => onVideoChange(event.target.value)}
-                  >
-                    {episodeOptions.map((video) => (
-                      <option key={video.id} value={video.id}>
-                        {video.episode !== null ? `${video.episode}. ` : ""}
-                        {video.title}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
-            </div>
-          )}
           <TitlePlayers
+            ref={players}
             key={`${meta.id}:${videoId}`}
             details={details}
             season={season}
             episode={episode}
             trailerKey={trailerKey}
+            episodeChosen={!hasEpisodes || episodeChosen}
+            onBackToEpisodes={() => setEpisodeChosen(false)}
+            episodeLabel={meta.addonType === "series" ? "Episodes" : "Videos"}
+            episodeTitle={selectedVideo?.title}
+            episodePicker={
+              hasEpisodes && (
+                <EpisodeList
+                  key={selectedSeason ?? "videos"}
+                  videos={episodeOptions}
+                  seasons={seasons}
+                  season={selectedSeason}
+                  selectedVideo={selectedVideo}
+                  isSeries={meta.addonType === "series"}
+                  onVideoChange={(id) => {
+                    setEpisodeChosen(true);
+                    if (id !== selectedVideo?.id) onVideoChange(id);
+                  }}
+                  onSeasonChange={(value) => {
+                    const id = meta.tmdbSeasons
+                      ? `${meta.imdbId || meta.id}:${value}:1`
+                      : videos.find((video) => video.season === value)?.id;
+                    if (id) onVideoChange(id);
+                  }}
+                />
+              )
+            }
             canPlay={meta.addonType !== "series" || Boolean(selectedVideo)}
             onStarted={() => {
               if (tmdb) recordViewed(tmdb, season, episode);

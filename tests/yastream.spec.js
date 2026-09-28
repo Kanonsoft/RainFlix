@@ -61,7 +61,7 @@ test("loads Yastream on selection, plays MP4, and displays SRT captions", async 
     ).toString("utf8"),
   );
   expect(options.stream).toEqual(["kisskh", "onetouchtv"]);
-  await expect(page.locator("button[data-stream-id]")).toHaveCount(1);
+  await expect(page.locator("button[data-stream-id]")).toHaveCount(0);
   await selectCaptions(page, "English");
   await expect
     .poll(() =>

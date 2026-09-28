@@ -92,6 +92,18 @@ export async function closePlayer(page) {
 
 export async function selectPlayer(page, id) {
   await closePlayer(page);
+  const episode = page.locator('[data-video-id][aria-pressed="true"]');
+  if (await episode.count()) {
+    await episode.click();
+    await expect(
+      page.getByRole("heading", { name: "Players", exact: true }),
+    ).toBeVisible();
+  }
+  const back = page.getByRole("button", {
+    name: "Back to players",
+    exact: true,
+  });
+  if (await back.count()) await back.click();
   const labels = {
     vidsrc: "VidSrc",
     yastream: "Yastream",
@@ -120,11 +132,25 @@ export async function selectCaptions(page, label) {
 
 export async function selectEpisode(page, episode, provider) {
   await closePlayer(page);
+  const sourceBack = page.getByRole("button", {
+    name: "Back to players",
+    exact: true,
+  });
+  if (await sourceBack.count()) await sourceBack.click();
+  const episodeBack = page.getByRole("button", {
+    name: "Back to episodes",
+    exact: true,
+  });
+  if (await episodeBack.count()) await episodeBack.click();
   await page
-    .getByRole("combobox", { name: "Episode", exact: true })
-    .selectOption({
-      label: `${episode}. ${episode === 1 ? "First" : "Second"}`,
-    });
+    .getByRole("button", {
+      name: `${episode}. ${episode === 1 ? "First" : "Second"}`,
+      exact: true,
+    })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Players", exact: true }),
+  ).toBeVisible();
   if (provider) await selectPlayer(page, provider);
 }
 

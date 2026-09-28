@@ -88,6 +88,8 @@ for (const type of ["movie", "series"]) {
     expect(lookups[0].pathname).toBe("/3/find/tt9335498");
     expect(lookups[0].searchParams.get("external_source")).toBe("imdb_id");
     expect(streams).toHaveLength(0);
+    if (type === "series")
+      await page.getByRole("button", { name: "1. First", exact: true }).click();
     await page
       .getByRole("button", { name: "Play with Streams", exact: true })
       .click();
@@ -97,12 +99,20 @@ for (const type of ["movie", "series"]) {
         `https://streams.example/stream/${type}/tt9335498${type === "series" ? "%3A1%3A1" : ""}.json`,
       );
     if (type === "series") {
+      await page.getByRole("button", { name: "Back to players" }).click();
+      await page.getByRole("button", { name: "Back to episodes" }).click();
       await page
         .getByRole("combobox", { name: "Season", exact: true })
         .selectOption("2");
       await expect(
-        page.getByRole("combobox", { name: "Episode", exact: true }),
-      ).toContainText("Second season premiere");
+        page.getByRole("button", {
+          name: "1. Second season premiere",
+          exact: true,
+        }),
+      ).toBeVisible();
+      await page
+        .getByRole("button", { name: "1. Second season premiere", exact: true })
+        .click();
       await page
         .getByRole("button", { name: "Play with Streams", exact: true })
         .click();

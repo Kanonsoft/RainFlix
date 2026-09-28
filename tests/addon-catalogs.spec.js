@@ -169,6 +169,7 @@ test("catalog filters, custom metadata and episode identities work on mobile", a
   await expect(page.getByLabel("Metadata provider")).toHaveCount(0);
   expect(streamRequests).toHaveLength(0);
   expect(mediaRequests).toBe(0);
+  await page.locator('[data-video-id][aria-pressed="true"]').click();
   await page.getByRole("button", { name: "Play with Custom Streams" }).click();
   await expect
     .poll(() => streamRequests)
@@ -177,15 +178,18 @@ test("catalog filters, custom metadata and episode identities work on mobile", a
     ]);
   await expect.poll(() => mediaRequests).toBeGreaterThan(0);
   await page.getByRole("button", { name: "Close player" }).click();
+  await page.getByRole("button", { name: "Back to episodes" }).click();
   await page
     .getByRole("combobox", { name: "Season", exact: true })
     .selectOption("2");
+  await page.locator('[data-video-id][aria-pressed="true"]').click();
   await page.getByRole("button", { name: "Play with Custom Streams" }).click();
   await expect
     .poll(() => streamRequests.at(-1))
     .toBe("https://streams.example/stream/series/video%3Acustom%2Ftwo.json");
   await expect(page.locator("#playerShell video")).toBeVisible();
   await page.getByRole("button", { name: "Close player" }).click();
+  await page.getByRole("button", { name: "Back to episodes" }).click();
   await expect
     .poll(() =>
       page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
@@ -327,6 +331,7 @@ test("custom metadata can supply inline streams without persisting them", async 
     page.getByRole("heading", { name: "Add-on Movie Details", level: 1 }),
   ).toBeVisible();
   expect(mediaRequests).toBe(0);
+  await page.getByRole("button", { name: "Full movie", exact: true }).click();
   await page.getByRole("button", { name: "Play with Test Metadata" }).click();
   await expect.poll(() => mediaRequests).toBeGreaterThan(0);
   await page.goBack();

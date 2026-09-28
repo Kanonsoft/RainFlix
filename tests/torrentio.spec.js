@@ -164,9 +164,7 @@ test("plays a WebRTC-compatible torrent in the browser after explicit action", a
   await openPlayer(page);
   expect(await history(page)).toHaveLength(0);
   await selectPlayer(page, "torrentio");
-  await expect(
-    page.locator('select option[value="browser"]:checked'),
-  ).toHaveCount(1);
+  await expect(page.locator("[data-stream-id]")).toHaveCount(0);
   const browserVideo = page.getByLabel("Playback Test Torrentio player", {
     exact: true,
   });
@@ -190,11 +188,19 @@ test("plays a WebRTC-compatible torrent in the browser after explicit action", a
   });
 
   await closePlayer(page);
-  await torrentPlayback(page).selectOption("external");
+  await expect(
+    page.getByRole("heading", { name: "Players", exact: true }),
+  ).toBeVisible();
   await expect(page.locator("#playerShell video")).toHaveCount(0);
   await expect
     .poll(() => page.evaluate(() => window.__browserTorrent.destroyed))
     .toBe(true);
+  await page.evaluate(async () =>
+    (await import("/src/lib/browser-torrent.js")).saveTorrentPlaybackMode(
+      "external",
+    ),
+  );
+  await selectPlayer(page, "torrentio");
   await expect(page.getByRole("link", { name: "Open torrent" })).toBeVisible();
 });
 
@@ -306,8 +312,12 @@ test("uses IMDb episode IDs and ignores old responses after navigation or provid
     }),
   );
   await openPlayer(page, "tv");
+  await page.evaluate(async () =>
+    (await import("/src/lib/browser-torrent.js")).saveTorrentPlaybackMode(
+      "external",
+    ),
+  );
   await selectPlayer(page, "torrentio");
-  await torrentPlayback(page).selectOption("external");
   await expect(page.getByText("Finding streams")).toBeVisible();
   await expect.poll(() => requests.length).toBe(1);
   await selectEpisode(page, 2, "torrentio");
@@ -323,9 +333,7 @@ test("uses IMDb episode IDs and ignores old responses after navigation or provid
   await expect(
     page.getByLabel("Playback Test Yastream player", { exact: true }),
   ).toBeVisible();
-  await expect(page.locator("button[data-stream-id]")).toHaveText([
-    "Yastream source",
-  ]);
+  await expect(page.locator("button[data-stream-id]")).toHaveCount(0);
   await expect.poll(() => history(page)).toHaveLength(1);
 });
 
