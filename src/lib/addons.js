@@ -7,6 +7,7 @@ import {
   normalizeSubtitles,
 } from "./addon-streams.js";
 import { torrentSource } from "./torrentio.js";
+import { addonRegistrations } from "./addon-storage.js";
 
 const storageKey = "rainflix:addons:session:v1";
 function validManifest(manifest) {
@@ -41,6 +42,88 @@ try {
   /* Session storage is optional. */
 }
 const listeners = new Set();
+let restoring = true;
+let storageRevision = 0;
+let registrationSnapshot = [];
+let registrationsRead = false;
+const removedRegistrations = new Set();
+export function useAddonRestoring() {
+  return useSyncExternalStore(subscribe, () => restoring);
+}
+function registrations() {
+  const values = new Map(registrationSnapshot.map((item) => [item.id, item]));
+  for (const { id, manifestUrl, enabled, manifest } of installed)
+    values.set(id, {
+      id,
+      manifestUrl,
+      enabled,
+      name: manifest.name,
+    });
+  return [...values.values()].filter(
+    (item) => !removedRegistrations.has(item.id),
+  );
+}
+addonRegistrations()
+  .then(async (saved) => {
+    registrationSnapshot = saved;
+    registrationsRead = true;
+    if (storageRevision > 0)
+      addonRegistrations(registrations()).catch(() => {});
+    if (!saved.length) {
+      if (installed.length) await addonRegistrations(registrations());
+      return;
+    }
+    const restored = await Promise.all(
+      saved.map(async (item) => {
+        try {
+          const manifestUrl = manifestAddress(item.manifestUrl);
+          const manifest = await addonFetch(manifestUrl, undefined, {
+            label: "Add-on",
+          });
+          if (!validManifest(manifest)) return null;
+          return {
+            id: item.id,
+            manifestUrl,
+            enabled: item.enabled !== false,
+            manifest,
+          };
+        } catch {
+          if (!item?.id || !httpUrl(item.manifestUrl)) return null;
+          return {
+            ...item,
+            unavailable: true,
+            manifest: {
+              id: item.id,
+              name: item.name || "Unavailable add-on",
+              types: [],
+              resources: [],
+            },
+          };
+        }
+      }),
+    );
+    const current = new Map(installed.map((item) => [item.id, item]));
+    for (const item of restored) {
+      if (!item || removedRegistrations.has(item.id)) continue;
+      const existing = current.get(item.id);
+      current.set(
+        item.id,
+        existing
+          ? {
+              ...item,
+              enabled: storageRevision > 0 ? existing.enabled : item.enabled,
+              manifest: item.unavailable ? existing.manifest : item.manifest,
+            }
+          : item,
+      );
+    }
+    installed = [...current.values()];
+  })
+  .catch(() => {})
+  .finally(() => {
+    restoring = false;
+    listeners.forEach((listener) => listener());
+  });
 function subscribe(listener) {
   listeners.add(listener);
   return () => listeners.delete(listener);
@@ -50,6 +133,8 @@ export function useAddons() {
 }
 function update(next) {
   installed = next;
+  storageRevision += 1;
+  if (registrationsRead) addonRegistrations(registrations()).catch(() => {});
   try {
     sessionStorage.setItem(storageKey, JSON.stringify(next));
   } catch {
@@ -58,6 +143,7 @@ function update(next) {
   listeners.forEach((listener) => listener());
 }
 export function removeAddon(id) {
+  removedRegistrations.add(id);
   update(installed.filter((item) => item.id !== id));
 }
 export function toggleAddon(id) {
@@ -161,6 +247,7 @@ export function addonProvider(addon) {
   const label = addon.manifest.name;
   return {
     label,
+    addonId: addon.id,
     async getStreams(details, season, episode, signal) {
       let data;
       if (
@@ -195,12 +282,44 @@ export function addonProvider(addon) {
         return [{ ...stream, requiresStart: true }];
       });
     },
-    async getSubtitles(details, season, episode, signal) {
-      const url = resourceUrl(addon, "subtitles", details, season, episode);
-      if (!url) return [];
+    async getSubtitles(details, season, episode, signal, extras = {}) {
+      const { type, id } = addonVideoIdentity(details, season, episode);
+      if (!id || !supports(addon, "subtitles", type, id)) return [];
+      const url = addonResourceUrl(addon, "subtitles", type, id, extras);
       return normalizeSubtitles(
         (await addonFetch(url, signal, { label })).subtitles,
-      );
+      ).map((item) => ({ ...item, label: `${label} / ${item.label}` }));
     },
+  };
+}
+
+export async function installedSubtitles(
+  addons,
+  details,
+  season,
+  episode,
+  stream,
+  signal,
+) {
+  const { type, id } = addonVideoIdentity(details, season, episode);
+  const matching = addons.filter((addon) =>
+    supports(addon, "subtitles", type, id),
+  );
+  const results = await Promise.allSettled(
+    matching.map((addon) =>
+      addonProvider(addon).getSubtitles(
+        details,
+        season,
+        episode,
+        signal,
+        stream.subtitleHints || {},
+      ),
+    ),
+  );
+  return {
+    subtitles: results.flatMap((result) =>
+      result.status === "fulfilled" ? result.value : [],
+    ),
+    failed: results.some((result) => result.status === "rejected"),
   };
 }

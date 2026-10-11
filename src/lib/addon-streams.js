@@ -66,6 +66,33 @@ export function httpUrl(value) {
   }
 }
 
+export function groupSubtitlesByLanguage(subtitles) {
+  const groups = new Map();
+  for (const subtitle of subtitles) {
+    const raw = String(subtitle.lang || subtitle.language || "und").replaceAll(
+      "_",
+      "-",
+    );
+    let name = raw;
+    try {
+      const canonical = Intl.getCanonicalLocales(raw)[0];
+      const code = canonical.split("-")[0];
+      const tag = code === "zh" || code === "pt" ? canonical : code;
+      name =
+        tag === "und"
+          ? "Unspecified language"
+          : new Intl.DisplayNames(["en"], { type: "language" }).of(tag);
+    } catch {
+      // Unknown provider labels remain visible rather than being discarded.
+    }
+    if (!groups.has(name)) groups.set(name, []);
+    groups.get(name).push(subtitle);
+  }
+  return [...groups]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([name, tracks]) => ({ name, tracks }));
+}
+
 export function normalizeSubtitles(subtitles = []) {
   const seen = new Set();
   return (Array.isArray(subtitles) ? subtitles : []).flatMap((subtitle) => {
@@ -83,6 +110,13 @@ export function normalizeSubtitles(subtitles = []) {
       {
         url,
         language,
+        lang: (() => {
+          try {
+            return Intl.getCanonicalLocales(language.replaceAll("_", "-"))[0];
+          } catch {
+            return language;
+          }
+        })(),
         label: [name, subtitle.label].filter(Boolean).join(" - "),
       },
     ];
@@ -98,6 +132,21 @@ export function streamLabel(stream, index) {
     .join(" - ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+export function subtitleHints(stream) {
+  const hints = stream?.behaviorHints || {};
+  const result = {};
+  if (typeof hints.filename === "string")
+    result.filename = hints.filename.slice(0, 500);
+  if (
+    typeof hints.videoHash === "string" &&
+    /^[a-f\d]{16}$/i.test(hints.videoHash)
+  )
+    result.videoHash = hints.videoHash;
+  if (Number.isSafeInteger(hints.videoSize) && hints.videoSize > 0)
+    result.videoSize = hints.videoSize;
+  return result;
 }
 
 export function normalizeHttpStream(stream, index, providerLabel) {
@@ -116,6 +165,11 @@ export function normalizeHttpStream(stream, index, providerLabel) {
         ? "This stream uses HTTP and cannot play on an HTTPS page. Choose another stream."
         : "",
     subtitles: normalizeSubtitles(stream.subtitles),
+    subtitleHints: subtitleHints(stream),
+    bingeGroup:
+      typeof stream.behaviorHints?.bingeGroup === "string"
+        ? stream.behaviorHints.bingeGroup.slice(0, 500)
+        : "",
   };
 }
 

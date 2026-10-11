@@ -5,7 +5,13 @@ import reactRefresh from "eslint-plugin-react-refresh";
 
 export default [
   {
-    ignores: ["dist/**", "node_modules/**", "assets/**"],
+    ignores: [
+      "dist/**",
+      "dist-desktop/**",
+      "node_modules/**",
+      "assets/**",
+      "src-tauri/target/**",
+    ],
   },
   {
     files: ["src/**/*.{js,jsx}"],

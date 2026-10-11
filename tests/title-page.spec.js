@@ -82,8 +82,11 @@ test("title artwork falls back to text and trailers open without a player header
   ).toBeGreaterThan(0);
   await expect(page.locator("#titleTrailer")).toHaveCount(0);
   expect(trailers).toBe(0);
-  await selectPlayer(page, "yastream");
-  await expect(page.getByText("Finding streams")).toBeVisible();
+  await expect(
+    page
+      .getByRole("status", { name: "" })
+      .filter({ hasText: "Finding available streams" }),
+  ).toBeVisible();
   await page
     .getByRole("group", { name: "Title actions" })
     .getByRole("button", { name: "Play trailer" })
@@ -191,15 +194,12 @@ test("a sole stream skips source navigation and returns to Players after closing
     });
   });
   await openPlayer(page);
-  await selectPlayer(page, "yastream");
   await expect(
-    page.getByRole("heading", { name: "Players", exact: true }),
+    page.getByRole("heading", { name: "Streams", exact: true }),
   ).toBeVisible();
+  await expect(page.locator('[aria-busy="true"]')).toBeVisible();
   await expect(
-    page.getByText("Finding streams").filter({ visible: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Back to players", includeHidden: true }),
+    page.getByRole("button", { name: "Back to streams", includeHidden: true }),
   ).toHaveCount(0);
   await expect(page.locator("[data-stream-id]")).toHaveCount(0);
   await page.evaluate(() => {
@@ -207,7 +207,7 @@ test("a sole stream skips source navigation and returns to Players after closing
     new MutationObserver(() => {
       if (
         document.querySelector(
-          "[data-stream-id], button[aria-label='Back to players']",
+          "[data-stream-id], button[aria-label='Back to streams']",
         )
       )
         window.__sourceListSeen = true;
@@ -217,10 +217,11 @@ test("a sole stream skips source navigation and returns to Players after closing
     });
   });
   release();
+  await selectPlayer(page, "yastream");
   await expect(page.locator("#playerShell video")).toBeVisible();
   await page.getByRole("button", { name: "Close player" }).click();
   await expect(
-    page.getByRole("heading", { name: "Players", exact: true }),
+    page.getByRole("heading", { name: "Streams", exact: true }),
   ).toBeVisible();
   expect(await page.evaluate(() => window.__sourceListSeen)).toBe(false);
   await expect(
@@ -275,13 +276,11 @@ test("sources replace players, scroll independently, and Back cancels pending lo
   await expect(
     panel.getByRole("heading", { name: "Yastream", exact: true }),
   ).toBeVisible();
-  const back = panel.getByRole("button", { name: "Back to players" });
+  const back = panel.getByRole("button", { name: "Back to streams" });
   await expect(back).toBeFocused();
   await page.getByRole("button", { name: "Refresh streams" }).click();
   await expect.poll(() => lookups).toBe(2);
-  await expect(
-    page.getByText("Finding streams").filter({ visible: true }),
-  ).toBeVisible();
+  await expect(panel.locator('[aria-busy="true"]')).toBeVisible();
   await back.click();
   await expect(
     panel.getByRole("button", { name: "Play with Yastream" }),
@@ -306,7 +305,7 @@ test("sources replace players, scroll independently, and Back cancels pending lo
   });
   await back.click();
   await expect(
-    panel.getByRole("heading", { name: "Players", exact: true }),
+    panel.getByRole("heading", { name: "Streams", exact: true }),
   ).toBeVisible();
   await expect(panel.locator("button[data-stream-id]")).toHaveCount(0);
 });
@@ -403,7 +402,7 @@ for (const width of [390, 1440]) {
       .click();
     await expect(page).toHaveURL(/season=1&episode=40/);
     await expect(
-      page.getByRole("heading", { name: "Players", exact: true }),
+      page.getByRole("heading", { name: "Streams", exact: true }),
     ).toBeVisible();
     await expect(page.locator("[data-episode-list]")).toHaveCount(0);
     await page.getByRole("button", { name: "Back to episodes" }).click();
@@ -462,12 +461,21 @@ test("legacy watch routes open details, with fullscreen and Back returning to th
     .getByRole("complementary", { name: "Playback options" })
     .boundingBox();
   expect(players.x).toBeGreaterThan(poster.x + poster.width);
-  await selectPlayer(page, "vidsrc");
+  await expect(
+    page.getByRole("button", {
+      name: /Play with (VidSrc|2embed|MultiEmbed|VidLink|VidFast|VidCore)/,
+    }),
+  ).toHaveCount(0);
+  await selectPlayer(page, "trailer");
   await expect(page).toHaveURL(/play=1/);
   await expect(page.locator("#app-shell")).toHaveAttribute("inert", "");
   await expect
-    .poll(() => page.evaluate(() => document.fullscreenElement?.id))
-    .toBe("fullscreenPlayback");
+    .poll(() =>
+      page.evaluate(
+        () => document.fullscreenElement === document.documentElement,
+      ),
+    )
+    .toBe(true);
   expect(await history(page)).toHaveLength(0);
   await page.goBack();
   await expect(page).toHaveURL(/#\/title\/movie\/505$/);

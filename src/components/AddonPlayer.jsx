@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Captions, Check, ExternalLink, Play, RefreshCw } from "lucide-react";
+import { Captions, Check, Play, RefreshCw } from "lucide-react";
 import { parse } from "@plussub/srt-vtt-parser";
-import { addonFetch } from "../lib/addon-streams.js";
+import { addonFetch, groupSubtitlesByLanguage } from "../lib/addon-streams.js";
 import { startBrowserTorrent } from "../lib/browser-torrent.js";
+import { startNativeTorrent } from "../lib/native-torrent.js";
+import { installedSubtitles, useAddons } from "../lib/addons.js";
 import PlaybackLoader from "./PlaybackLoader.jsx";
 
 function bufferedReadiness(video) {
@@ -20,6 +22,13 @@ function bufferedReadiness(video) {
   return 0;
 }
 
+function subtitleKey(item) {
+  let value = 2166136261;
+  for (const character of item.url)
+    value = Math.imul(value ^ character.charCodeAt(0), 16777619);
+  return `sub-${(value >>> 0).toString(16)}`;
+}
+
 function StreamVideo({
   stream,
   title,
@@ -29,17 +38,21 @@ function StreamVideo({
   subtitleLookupError,
   onStarted,
   onProgress,
+  onEnded,
   resumePosition = 0,
   onRetry,
   provider,
   settings,
   autoStart = false,
   fullscreen = false,
+  preferences,
+  onPreferences,
 }) {
   const videoRef = useRef(null);
   const captionRef = useRef(null);
-  const callbacks = useRef({ onStarted, onProgress });
+  const callbacks = useRef({ onStarted, onProgress, onEnded });
   const [loading, setLoading] = useState(!stream.blockedReason);
+  const [hasPlayed, setHasPlayed] = useState(false);
   const [bufferProgress, setBufferProgress] = useState(null);
   const [loadingMessage, setLoadingMessage] = useState("Loading stream");
   const [error, setError] = useState(stream.blockedReason);
@@ -48,13 +61,25 @@ function StreamVideo({
   const [captionsOpen, setCaptionsOpen] = useState(false);
   const captionsButton = useRef(null);
   const [started, setStarted] = useState(autoStart || !stream.requiresStart);
+  const restoredCaption = useRef(false);
+  const currentPreferences = useRef(preferences?.tracks || {});
+  useEffect(() => {
+    if (restoredCaption.current || !subtitles.length) return;
+    restoredCaption.current = true;
+    const saved = currentPreferences.current.sub;
+    if (!saved || saved.off) return;
+    const selected = subtitles.find(
+      (item) => item.lang === saved.lang || item.label === saved.label,
+    );
+    if (selected) setSubtitleUrl(selected.url);
+  }, [subtitles]);
   const frameClass = fullscreen
     ? "relative h-full min-h-0 w-full overflow-hidden bg-black"
     : "relative aspect-video w-full overflow-hidden bg-black";
 
   useEffect(() => {
-    callbacks.current = { onStarted, onProgress };
-  }, [onStarted, onProgress]);
+    callbacks.current = { onStarted, onProgress, onEnded };
+  }, [onStarted, onProgress, onEnded]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -112,14 +137,16 @@ function StreamVideo({
       if (cancelled || failed) return;
       restorePosition();
       played = true;
+      setHasPlayed(true);
       completed = false;
       callbacks.current.onStarted?.();
       savePosition();
     };
     const ended = () => {
-      if (cancelled || failed) return;
+      if (cancelled || failed || completed || !played) return;
       completed = true;
       flushPosition();
+      callbacks.current.onEnded?.();
     };
     const updateProgress = () => {
       if (!cancelled && !failed) setBufferProgress(bufferedReadiness(video));
@@ -312,10 +339,7 @@ function StreamVideo({
   if (stream.blockedReason) {
     return (
       <div className={frameClass}>
-        <PlayerMessage
-          message={stream.blockedReason}
-          externalUrl={stream.externalUrl}
-        />
+        <PlayerMessage message={stream.blockedReason} />
       </div>
     );
   }
@@ -348,6 +372,14 @@ function StreamVideo({
   return (
     <>
       <div className={frameClass}>
+        {loading && !hasPlayed && poster && (
+          <img
+            src={poster}
+            alt=""
+            draggable={false}
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        )}
         <video
           ref={videoRef}
           className={`h-full w-full object-contain ${loading || error ? "invisible" : ""}`}
@@ -376,13 +408,7 @@ function StreamVideo({
           progress={bufferProgress}
           message={loadingMessage}
         />
-        {error ? (
-          <PlayerMessage
-            message={error}
-            onRetry={onRetry}
-            externalUrl={stream.externalUrl}
-          />
-        ) : null}
+        {error ? <PlayerMessage message={error} onRetry={onRetry} /> : null}
         {!loading &&
           !error &&
           (subtitles.length > 0 || subtitleLookupError) && (
@@ -419,26 +445,52 @@ function StreamVideo({
                   <p className="px-3 py-2 text-xs font-bold text-slate-400">
                     Subtitles
                   </p>
-                  {[{ url: "", label: "Off" }, ...subtitles].map((subtitle) => (
-                    <button
-                      type="button"
-                      key={subtitle.url}
-                      aria-pressed={subtitleUrl === subtitle.url}
-                      className="flex min-h-11 w-full items-center gap-2 rounded px-3 text-left text-sm hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-sky-400"
-                      onClick={() => {
-                        setSubtitleUrl(subtitle.url);
-                        setCaptionsOpen(false);
-                        captionsButton.current?.focus();
-                      }}
-                    >
-                      <span className="flex-1 break-words">
-                        {subtitle.label}
-                      </span>
-                      {subtitleUrl === subtitle.url && (
-                        <Check className="h-4 w-4" aria-hidden="true" />
-                      )}
-                    </button>
-                  ))}
+                  {[
+                    { url: "", label: "Off" },
+                    ...groupSubtitlesByLanguage(subtitles).flatMap((group) => [
+                      { heading: group.name },
+                      ...group.tracks,
+                    ]),
+                  ].map((subtitle) =>
+                    subtitle.heading ? (
+                      <p
+                        key={subtitle.heading}
+                        className="px-3 pb-1 pt-3 text-xs font-bold text-slate-400"
+                      >
+                        {subtitle.heading}
+                      </p>
+                    ) : (
+                      <button
+                        type="button"
+                        key={subtitle.url}
+                        aria-pressed={subtitleUrl === subtitle.url}
+                        className="flex min-h-11 w-full items-center gap-2 rounded px-3 text-left text-sm hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-sky-400"
+                        onClick={() => {
+                          setSubtitleUrl(subtitle.url);
+                          const tracks = {
+                            ...currentPreferences.current,
+                            sub: subtitle.url
+                              ? {
+                                  lang: subtitle.lang || "und",
+                                  label: subtitle.label,
+                                }
+                              : { off: true },
+                          };
+                          currentPreferences.current = tracks;
+                          onPreferences?.(tracks);
+                          setCaptionsOpen(false);
+                          captionsButton.current?.focus();
+                        }}
+                      >
+                        <span className="flex-1 break-words">
+                          {subtitle.label}
+                        </span>
+                        {subtitleUrl === subtitle.url && (
+                          <Check className="h-4 w-4" aria-hidden="true" />
+                        )}
+                      </button>
+                    ),
+                  )}
                   {(subtitleError || subtitleLookupError) && (
                     <p className="p-3 text-xs text-amber-200" role="status">
                       {subtitleError || "Some subtitles could not be loaded."}
@@ -453,23 +505,13 @@ function StreamVideo({
   );
 }
 
-function PlayerMessage({ message, onRetry, externalUrl }) {
+function PlayerMessage({ message, onRetry }) {
   return (
     <div
       className="absolute inset-0 flex flex-col items-center justify-center gap-3 overflow-y-auto bg-slate-950/95 p-4 text-center"
       role="status"
     >
-      <p className="max-w-md text-sm text-slate-300">{message}</p>
-      {externalUrl ? (
-        <a
-          href={externalUrl}
-          rel="noreferrer"
-          className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg border border-sky-500/60 px-4 text-sm font-bold text-sky-200 hover:bg-sky-400/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
-        >
-          <ExternalLink className="h-4 w-4" aria-hidden="true" />{" "}
-          {externalUrl.startsWith("magnet:") ? "Open torrent" : "Open stream"}
-        </a>
-      ) : null}
+      <p className="max-w-md text-base text-slate-300">{message}</p>
       {onRetry ? (
         <button
           className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg border border-sky-500/60 px-4 text-sm font-bold text-sky-200 hover:bg-sky-400/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
@@ -484,6 +526,607 @@ function PlayerMessage({ message, onRetry, externalUrl }) {
   );
 }
 
+function NativeTorrentPlayer({
+  stream,
+  title,
+  logo,
+  resumePosition,
+  onStarted,
+  onProgress,
+  onEnded,
+  onClose,
+  onRetry,
+  season,
+  episode,
+  episodes,
+  currentVideoId,
+  onEpisodeSelect,
+  onResolveEpisodeStreams,
+  onResolvePreload,
+  onLoadSeason,
+  episodeTitle,
+  poster,
+  seasons,
+  preferences,
+  onPreferences,
+  subtitles,
+  subtitleLookupError,
+}) {
+  const callbacks = useRef({
+    onStarted,
+    onProgress,
+    onEnded,
+    onClose,
+    onEpisodeSelect,
+    onResolveEpisodeStreams,
+    onResolvePreload,
+    onLoadSeason,
+    episodes,
+    onPreferences,
+    subtitles,
+  });
+  const initialEpisodes = useRef(episodes);
+  const initialUi = useRef({ seasons, preferences });
+  const [nativeSessionId, setNativeSessionId] = useState(null);
+  const [nativePlaying, setNativePlaying] = useState(false);
+  const autoSubtitle = useRef(false);
+  const episodeRevision = useRef(Date.now());
+  const drawerSeason = useRef(season);
+  useEffect(() => {
+    if (!nativeSessionId) return;
+    import("@tauri-apps/api/core")
+      .then(({ invoke }) =>
+        invoke("update_native_player_subtitles", {
+          sessionId: nativeSessionId,
+          subtitles: subtitles.map((item) => ({
+            id: subtitleKey(item),
+            label: item.label,
+            lang: item.lang || item.language || "und",
+          })),
+          failed: subtitleLookupError,
+        }),
+      )
+      .catch(() => {});
+  }, [nativeSessionId, subtitles, subtitleLookupError]);
+  useEffect(() => {
+    if (!nativeSessionId || !nativePlaying || autoSubtitle.current) return;
+    const saved = initialUi.current.preferences?.tracks?.sub;
+    if (!saved || saved.off) {
+      autoSubtitle.current = true;
+      return;
+    }
+    const index = subtitles.findIndex(
+      (item) =>
+        item.label === saved.title &&
+        (item.lang || item.language) === saved.lang,
+    );
+    if (index < 0) return;
+    autoSubtitle.current = true;
+    const item = subtitles[index];
+    import("@tauri-apps/api/core")
+      .then(({ invoke }) =>
+        invoke("load_native_subtitle", {
+          sessionId: nativeSessionId,
+          id: subtitleKey(item),
+          url: item.url,
+          label: item.label,
+          lang: item.lang || item.language || "und",
+        }),
+      )
+      .catch(() => {});
+  }, [nativeSessionId, nativePlaying, subtitles]);
+  useEffect(() => {
+    if (!nativeSessionId) return;
+    import("@tauri-apps/api/core")
+      .then(({ invoke }) =>
+        invoke("update_native_player_episodes", {
+          sessionId: nativeSessionId,
+          revision: ++episodeRevision.current,
+          season: drawerSeason.current,
+          status: null,
+          episodes: (episodes || []).map((item) => ({
+            id: String(item.id),
+            season: item.season ?? null,
+            episode: item.episode ?? null,
+            title: item.title || "Episode",
+            date: item.date || null,
+            image: null,
+            imageUrl: item.image || null,
+          })),
+        }),
+      )
+      .catch(() => {});
+  }, [nativeSessionId, episodes, season]);
+  const [loading, setLoading] = useState(true);
+  const [loadingMessage, setLoadingMessage] = useState(
+    "Finding torrent metadata",
+  );
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    callbacks.current = {
+      onStarted,
+      onProgress,
+      onEnded,
+      onClose,
+      onEpisodeSelect,
+      onResolveEpisodeStreams,
+      onResolvePreload,
+      onLoadSeason,
+      episodes,
+      onPreferences,
+      subtitles,
+    };
+  }, [
+    onStarted,
+    onProgress,
+    onEnded,
+    onClose,
+    onEpisodeSelect,
+    onResolveEpisodeStreams,
+    onResolvePreload,
+    onLoadSeason,
+    episodes,
+    onPreferences,
+    subtitles,
+  ]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let cancelled = false;
+    let session;
+    const sessionId = crypto.randomUUID();
+    let choiceController;
+    let seasonController;
+    let choices = [];
+    let unlisten;
+    let played = false;
+    let ended = false;
+    let advancing = false;
+    let lastSample;
+    let preload;
+    const reportPreload = async (current, status, percent = 0) => {
+      if (cancelled || current.claimed) return;
+      const { invoke } = await import("@tauri-apps/api/core");
+      await invoke("update_native_preload_status", {
+        sessionId,
+        preloadId: current.id,
+        status,
+        percent,
+      }).catch(() => {});
+    };
+    const cancelPreload = () => {
+      const current = preload;
+      preload = null;
+      current?.controller.abort();
+      if (current && !current.claimed) void reportPreload(current, "cancelled");
+      if (current && !current.claimed)
+        import("@tauri-apps/api/core")
+          .then(({ invoke }) =>
+            invoke("control_native_preload", {
+              sessionId,
+              preloadId: current.id,
+              claim: false,
+            }),
+          )
+          .catch(() => {});
+    };
+    const takePreload = async (videoId) => {
+      const current = preload;
+      if (
+        !(current?.ready || current?.prepared) ||
+        current.claimed ||
+        current.claiming ||
+        current.videoId !== videoId ||
+        cancelled
+      )
+        return false;
+      current.claiming = true;
+      const { invoke } = await import("@tauri-apps/api/core");
+      if (cancelled || preload !== current) return false;
+      const claimed = await invoke("control_native_preload", {
+        sessionId,
+        preloadId: current.id,
+        claim: true,
+      });
+      if (!claimed || cancelled || preload !== current) {
+        cancelPreload();
+        return false;
+      }
+      current.claimed = true;
+      callbacks.current.onEpisodeSelect?.(videoId, false, {
+        ...current.choice,
+        stream: { ...current.choice.stream, nativePreloadId: current.id },
+      });
+      return true;
+    };
+    const advanceEpisode = (videoId, complete = false) => {
+      if (advancing || cancelled) return;
+      advancing = true;
+      (videoId ? takePreload(videoId) : Promise.resolve(false))
+        .catch(() => false)
+        .then(async (continued) => {
+          if (continued || cancelled) return;
+          if (videoId && stream.isNativeTorrent) {
+            const choice = await callbacks.current.onResolvePreload?.(
+              videoId,
+              controller.signal,
+            );
+            if (cancelled) return;
+            callbacks.current.onEpisodeSelect?.(
+              videoId,
+              false,
+              choice || undefined,
+            );
+            return;
+          }
+          if (complete) callbacks.current.onEnded?.();
+          else callbacks.current.onEpisodeSelect?.(videoId, true);
+        })
+        .catch(() => {
+          if (!cancelled && videoId)
+            callbacks.current.onEpisodeSelect?.(videoId, false);
+        });
+    };
+    const fail = (reason) => {
+      if (cancelled) return;
+      window.clearTimeout(timer);
+      controller.abort();
+      cancelPreload();
+      session?.destroy();
+      setLoading(false);
+      setError(String(reason?.message || reason));
+    };
+    const timer = window.setTimeout(
+      () =>
+        fail("The native player did not start in time. Try another source."),
+      Number(stream.playbackTimeoutMs) || 120000,
+    );
+
+    const start = async () => {
+      const { listen } = await import("@tauri-apps/api/event");
+      unlisten = await listen("rainflix:native-torrent", ({ payload }) => {
+        if (cancelled || payload?.sessionId !== sessionId) return;
+        if (payload.kind === "preload-status") {
+          const current = preload;
+          if (current && current.id === payload.preloadId && !current.claimed) {
+            current.prepared = true;
+            if (!current.ready)
+              void reportPreload(current, "buffering", payload.percent);
+          }
+        } else if (payload.kind === "opened") {
+          setNativeSessionId(sessionId);
+        } else if (payload.kind === "playing") {
+          window.clearTimeout(timer);
+          setLoading(false);
+          setNativePlaying(true);
+          if (!played) {
+            played = true;
+            callbacks.current.onStarted?.();
+          }
+        } else if (
+          payload.kind === "progress" &&
+          played &&
+          Number.isFinite(payload.position) &&
+          Number.isFinite(payload.duration)
+        ) {
+          lastSample = {
+            position: payload.position,
+            duration: payload.duration,
+            completed: false,
+          };
+          callbacks.current.onProgress?.(lastSample, false);
+        } else if (payload.kind === "complete") {
+          if (!played || ended) return;
+          ended = true;
+          if (lastSample) {
+            lastSample = { ...lastSample, completed: true };
+            callbacks.current.onProgress?.(lastSample, true);
+          }
+          const next = [...(callbacks.current.episodes || [])]
+            .filter(
+              (item) =>
+                (item.season > season ||
+                  (item.season === season && item.episode > episode)) &&
+                (!(item.releaseDate || item.date) ||
+                  new Date(item.releaseDate || item.date).getTime() <=
+                    Date.now()),
+            )
+            .sort((a, b) => a.season - b.season || a.episode - b.episode)[0];
+          advanceEpisode(preload?.videoId || (next && String(next.id)), true);
+        } else if (payload.kind === "closed") {
+          if (lastSample) callbacks.current.onProgress?.(lastSample, true);
+          if (!ended || !callbacks.current.onEnded)
+            callbacks.current.onClose?.();
+        } else if (payload.kind === "close") {
+          if (lastSample) callbacks.current.onProgress?.(lastSample, true);
+          callbacks.current.onClose?.();
+        } else if (payload.kind === "episode") {
+          if (lastSample) callbacks.current.onProgress?.(lastSample, true);
+          if (payload.mode === "cancel-preload") {
+            cancelPreload();
+          } else if (payload.mode === "preload") {
+            if (preload || !played) return;
+            const current = {
+              id: crypto.randomUUID(),
+              videoId: payload.videoId,
+              controller: new AbortController(),
+              ready: false,
+              claimed: false,
+            };
+            preload = current;
+            import("@tauri-apps/api/core")
+              .then(async ({ invoke }) => {
+                await reportPreload(current, "lookup");
+                if (!stream.isNativeTorrent) {
+                  await reportPreload(current, "unsupported");
+                  return;
+                }
+                const choice = await callbacks.current.onResolvePreload?.(
+                  current.videoId,
+                  current.controller.signal,
+                );
+                if (
+                  current.controller.signal.aborted ||
+                  cancelled ||
+                  preload !== current
+                )
+                  return;
+                if (!choice?.stream?.torrent) {
+                  await reportPreload(current, "unavailable");
+                  return;
+                }
+                current.choice = choice;
+                await reportPreload(current, "metadata");
+                await invoke("preload_native_torrent", {
+                  sessionId,
+                  preloadId: current.id,
+                  infoHash: choice.stream.torrent.infoHash,
+                  fileIdx: choice.stream.torrent.fileIdx,
+                  sources: choice.stream.torrent.sources || [],
+                });
+                if (current.claimed || current.claiming) return;
+                if (
+                  current.controller.signal.aborted ||
+                  cancelled ||
+                  preload !== current
+                ) {
+                  await invoke("control_native_preload", {
+                    sessionId,
+                    preloadId: current.id,
+                    claim: false,
+                  });
+                  return;
+                }
+                current.ready = true;
+                await reportPreload(current, "ready", 100);
+              })
+              .catch(() => {
+                if (
+                  preload === current &&
+                  !current.claimed &&
+                  !current.claiming
+                ) {
+                  current.controller.abort();
+                  void reportPreload(current, "failed");
+                }
+              });
+          } else if (payload.mode === "season") {
+            seasonController?.abort();
+            seasonController = new AbortController();
+            const signal = seasonController.signal;
+            const requestedSeason = Number(payload.videoId);
+            if (!Number.isInteger(requestedSeason) || requestedSeason < 0)
+              return;
+            drawerSeason.current = requestedSeason;
+            import("@tauri-apps/api/core")
+              .then(async ({ invoke }) => {
+                const update = (items, status) =>
+                  invoke("update_native_player_episodes", {
+                    sessionId,
+                    season: requestedSeason,
+                    status,
+                    revision: ++episodeRevision.current,
+                    episodes: items.map((item) => ({
+                      id: String(item.id),
+                      season: item.season ?? null,
+                      episode: item.episode ?? null,
+                      title: item.title || "Episode",
+                      date: item.date || item.releaseDate || null,
+                      image: null,
+                      imageUrl: item.image || null,
+                    })),
+                  });
+                const initial = update(
+                  callbacks.current.episodes || [],
+                  "loading",
+                ).catch(() => {});
+                try {
+                  const loaded =
+                    (await callbacks.current.onLoadSeason?.(
+                      requestedSeason,
+                      signal,
+                    )) || [];
+                  if (cancelled || signal.aborted) return;
+                  const merged = [
+                    ...(callbacks.current.episodes || []).filter(
+                      (item) => item.season !== requestedSeason,
+                    ),
+                    ...loaded,
+                  ];
+                  await update(merged, "ready");
+                } catch {
+                  await initial.catch(() => {});
+                  if (!cancelled && !signal.aborted)
+                    await update(
+                      callbacks.current.episodes || [],
+                      "error",
+                    ).catch(() => {});
+                }
+              })
+              .catch(() => {});
+          } else if (payload.mode === "choose") {
+            cancelPreload();
+            choiceController?.abort();
+            choiceController = new AbortController();
+            const signal = choiceController.signal;
+            choices = [];
+            import("@tauri-apps/api/core")
+              .then(async ({ invoke }) => {
+                try {
+                  const resolved =
+                    await callbacks.current.onResolveEpisodeStreams?.(
+                      payload.videoId,
+                      signal,
+                    );
+                  if (signal.aborted || cancelled) return;
+                  choices = resolved || [];
+                  await invoke("update_native_player_streams", {
+                    sessionId,
+                    videoId: payload.videoId,
+                    requestId: payload.choiceId,
+                    streams: choices.map((item, index) => ({
+                      id: String(index),
+                      label: item.label,
+                      providerId: item.providerId,
+                      providerLabel: item.providerLabel,
+                    })),
+                  });
+                } catch {
+                  if (!signal.aborted && !cancelled)
+                    await invoke("update_native_player_streams", {
+                      sessionId,
+                      videoId: payload.videoId,
+                      requestId: payload.choiceId,
+                      streams: [],
+                    }).catch(() => {});
+                }
+              })
+              .catch(() => {});
+          } else if (payload.mode === "source") {
+            const choice = choices[Number(payload.choiceId)];
+            if (choice)
+              callbacks.current.onEpisodeSelect?.(
+                payload.videoId,
+                false,
+                choice,
+              );
+          } else advanceEpisode(payload.videoId);
+        } else if (payload.kind === "subtitle") {
+          const item = callbacks.current.subtitles?.find(
+            (item) => subtitleKey(item) === payload.subtitleId,
+          );
+          if (!item || !played) return;
+          import("@tauri-apps/api/core")
+            .then(({ invoke }) =>
+              invoke("load_native_subtitle", {
+                sessionId,
+                id: payload.subtitleId,
+                url: item.url,
+                label: item.label,
+                lang: item.lang || item.language || "und",
+              }),
+            )
+            .catch(() => {});
+        } else if (payload.kind === "preferences") {
+          callbacks.current.onPreferences?.(payload.tracks);
+        } else if (payload.kind === "error") {
+          fail(
+            "The native player could not open this video. Try another source.",
+          );
+        }
+      });
+      if (cancelled) return;
+      session = await startNativeTorrent({
+        stream,
+        sessionId,
+        resumePosition,
+        signal: controller.signal,
+        onStatus: setLoadingMessage,
+        ui: {
+          logo: null,
+          logoUrl: logo || null,
+          backdropUrl: poster || null,
+          tracks: initialUi.current.preferences?.tracks || null,
+          seasons: initialUi.current.seasons || [],
+          title: Number.isInteger(episode)
+            ? `${title} - S${season} E${episode}${episodeTitle ? `: ${episodeTitle}` : ""}`
+            : episodeTitle
+              ? `${title} - ${episodeTitle}`
+              : title,
+          currentVideoId:
+            currentVideoId == null ? null : String(currentVideoId),
+          season: Number.isInteger(season) && season >= 0 ? season : null,
+          episodes: (initialEpisodes.current || [])
+            .filter((item) => item.id != null)
+            .map((item) => ({
+              id: String(item.id),
+              season:
+                Number.isInteger(item.season) && item.season >= 0
+                  ? item.season
+                  : null,
+              episode:
+                Number.isInteger(item.episode) && item.episode >= 0
+                  ? item.episode
+                  : null,
+              title: String(item.title || "Episode"),
+              date: item.date ? String(item.date) : null,
+              imageUrl: item.image || null,
+            })),
+        },
+      });
+      if (cancelled) {
+        session.destroy();
+        return;
+      }
+      if (!cancelled) setNativeSessionId(session.sessionId);
+    };
+    start().catch((reason) => {
+      if (!cancelled) fail(reason);
+    });
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+      if (lastSample) callbacks.current.onProgress?.(lastSample, true);
+      controller.abort();
+      cancelPreload();
+      choiceController?.abort();
+      seasonController?.abort();
+      session?.destroy();
+      unlisten?.();
+    };
+  }, [
+    stream,
+    resumePosition,
+    currentVideoId,
+    episodeTitle,
+    season,
+    episode,
+    title,
+    logo,
+    poster,
+  ]);
+
+  return (
+    <div className="relative h-full w-full bg-black">
+      <span className="sr-only" role="status">
+        {loading ? loadingMessage : ""}
+      </span>
+      {error && (
+        <button
+          className="absolute left-6 top-6 z-50 rounded-lg bg-black/75 px-4 py-3 text-white"
+          onClick={onClose}
+          aria-label="Cancel native playback"
+        >
+          Back
+        </button>
+      )}
+      {error ? <PlayerMessage message={error} onRetry={onRetry} /> : null}
+    </div>
+  );
+}
+
 export default function AddonPlayer({
   stream,
   provider,
@@ -491,27 +1134,56 @@ export default function AddonPlayer({
   details,
   season,
   episode,
+  episodes,
+  seasons,
+  preferences,
+  onPreferences,
+  currentVideoId,
+  onEpisodeSelect,
+  onResolveEpisodeStreams,
+  onResolvePreload,
+  onLoadSeason,
+  episodeTitle,
   onStarted,
   onProgress,
+  onEnded,
+  onClose,
   resumePosition,
   onRetry,
 }) {
   const [subtitles, setSubtitles] = useState([]);
+  const installed = useAddons();
   const [subtitleError, setSubtitleError] = useState(false);
   useEffect(() => {
     const controller = new AbortController();
     setSubtitles([]);
     setSubtitleError(false);
-    provider
-      .getSubtitles?.(details, season, episode, controller.signal)
-      .then((items) => {
-        if (!controller.signal.aborted) setSubtitles(items);
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) setSubtitleError(true);
-      });
+    Promise.allSettled([
+      installedSubtitles(
+        installed,
+        details,
+        season,
+        episode,
+        stream,
+        controller.signal,
+      ),
+      provider.addonId
+        ? Promise.resolve([])
+        : provider.getSubtitles?.(details, season, episode, controller.signal),
+    ]).then(([addons, own]) => {
+      if (controller.signal.aborted) return;
+      setSubtitles([
+        ...(addons.status === "fulfilled" ? addons.value.subtitles : []),
+        ...(own.status === "fulfilled" ? own.value || [] : []),
+      ]);
+      setSubtitleError(
+        addons.status === "rejected" ||
+          addons.value.failed ||
+          own.status === "rejected",
+      );
+    });
     return () => controller.abort();
-  }, [provider, details, season, episode]);
+  }, [provider, details, season, episode, stream, installed]);
   const allSubtitles = useMemo(() => {
     const seen = new Set();
     return [...(stream.subtitles || []), ...subtitles].filter((item) => {
@@ -526,22 +1198,58 @@ export default function AddonPlayer({
       className="relative h-full min-h-0 w-full bg-black"
       aria-label={`${provider.label} player`}
     >
-      <StreamVideo
-        stream={stream}
-        title={details.title}
-        poster={details.backdrop || details.poster}
-        logo={details.logo}
-        subtitles={allSubtitles}
-        subtitleLookupError={subtitleError}
-        onStarted={onStarted}
-        onProgress={onProgress}
-        resumePosition={resumePosition}
-        onRetry={onRetry}
-        provider={provider}
-        settings={settings}
-        autoStart
-        fullscreen
-      />
+      {stream.isNativeTorrent || stream.isNativeMedia ? (
+        <NativeTorrentPlayer
+          stream={stream}
+          title={details.title}
+          logo={details.logo}
+          resumePosition={resumePosition}
+          onStarted={onStarted}
+          onProgress={onProgress}
+          onEnded={onEnded}
+          onClose={onClose}
+          onRetry={onRetry}
+          season={season}
+          episode={
+            details.mediaType === "tv" || details.addonType === "series"
+              ? episode
+              : undefined
+          }
+          episodes={episodes}
+          seasons={seasons}
+          preferences={preferences}
+          onPreferences={onPreferences}
+          subtitles={allSubtitles}
+          subtitleLookupError={subtitleError}
+          poster={details.backdrop || details.poster}
+          currentVideoId={currentVideoId}
+          onEpisodeSelect={onEpisodeSelect}
+          onResolveEpisodeStreams={onResolveEpisodeStreams}
+          onResolvePreload={onResolvePreload}
+          onLoadSeason={onLoadSeason}
+          episodeTitle={episodeTitle}
+        />
+      ) : (
+        <StreamVideo
+          stream={stream}
+          title={details.title}
+          poster={details.backdrop || details.poster}
+          logo={details.logo}
+          subtitles={allSubtitles}
+          subtitleLookupError={subtitleError}
+          onStarted={onStarted}
+          onProgress={onProgress}
+          onEnded={onEnded}
+          resumePosition={resumePosition}
+          onRetry={onRetry}
+          provider={provider}
+          settings={settings}
+          preferences={preferences}
+          onPreferences={onPreferences}
+          autoStart
+          fullscreen
+        />
+      )}
     </section>
   );
 }

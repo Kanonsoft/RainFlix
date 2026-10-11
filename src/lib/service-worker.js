@@ -1,3 +1,5 @@
+import { isDesktop } from "../platform/index.js";
+
 let registrationPromise;
 
 function serviceWorkerAddress() {
@@ -36,6 +38,11 @@ function waitForActivation(registration) {
 }
 
 export function registerRainFlixServiceWorker() {
+  if (isDesktop) {
+    return Promise.reject(
+      new Error("RainFlix service-worker playback is unavailable on desktop."),
+    );
+  }
   if (!("serviceWorker" in navigator)) {
     return Promise.reject(
       new Error("This browser does not support the WebTorrent player."),

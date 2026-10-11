@@ -5,7 +5,9 @@ import {
   normalizeHttpStream,
   normalizeSubtitles,
   streamLabel,
+  subtitleHints,
 } from "./addon-streams.js";
+import { isDesktop } from "../platform/index.js";
 
 export function torrentioBaseUrl(settings = config.torrentio) {
   let address = String(settings?.manifestUrl || settings?.baseUrl || "").trim();
@@ -74,10 +76,16 @@ export function torrentSource(raw, index) {
         .concat([...dhtSources]),
     },
     label: `${streamLabel(raw, index)} [Torrent]`,
-    blockedReason:
-      "Choose Browser WebTorrent or Stremio Service for in-page playback, or open this torrent externally.",
+    blockedReason: isDesktop
+      ? "Choose Native torrent or Stremio Service for in-app playback, or open this torrent externally."
+      : "Choose Browser WebTorrent or Stremio Service for in-page playback, or open this torrent externally.",
     externalUrl: magnet.href,
     subtitles: normalizeSubtitles(raw.subtitles),
+    subtitleHints: subtitleHints(raw),
+    bingeGroup:
+      typeof raw.behaviorHints?.bingeGroup === "string"
+        ? raw.behaviorHints.bingeGroup.slice(0, 500)
+        : "",
   };
 }
 

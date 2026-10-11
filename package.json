@@ -5,6 +5,11 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "desktop:frontend:dev": "vite --mode desktop --host 127.0.0.1 --port 5174 --strictPort",
+    "desktop:frontend:build": "vite build --mode desktop",
+    "desktop:prepare": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/prepare-mpv.ps1",
+    "desktop:dev": "npm run desktop:prepare && tauri dev",
+    "desktop:build": "npm run desktop:prepare && tauri build --bundles nsis",
     "preview": "vite preview",
     "lint": "eslint .",
     "format:check": "prettier --check .",
@@ -15,6 +20,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.62.0",
+    "@tauri-apps/cli": "^2.12.1",
     "@vitejs/plugin-react": "^6.0.4",
     "autoprefixer": "^10.5.4",
     "eslint": "^10.8.0",
@@ -28,6 +34,8 @@
   },
   "dependencies": {
     "@plussub/srt-vtt-parser": "^2.0.5",
+    "@tauri-apps/api": "^2.12.1",
+    "@tauri-apps/plugin-opener": "^2.7.0",
     "hls.js": "^1.7.3",
     "lucide-react": "^1.27.0",
     "react": "^19.2.8",

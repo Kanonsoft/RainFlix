@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { handoffPlayback } from "../lib/playback-handoff.js";
 import { useParams, useSearchParams } from "react-router";
 import { api } from "../lib/api.js";
 import { getTmdbTitleMeta } from "../lib/addon-catalogs.js";
@@ -34,8 +35,14 @@ function Title({ mediaType, id, onReady, onBackdrop }) {
     return () => controller.abort();
   }, [mediaType, id, season, revision, onReady]);
 
-  const requestedVideo = feed.meta?.videos?.find(
-    (video) => video.season === season && video.episode === episode,
+  const requestedVideo = (
+    feed.meta?.videos?.find(
+      (video) => video.season === season && video.episode === episode,
+    ) ||
+    feed.meta?.videos?.find(
+      (video) =>
+        video.season === season && video.sourceEpisodeNumber === episode,
+    )
   )?.id;
   return (
     <TitleDetails
@@ -43,13 +50,20 @@ function Title({ mediaType, id, onReady, onBackdrop }) {
       onRetry={() => setRevision((value) => value + 1)}
       onBackdrop={onBackdrop}
       requestedVideo={requestedVideo}
-      onVideoChange={(video) => {
+      onVideoChange={(video, autoplay = false, playback) => {
         const parts = video.split(":");
         const next = new URLSearchParams(params);
         next.set("season", parts.at(-2));
         next.set("episode", parts.at(-1));
         next.delete("play");
-        setParams(next);
+        if (autoplay) next.set("resume", "1");
+        else next.delete("resume");
+        setParams(next, {
+          replace: autoplay || Boolean(playback),
+          state: playback
+            ? { rainflixEpisodePlayback: handoffPlayback(playback) }
+            : null,
+        });
       }}
     />
   );

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
+import { handoffPlayback } from "../lib/playback-handoff.js";
 import { useParams, useSearchParams } from "react-router";
-import { supports, useAddons } from "../lib/addons.js";
+import { supports, useAddons, useAddonRestoring } from "../lib/addons.js";
 import {
   addonPreview,
   getAddonMeta,
@@ -58,11 +59,18 @@ function Title({ owner, type, id, installed, onBackdrop, onReady }) {
       onRetry={() => setRevision((value) => value + 1)}
       onBackdrop={onBackdrop}
       requestedVideo={requestedVideo}
-      onVideoChange={(video) => {
+      onVideoChange={(video, autoplay = false, playback) => {
         const next = new URLSearchParams(params);
         next.set("video", video);
         next.delete("play");
-        setParams(next);
+        if (autoplay) next.set("resume", "1");
+        else next.delete("resume");
+        setParams(next, {
+          replace: autoplay || Boolean(playback),
+          state: playback
+            ? { rainflixEpisodePlayback: handoffPlayback(playback) }
+            : null,
+        });
       }}
     />
   );
@@ -71,6 +79,7 @@ function Title({ owner, type, id, installed, onBackdrop, onReady }) {
 export default function AddonTitlePage({ onReady, onBackdrop }) {
   const { addonId, type, id } = useParams();
   const installed = useAddons();
+  const restoring = useAddonRestoring();
   const owner = installed.find(
     (addon) => addon.enabled && addon.id === addonId,
   );
@@ -89,7 +98,9 @@ export default function AddonTitlePage({ onReady, onBackdrop }) {
     />
   ) : (
     <section className="mx-auto max-w-[1440px] px-6 py-12" role="status">
-      This add-on is no longer installed or enabled.
+      {restoring
+        ? "Restoring add-ons..."
+        : "This add-on is no longer installed or enabled."}
     </section>
   );
 }

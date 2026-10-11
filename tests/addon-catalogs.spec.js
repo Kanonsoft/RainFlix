@@ -170,7 +170,7 @@ test("catalog filters, custom metadata and episode identities work on mobile", a
   ).toBeVisible();
   await expect(page.getByText(metadata.description)).toBeVisible();
   await expect(page.getByLabel("Metadata provider")).toHaveCount(0);
-  expect(streamRequests).toHaveLength(0);
+  expect(streamRequests).toHaveLength(1);
   expect(mediaRequests).toBe(0);
   await page.locator('[data-video-id][aria-pressed="true"]').click();
   await page.getByRole("button", { name: "Play with Custom Streams" }).click();
@@ -180,13 +180,20 @@ test("catalog filters, custom metadata and episode identities work on mobile", a
       "https://streams.example/stream/series/video%3Acustom%2Fone.json",
     ]);
   await expect.poll(() => mediaRequests).toBeGreaterThan(0);
+  await expect
+    .poll(() =>
+      page.locator("#playerShell video").evaluate((video) => video.currentTime),
+    )
+    .toBeGreaterThan(0);
   await page.getByRole("button", { name: "Close player" }).click();
   await page.getByRole("button", { name: "Back to episodes" }).click();
   await page
     .getByRole("combobox", { name: "Season", exact: true })
     .selectOption("2");
   await page.locator('[data-video-id][aria-pressed="true"]').click();
+  await expect(page.locator("#fullscreenPlayback")).toHaveCount(0);
   await page.getByRole("button", { name: "Play with Custom Streams" }).click();
+  await expect(page.locator("#fullscreenPlayback")).toBeVisible();
   await expect
     .poll(() => streamRequests.at(-1))
     .toBe("https://streams.example/stream/series/video%3Acustom%2Ftwo.json");
@@ -327,7 +334,6 @@ test("home adds catalogs and disabling the owner removes them", async ({
   await page.evaluate(() => {
     location.hash = "/addons";
   });
-  await page.getByRole("tab", { name: /Installed/ }).click();
   await page
     .getByRole("article")
     .filter({
@@ -394,10 +400,24 @@ test("custom metadata can supply inline streams without persisting them", async 
   await page.getByRole("button", { name: "Full movie", exact: true }).click();
   await page.getByRole("button", { name: "Play with Test Metadata" }).click();
   await expect.poll(() => mediaRequests).toBeGreaterThan(0);
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          JSON.parse(
+            localStorage.getItem("rainflix:recently-viewed:v1") || "[]",
+          ).length,
+      ),
+    )
+    .toBe(1);
   await page.goBack();
   await expect(page.locator("#fullscreenPlayback")).toHaveCount(0);
   await expect(page).toHaveURL(/title\/movie\/custom%3Amovie$/);
   const stored = await page.evaluate(() => JSON.stringify({ ...localStorage }));
   expect(stored).not.toContain("player-sample.mp4");
-  expect(stored).not.toContain("Add-on Movie Details");
+  expect(stored).toContain("Add-on Movie Details");
+  const recent = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem("rainflix:recently-viewed:v1") || "[]"),
+  );
+  expect(recent[0]).not.toHaveProperty("streams");
 });

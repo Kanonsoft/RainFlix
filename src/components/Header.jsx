@@ -1,11 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, Menu, Search, SlidersHorizontal, X } from "lucide-react";
+import {
+  ArrowRight,
+  Download,
+  Menu,
+  Search,
+  SlidersHorizontal,
+  X,
+} from "lucide-react";
 import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router";
 import rainflixWordmark from "../../assets/rainflix-wordmark.png";
 import { api, imageFallback } from "../lib/api.js";
 import { posterImageProps } from "../lib/images.js";
 import { useDetails } from "./details/DetailsProvider.jsx";
+import { isDesktop } from "../platform/index.js";
+
+const showAddonsNavigation = isDesktop || import.meta.env.MODE === "mobile";
 
 function routeState(pathname) {
   const parts = pathname.split("/").filter(Boolean);
@@ -400,12 +410,16 @@ export default function Header() {
           <Link className={mobilePrimaryClass("series")} to="/series">
             Series
           </Link>
-          <Link className={mobilePrimaryClass("addons")} to="/addons">
-            Add-ons
-          </Link>
-          <Link className={mobilePrimaryClass("library")} to="/library">
-            My List
-          </Link>
+          {!isDesktop && (
+            <Link
+              className={mobilePrimaryClass("downloads")}
+              to="/downloads"
+              onClick={() => setMobileOpen(false)}
+            >
+              <Download className="mr-2 inline h-4 w-4" aria-hidden="true" />
+              Download
+            </Link>
+          )}
 
           <div className="border-t border-blue-950/80 pt-1">
             <button
@@ -478,6 +492,14 @@ export default function Header() {
               ))}
             </div>
           </div>
+          <Link className={mobilePrimaryClass("library")} to="/library">
+            My List
+          </Link>
+          {showAddonsNavigation && (
+            <Link className={mobilePrimaryClass("addons")} to="/addons">
+              Add-ons
+            </Link>
+          )}
         </nav>
       </aside>
     </div>
@@ -512,12 +534,6 @@ export default function Header() {
             </Link>
             <Link className={primaryClass("series")} to="/series">
               Series
-            </Link>
-            <Link className={primaryClass("addons")} to="/addons">
-              Add-ons
-            </Link>
-            <Link className={primaryClass("library")} to="/library">
-              My List
             </Link>
 
             <FilterMenu
@@ -561,6 +577,14 @@ export default function Header() {
                 </Link>
               ))}
             </FilterMenu>
+            <Link className={primaryClass("library")} to="/library">
+              My List
+            </Link>
+            {showAddonsNavigation && (
+              <Link className={primaryClass("addons")} to="/addons">
+                Add-ons
+              </Link>
+            )}
           </nav>
 
           <div
@@ -720,6 +744,17 @@ export default function Header() {
             </div>
           </div>
 
+          {!isDesktop && (
+            <Link
+              to="/downloads"
+              aria-label="Download RainFlix"
+              aria-current={state.primary === "downloads" ? "page" : undefined}
+              title="Download RainFlix"
+              className={`header-icon-button shrink-0${state.primary === "downloads" ? " text-sky-300" : ""}`}
+            >
+              <Download className="h-5 w-5" aria-hidden="true" />
+            </Link>
+          )}
           <button
             id="mobileNavToggle"
             className="header-icon-button md:hidden"

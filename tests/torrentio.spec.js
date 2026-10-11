@@ -57,7 +57,7 @@ test("lists torrent-only sources with file-aware magnet links and no playback", 
       Promise.reject(new Error("Fullscreen unavailable"));
   });
   await openPlayer(page);
-  expect(requests).toHaveLength(0);
+  expect(requests).toHaveLength(1);
   await selectPlayer(page, "torrentio");
   await torrentPlayback(page).selectOption("external");
   const openTorrent = page.locator('a[data-stream-id="0"]');
@@ -189,7 +189,7 @@ test("plays a WebRTC-compatible torrent in the browser after explicit action", a
 
   await closePlayer(page);
   await expect(
-    page.getByRole("heading", { name: "Players", exact: true }),
+    page.getByRole("heading", { name: "Streams", exact: true }),
   ).toBeVisible();
   await expect(page.locator("#playerShell video")).toHaveCount(0);
   await expect
@@ -238,12 +238,13 @@ test("accepts a configured manifest and plays direct media only after explicit a
   });
   expect(mediaRequests).toHaveLength(0);
   expect(await history(page)).toHaveLength(0);
+  await page
+    .getByRole("button", { name: /^(Refresh available streams|Retry)$/ })
+    .click();
   await selectPlayer(page, "torrentio");
   await expect
-    .poll(() => requests)
-    .toEqual([
-      "https://addon.example/private-test/stream/movie/tt0505000.json",
-    ]);
+    .poll(() => requests.at(-1))
+    .toBe("https://addon.example/private-test/stream/movie/tt0505000.json");
   expect(mediaRequests).toHaveLength(0);
   await selectStream(page, "1");
   const video = page.getByLabel("Playback Test Torrentio player", {
@@ -261,8 +262,9 @@ test("accepts a configured manifest and plays direct media only after explicit a
     .toBe(1);
   await video.evaluate((element) => element.pause());
   await closePlayer(page);
+  const previousRequests = requests.length;
   await page.getByRole("button", { name: "Refresh streams" }).click();
-  await expect.poll(() => requests).toHaveLength(2);
+  await expect.poll(() => requests.length).toBeGreaterThan(previousRequests);
   await selectStream(page, "1");
   await expect
     .poll(() => video.evaluate((element) => element.paused))
@@ -317,10 +319,8 @@ test("uses IMDb episode IDs and ignores old responses after navigation or provid
       "external",
     ),
   );
-  await selectPlayer(page, "torrentio");
-  await expect(
-    page.getByRole("progressbar", { name: /Finding Torrentio streams/ }),
-  ).toBeVisible();
+  await page.locator('[data-video-id][aria-pressed="true"]').click();
+  await expect(page.getByText("Finding available streams...")).toBeVisible();
   await expect(page.getByText("Finding streams", { exact: true })).toHaveCount(
     0,
   );
@@ -374,7 +374,6 @@ test("handles empty, unavailable, malformed, rate-limited and timed-out response
   await page.evaluate(() => {
     window.RAINFLIX_CONFIG.torrentio.requestTimeoutMs = 100;
   });
-  await selectPlayer(page, "torrentio");
   await expect(
     page.getByText("No streams found for this title on Torrentio."),
   ).toBeVisible();

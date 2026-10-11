@@ -13,6 +13,16 @@ test.beforeEach(async ({ page, baseURL }) => {
         id: 505,
         title: "Playback Test",
         external_ids: { imdb_id: "tt0505000" },
+        videos: {
+          results: [
+            {
+              key: "trailer_fixture",
+              site: "YouTube",
+              type: "Trailer",
+              official: true,
+            },
+          ],
+        },
         images: {
           logos: [{ file_path: "/buffering-logo.png", iso_639_1: "en" }],
         },
@@ -124,7 +134,7 @@ for (const width of [390, 1440]) {
   });
 }
 
-test("missing artwork falls back to the title during buffering", async ({
+test("missing artwork falls back to the RainFlix R during buffering", async ({
   page,
 }) => {
   await openPlayer(page);
@@ -135,8 +145,19 @@ test("missing artwork falls back to the title during buffering", async ({
     .locator("img")
     .first()
     .evaluate((image) => image.dispatchEvent(new Event("error")));
-  await expect(loader.locator("img")).toHaveCount(0);
-  await expect(loader.locator(".opacity-25")).toHaveText("Playback Test");
+  await expect(loader.locator("img")).toHaveCount(2);
+  await expect(loader.locator("img").first()).toHaveAttribute(
+    "src",
+    /rainflix-r\.png$/,
+  );
+  await expect
+    .poll(() =>
+      loader
+        .locator("img")
+        .first()
+        .evaluate((image) => image.complete && image.naturalWidth > 0),
+    )
+    .toBe(true);
 });
 
 test("iframe startup pulses without inventing buffer progress", async ({
@@ -146,7 +167,7 @@ test("iframe startup pulses without inventing buffer progress", async ({
   const ready = new Promise((resolve) => {
     release = resolve;
   });
-  await page.route("https://vidsrc.to/**", async (route) => {
+  await page.route("https://www.youtube-nocookie.com/**", async (route) => {
     await ready;
     await route.fulfill({
       contentType: "text/html",
@@ -154,7 +175,7 @@ test("iframe startup pulses without inventing buffer progress", async ({
     });
   });
   await openPlayer(page);
-  await selectPlayer(page, "vidsrc");
+  await selectPlayer(page, "trailer");
   const loader = page.getByRole("progressbar");
   await expect(loader).toBeVisible();
   await expect(loader).not.toHaveAttribute("aria-valuenow");

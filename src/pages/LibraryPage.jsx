@@ -1,12 +1,12 @@
 import { useEffect, useMemo } from "react";
-import { Bookmark, Clock3, Trash2 } from "lucide-react";
+import { Bookmark, Clock3, Trash2, Check } from "lucide-react";
 import { MediaGrid } from "../components/MediaCard.jsx";
 import { useLibrary } from "../components/library/LibraryProvider.jsx";
 import { watchPath } from "../lib/api.js";
 import { usePageMetadata } from "../lib/metadata.js";
 
 export default function LibraryPage({ onBackdrop, onReady }) {
-  const { clearRecentlyViewed, myList, recentlyViewed } = useLibrary();
+  const { clearRecentlyViewed, myList, recentlyViewed, watched } = useLibrary();
   const resumable = useMemo(
     () =>
       recentlyViewed.map((item) => ({
@@ -15,11 +15,13 @@ export default function LibraryPage({ onBackdrop, onReady }) {
           item.mediaType === "tv"
             ? `S${item.season}:E${item.episode}`
             : "Resume",
-        resumePath: watchPath(item, item.season, item.episode),
+        resumePath: item.detailPath
+          ? `${item.detailPath}${item.videoId ? `${item.detailPath.includes("?") ? "&" : "?"}video=${encodeURIComponent(item.videoId)}` : ""}`
+          : watchPath(item, item.season, item.episode),
       })),
     [recentlyViewed],
   );
-  const backdropItem = myList[0] || recentlyViewed[0];
+  const backdropItem = myList[0] || recentlyViewed[0] || watched[0];
 
   usePageMetadata({
     title: "My List",
@@ -29,11 +31,11 @@ export default function LibraryPage({ onBackdrop, onReady }) {
   });
 
   useEffect(() => {
-    const images = [...myList, ...recentlyViewed]
+    const images = [...myList, ...recentlyViewed, ...watched]
       .flatMap((item) => [item.poster, item.backdrop])
       .filter(Boolean);
     onReady?.(images);
-  }, [myList, onReady, recentlyViewed]);
+  }, [myList, onReady, recentlyViewed, watched]);
 
   useEffect(() => {
     const image = backdropItem?.backdrop || backdropItem?.poster;
@@ -105,7 +107,31 @@ export default function LibraryPage({ onBackdrop, onReady }) {
         <MediaGrid
           items={resumable}
           browse
-          emptyText="Movies and episodes you open will appear here."
+          emptyText="No unfinished playback."
+        />
+      </section>
+      <section className="mt-12" aria-labelledby="watchedHeading">
+        <div className="mb-5 flex items-center gap-3">
+          <Check className="h-5 w-5 text-emerald-400" aria-hidden="true" />
+          <h2
+            id="watchedHeading"
+            className="text-2xl font-black text-slate-50 md:text-3xl"
+          >
+            Watched
+          </h2>
+          <span className="text-sm font-bold text-slate-500">
+            {watched.length}
+          </span>
+        </div>
+        <MediaGrid
+          browse
+          items={watched.map((item) => ({
+            ...item,
+            historyKind: "watched",
+            detailPath: item.detailPath ? item.detailPath : watchPath(item),
+            resumeLabel: "Watched",
+          }))}
+          emptyText="No watched titles yet."
         />
       </section>
     </section>

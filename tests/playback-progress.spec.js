@@ -55,7 +55,7 @@ test("positions survive module reloads without storing sources and stay episode-
     const customPosition = progress.readPlaybackPosition(custom);
     const customPersisted = localStorage
       .getItem("rainflix:playback-progress:v1")
-      .includes("custom:");
+      .includes("custom%3Atest");
     progress.clearPlaybackProgress();
     return {
       position,
@@ -72,7 +72,7 @@ test("positions survive module reloads without storing sources and stay episode-
   expect(result.stored).not.toContain("private");
   expect(result.completed).toBe(0);
   expect(result.customPosition).toBe(90);
-  expect(result.customPersisted).toBe(false);
+  expect(result.customPersisted).toBe(true);
   expect(result.cleared).toBe(0);
 });
 
@@ -120,8 +120,17 @@ test("native streams save after playing and seek when switching streams", async 
     .toBeGreaterThanOrEqual(3);
   await video.evaluate((node) => {
     node.pause();
+    // Drive the progress event deterministically; decoder seek accuracy is separate.
+    Object.defineProperty(node, "currentTime", {
+      configurable: true,
+      value: 1,
+    });
+    Object.defineProperty(node, "seeking", {
+      configurable: true,
+      value: false,
+    });
     node.dispatchEvent(new Event("playing"));
-    node.currentTime = 1;
+    node.dispatchEvent(new Event("seeked"));
   });
   await expect
     .poll(() =>

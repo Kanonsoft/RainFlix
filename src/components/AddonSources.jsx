@@ -4,6 +4,7 @@ import { config } from "../lib/api.js";
 import { addonProvider } from "../lib/addons.js";
 import { getYastreamStreams, getYastreamSubtitles } from "../lib/yastream.js";
 import { getTorrentioStreams } from "../lib/torrentio.js";
+import { withNativeMedia, withNativeTorrent } from "../lib/native-torrent.js";
 import {
   readTorrentPlaybackMode,
   saveTorrentPlaybackMode,
@@ -16,6 +17,7 @@ import {
 } from "../lib/stremio-service.js";
 import TorrentPlaybackSettings from "./TorrentPlaybackSettings.jsx";
 import PlaybackLoader from "./PlaybackLoader.jsx";
+import { preferredStream } from "../lib/playback-preferences.js";
 
 const providers = {
   yastream: {
@@ -26,6 +28,9 @@ const providers = {
   torrentio: { label: "Torrentio", getStreams: getTorrentioStreams },
 };
 const defaultSettings = {};
+export function streamProvider(source) {
+  return source.addon ? addonProvider(source.addon) : providers[source.id];
+}
 
 export default function AddonSources({
   source,
@@ -36,11 +41,10 @@ export default function AddonSources({
   onReady,
   visible = true,
   revision = 0,
+  initialStreams,
+  resumePreference,
 }) {
-  const provider = useMemo(
-    () => (source.addon ? addonProvider(source.addon) : providers[source.id]),
-    [source.addon, source.id],
-  );
+  const provider = useMemo(() => streamProvider(source), [source]);
   const settings = config[source.id] || defaultSettings;
   const [retry, setRetry] = useState(0);
   const [feed, setFeed] = useState({ loading: true, streams: [] });
@@ -53,8 +57,10 @@ export default function AddonSources({
     const controller = new AbortController();
     autoHandled.current = false;
     setFeed({ loading: true, streams: [] });
-    provider
-      .getStreams(details, season, episode, controller.signal)
+    (initialStreams && retry === 0
+      ? Promise.resolve(initialStreams)
+      : provider.getStreams(details, season, episode, controller.signal)
+    )
       .then((streams) => {
         if (!controller.signal.aborted)
           setFeed({ loading: false, streams, requestKey });
@@ -69,23 +75,31 @@ export default function AddonSources({
           });
       });
     return () => controller.abort();
-  }, [provider, details, season, episode, requestKey]);
+  }, [provider, details, season, episode, requestKey, initialStreams, retry]);
 
   const streams = useMemo(
     () =>
       feed.streams.map((stream) => {
-        if (!stream.torrent) return stream;
+        if (!stream.torrent) return withNativeMedia(stream);
+        if (mode === "native") return withNativeTorrent(stream);
         if (mode === "browser" && config.webTorrent?.enabled !== false)
           return withBrowserTorrent(stream);
         if (mode === "stremio")
-          return withStremioService(stream, { ...connection, enabled: true });
+          return withNativeMedia(
+            withStremioService(stream, { ...connection, enabled: true }),
+          );
         return stream;
       }),
     [feed.streams, mode, connection],
   );
   useEffect(() => {
     if (loading || autoHandled.current) return;
-    if (streams.length !== 1 || streams[0].blockedReason) {
+    const automatic = resumePreference
+      ? preferredStream(streams, resumePreference.quality)
+      : streams.length === 1 && !streams[0].blockedReason
+        ? streams[0]
+        : null;
+    if (!automatic) {
       autoHandled.current = true;
       onReady?.();
       return;
@@ -93,10 +107,19 @@ export default function AddonSources({
     // Only a fresh provider lookup can auto-start its sole stream, never a settings change.
     const timer = window.setTimeout(() => {
       autoHandled.current = true;
-      onPlay({ stream: streams[0], provider, settings, details }, true);
+      onPlay({ stream: automatic, provider, settings, details }, true);
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [loading, streams, provider, settings, details, onPlay, onReady]);
+  }, [
+    loading,
+    streams,
+    provider,
+    settings,
+    details,
+    onPlay,
+    onReady,
+    resumePreference,
+  ]);
 
   if (
     !visible ||

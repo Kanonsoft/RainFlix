@@ -96,7 +96,7 @@ for (const scenario of scenarios) {
       dialog.getByRole("button", { name: "In My List", exact: true }),
     ).toBeVisible();
     await page
-      .getByRole("button", { name: "Play with VidSrc", exact: true })
+      .getByRole("button", { name: "Play trailer", exact: true })
       .click();
     await expect(page.locator("#playerShell iframe")).toBeVisible();
     await expect(

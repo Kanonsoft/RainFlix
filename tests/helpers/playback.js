@@ -12,20 +12,48 @@ const title = {
   release_date: "2024-01-01",
   first_air_date: "2024-01-01",
   genres: [],
+  videos: {
+    results: [
+      {
+        key: "trailer_fixture",
+        site: "YouTube",
+        type: "Trailer",
+        official: true,
+      },
+    ],
+  },
   seasons: [{ season_number: 1, name: "Season 1", episode_count: 2 }],
 };
 
-export async function mockPlayback({ page, baseURL }, enableLegacy = true) {
+export async function mockPlayback(
+  { page, baseURL },
+  enableLegacy = true,
+  preserveStorage = false,
+) {
   if (enableLegacy !== false) {
     await page.route("**/scripts/config.js", async (route) => {
-      const response = await route.fetch();
+      const response = await route.fetch({ maxRetries: 2 });
       await route.fulfill({
         response,
         body: `${await response.text()}\nwindow.RAINFLIX_CONFIG.yastream.enabled = true;\nwindow.RAINFLIX_CONFIG.torrentio.enabled = true;`,
       });
     });
   }
-  await page.addInitScript(() => localStorage.clear());
+  if (!preserveStorage) await page.addInitScript(() => localStorage.clear());
+  await page.route("https://api.country.is/", (route) =>
+    route.fulfill({ json: { country: "US" } }),
+  );
+  await page.route("https://stremio-addons.net/api/v0/**", (route) =>
+    route.fulfill({
+      json: { categories: [], addons: [], pagination: { hasNextPage: false } },
+    }),
+  );
+  await page.route("https://yastream.tamthai.de/**", (route) =>
+    route.fulfill({ json: { streams: [], subtitles: [] } }),
+  );
+  await page.route("https://torrentio.strem.fun/**", (route) =>
+    route.fulfill({ json: { streams: [] } }),
+  );
   await page.route("https://api.themoviedb.org/3/**", (route) => {
     const url = new URL(route.request().url());
     const body = /\/(movie|tv)\/505$/.test(url.pathname)
@@ -47,7 +75,7 @@ export async function mockPlayback({ page, baseURL }, enableLegacy = true) {
       contentType: "image/jpeg",
     }),
   );
-  await page.route("https://vidsrc.to/**", (route) =>
+  await page.route("https://www.youtube-nocookie.com/**", (route) =>
     route.fulfill({
       body: "<html><body>Embed test</body></html>",
       contentType: "text/html",
@@ -92,27 +120,31 @@ export async function closePlayer(page) {
 
 export async function selectPlayer(page, id) {
   await closePlayer(page);
+  if (id === "trailer") {
+    await page
+      .getByRole("button", { name: "Play trailer", exact: true })
+      .click();
+    await expect(page.locator("#fullscreenPlayback")).toBeVisible();
+    return;
+  }
   const episode = page.locator('[data-video-id][aria-pressed="true"]');
   if (await episode.count()) {
     await episode.click();
     await expect(
-      page.getByRole("heading", { name: "Players", exact: true }),
+      page.getByRole("heading", { name: "Streams", exact: true }),
     ).toBeVisible();
   }
   const back = page.getByRole("button", {
-    name: /^(Back to players|Cancel stream lookup)$/,
+    name: /^(Back to streams|Cancel stream lookup)$/,
   });
   if (await back.count()) await back.click();
   const labels = {
-    vidsrc: "VidSrc",
     yastream: "Yastream",
     torrentio: "Torrentio",
   };
   await page
     .getByRole("button", { name: `Play with ${labels[id] || id}`, exact: true })
     .click();
-  if (id === "vidsrc")
-    await expect(page.locator("#fullscreenPlayback")).toBeVisible();
 }
 
 export async function selectStream(page, id) {
@@ -132,7 +164,7 @@ export async function selectCaptions(page, label) {
 export async function selectEpisode(page, episode, provider) {
   await closePlayer(page);
   const sourceBack = page.getByRole("button", {
-    name: /^(Back to players|Cancel stream lookup)$/,
+    name: /^(Back to streams|Cancel stream lookup)$/,
   });
   if (await sourceBack.count()) await sourceBack.click();
   const episodeBack = page.getByRole("button", {
@@ -146,10 +178,13 @@ export async function selectEpisode(page, episode, provider) {
       exact: true,
     })
     .click();
-  await expect(
-    page.getByRole("heading", { name: "Players", exact: true }),
-  ).toBeVisible();
-  if (provider) await selectPlayer(page, provider);
+  if (provider) {
+    await expect(page.locator("#fullscreenPlayback")).toHaveCount(0);
+    await selectPlayer(page, provider);
+  } else
+    await expect(
+      page.getByRole("heading", { name: "Streams", exact: true }),
+    ).toBeVisible();
 }
 
 export async function history(page) {

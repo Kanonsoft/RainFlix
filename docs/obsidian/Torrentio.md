@@ -10,13 +10,15 @@ Related: [[Configuration]], [[Architecture]], [[Yastream]], [[Stremio Service]],
 
 The provider is enabled with `https://torrentio.strem.fun/sizefilter=10GB`. The user has no debrid configuration. RainFlix remains a static app and performs source lookup without starting torrent downloads or seeding.
 
-The default mode is [[Browser WebTorrent]]. It adds the selected torrent only after **Play in browser** and can reach WebRTC peers through WS/WSS trackers. This keeps deployment static but does not reach ordinary torrent peers.
+The website defaults to [[Browser WebTorrent]]. It adds the selected torrent only after **Play in browser** and can reach WebRTC peers through WS/WSS trackers. This keeps deployment static but does not reach ordinary torrent peers. The Windows app defaults to [[Native Torrent Desktop|Native torrent]], which reaches conventional peers and DHT without a separate service. It starts only after an authorized Play action.
 
 [[Stremio Service]] remains available at `http://127.0.0.1:11470` for conventional swarms. RainFlix passes a selected torrent to that service only after **Play stream**. A running service and browser-compatible media are required, but debrid is not.
 
 **External torrent app** shows **Open torrent** and asks the browser to launch an installed magnet-link handler. The external app controls downloads, uploads, and playback. Nothing launches until the link is clicked.
 
 ## IDs and Requests
+
+TMDb-backed regular seasons are sorted by source episode number and numbered locally from 1, preserving gaps. For example, a season 23 beginning at source episode 1123 requests `tt...:23:1` for its first episode from installed add-ons and Torrentio. Episode titles, artwork, and dates stay attached to the same episode. Specials (season 0) and provider-defined custom metadata IDs are left unchanged. Older absolute-number title links are accepted where they map unambiguously to a source episode. This corrects the requested numbering but cannot guarantee provider coverage or agreement with TMDb's season grouping.
 
 TMDb details already include `external_ids`; the mapper now exposes `imdbId`, falling back to the movie's `imdb_id`. RainFlix does not guess an IMDb ID from the title or pass numeric TMDb IDs to Torrentio.
 
@@ -40,7 +42,7 @@ If a usable direct stream is present, it is selected ahead of torrent-only resul
 
 Set `torrentio.manifestUrl` to a configured Torrentio manifest or configure URL that returns direct video links. `stremio://` install links are normalized to HTTPS. A nonempty override takes precedence over `baseUrl`.
 
-No debrid account was purchased, no credentials were invented, and no streaming service was installed by Codex. A bare torrent manifest does not gain browser peers by changing the URL suffix. Browser WebTorrent requires WebRTC-compatible peers and cannot generally replace a native torrent engine for arbitrary Torrentio results.
+No debrid account was purchased, no credentials were invented, and no streaming service was installed by Codex. A bare torrent manifest does not gain browser peers by changing the URL suffix. Browser WebTorrent requires WebRTC-compatible peers; the Windows native engine is a separate transport, not a change to the website.
 
 ## Verification
 

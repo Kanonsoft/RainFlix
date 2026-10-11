@@ -1,0 +1,166 @@
+import { expect, test } from "@playwright/test";
+import { mockPlayback } from "./helpers/playback.js";
+
+const endpoint =
+  "https://api.github.com/repos/Kanonsoft/RainFlix/releases/latest";
+const installer =
+  "https://github.com/Kanonsoft/RainFlix/releases/download/v1.0.0/RainFlix_1.0.0_x64-setup.exe";
+const release = {
+  tag_name: "v1.0.0",
+  assets: [
+    {
+      name: "RainFlix_1.0.0_x64-setup.exe",
+      browser_download_url: installer,
+      size: 52428800,
+    },
+    {
+      name: "RainFlix_android.apk",
+      browser_download_url:
+        "https://github.com/Kanonsoft/RainFlix/releases/download/v1.0.0/app.apk",
+    },
+  ],
+};
+
+for (const width of [390, 1440]) {
+  test(`web header opens downloads with Windows and upcoming Android at ${width}px`, async ({
+    page,
+    baseURL,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await mockPlayback({ page, baseURL }, false);
+    await page.route(endpoint, (route) => route.fulfill({ json: release }));
+    await page.goto("/#/home");
+    await expect(page.locator("#appLoader")).toHaveClass(/is-hidden/, {
+      timeout: 15000,
+    });
+    await expect(
+      page.getByRole("link", { name: "Add-ons", exact: true }),
+    ).toHaveCount(0);
+    await page
+      .getByRole("link", { name: "Download RainFlix", exact: true })
+      .click();
+    await expect(page).toHaveURL(/#\/downloads$/);
+    await expect(
+      page.getByRole("heading", { name: "Downloads", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Download for Windows", exact: true }),
+    ).toHaveAttribute("href", installer);
+    await expect(
+      page.getByRole("link", { name: "Download RainFlix", exact: true }),
+    ).toHaveAttribute("aria-current", "page");
+    await expect(page.getByText("v1.0.0", { exact: false })).toContainText(
+      "50.0 MB",
+    );
+    const android = page.getByRole("region", { name: "Android", exact: true });
+    await expect(android).toContainText("Coming soon");
+    await expect(android.getByRole("link")).toHaveCount(0);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    if (width === 390) {
+      await page.getByRole("button", { name: "Open navigation" }).click();
+      const drawer = page.getByRole("dialog", { name: "Mobile navigation" });
+      await expect(
+        drawer.getByRole("link", { name: "Add-ons", exact: true }),
+      ).toHaveCount(0);
+      await expect(
+        drawer.getByRole("link", { name: "Download", exact: true }),
+      ).toBeVisible();
+      await drawer.getByRole("link", { name: "Download", exact: true }).click();
+      await expect(drawer).toBeHidden();
+    }
+    await page.reload();
+    await expect(
+      page.getByRole("link", { name: "Download for Windows", exact: true }),
+    ).toBeVisible();
+  });
+}
+
+test("unpublished and failed release lookups never offer a broken installer", async ({
+  page,
+  baseURL,
+}) => {
+  await mockPlayback({ page, baseURL }, false);
+  let status = 503;
+  await page.route(endpoint, (route) => route.fulfill({ status, json: {} }));
+  await page.goto("/#/downloads");
+  await expect(
+    page.getByText("Couldn't check the latest installer."),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Download for Windows" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("link", { name: "GitHub Releases" }),
+  ).toHaveAttribute("href", "https://github.com/Kanonsoft/RainFlix/releases");
+  status = 404;
+  await page.getByRole("button", { name: "Retry release lookup" }).click();
+  await expect(
+    page.getByText("Windows installer not published yet."),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Download for Windows" }),
+  ).toHaveCount(0);
+});
+
+test("desktop header has no download entries", async ({ page, baseURL }) => {
+  await mockPlayback({ page, baseURL }, false);
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.route("**/src/platform/index.js", (route) =>
+    route.fulfill({
+      contentType: "text/javascript",
+      body: "export const isDesktop=true; export const browserTorrentAvailable=false; export function shareBaseUrl(){return location.origin;}",
+    }),
+  );
+  await page.goto("/#/home");
+  await expect(page.locator("#appLoader")).toHaveClass(/is-hidden/, {
+    timeout: 15000,
+  });
+  await expect(
+    page.getByRole("link", { name: "Download RainFlix" }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "Open navigation" }).click();
+  await expect(
+    page
+      .getByRole("dialog", { name: "Mobile navigation" })
+      .getByRole("link", { name: "Add-ons", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByRole("dialog", { name: "Mobile navigation" })
+      .getByRole("link", { name: "Download", exact: true }),
+  ).toHaveCount(0);
+});
+
+test("release assets must be trusted Windows installers", async ({
+  page,
+  baseURL,
+}) => {
+  await mockPlayback({ page, baseURL }, false);
+  await page.route(endpoint, (route) =>
+    route.fulfill({
+      json: {
+        assets: [
+          {
+            name: "bad_x64.exe",
+            browser_download_url: "https://evil.example/setup.exe",
+          },
+          {
+            name: "wrong_x64.exe",
+            browser_download_url:
+              "https://github.com/other/project/releases/download/v1/setup.exe",
+          },
+          { name: "RainFlix_arm64.exe", browser_download_url: installer },
+          release.assets[0],
+        ],
+      },
+    }),
+  );
+  await page.goto("/#/downloads");
+  await expect(
+    page.getByRole("link", { name: "Download for Windows" }),
+  ).toHaveAttribute("href", installer);
+});

@@ -142,7 +142,7 @@ test("preserves server paths and missing file indices and remembers the address"
     enabled: true,
     baseUrl: "http://localhost:11470/proxy",
   });
-  await selectPlayer(page, "vidsrc");
+  await selectPlayer(page, "trailer");
   await expect(page.locator("#playerShell video")).toHaveCount(0);
   await selectPlayer(page, "torrentio");
   await expect(page.getByLabel("Service address")).toHaveValue(
@@ -213,7 +213,10 @@ test("reports offline, invalid and timed-out service checks and playback failure
   await expect(
     page.getByText(/Stremio could not play this torrent/),
   ).toBeVisible();
-  await expect(page.getByRole("link", { name: "Open torrent" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open torrent" })).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Retry", exact: true }),
+  ).toBeVisible();
   expect(await history(page)).toHaveLength(0);
   await expect(
     page.getByRole("region", { name: "Torrentio player", exact: true }),

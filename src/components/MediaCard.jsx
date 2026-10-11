@@ -1,8 +1,24 @@
 import { Link } from "react-router";
+import { useCallback, useRef, useState } from "react";
+import { MoreHorizontal } from "lucide-react";
+import HistoryMenu from "./HistoryMenu.jsx";
 import { api, imageFallback, watchPath } from "../lib/api.js";
 import { posterImageProps } from "../lib/images.js";
 
 export function MediaCard({ item }) {
+  const [menu, setMenu] = useState(null);
+  const card = useRef(null);
+  const closeMenu = useCallback(() => setMenu(null), []);
+  const hasHistory = Boolean(item.resumePath || item.historyKind);
+  const openMenu = (event) => {
+    if (!hasHistory) return;
+    event.preventDefault();
+    const rect = card.current.getBoundingClientRect();
+    setMenu({
+      x: event.clientX || rect.left,
+      y: event.clientY || rect.top + 32,
+    });
+  };
   const poster = item.poster || item.backdrop || imageFallback(item.title);
   const mainClass =
     "block w-full text-left outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-sky-400/25";
@@ -58,10 +74,25 @@ export function MediaCard({ item }) {
   );
 
   return (
-    <article className="catalog-card group relative overflow-hidden rounded-lg border border-blue-900/70 bg-slate-950 transition duration-300 hover:-translate-y-1 hover:border-sky-500/70 focus-within:-translate-y-1 focus-within:border-sky-500/70">
+    <article
+      ref={card}
+      onContextMenu={openMenu}
+      onKeyDown={(event) => {
+        if (
+          event.key === "ContextMenu" ||
+          (event.shiftKey && event.key === "F10")
+        )
+          openMenu(event);
+      }}
+      className="catalog-card group relative overflow-hidden rounded-lg border border-blue-900/70 bg-slate-950 transition duration-300 hover:-translate-y-1 hover:border-sky-500/70 focus-within:-translate-y-1 focus-within:border-sky-500/70"
+    >
       <Link
         className={mainClass}
-        to={item.resumePath || item.detailPath || watchPath(item)}
+        to={
+          item.resumePath
+            ? `${item.resumePath}${item.resumePath.includes("?") ? "&" : "?"}resume=1`
+            : item.detailPath || watchPath(item)
+        }
         aria-label={
           item.resumePath
             ? `Continue watching ${item.title}`
@@ -70,6 +101,20 @@ export function MediaCard({ item }) {
       >
         {cardContent}
       </Link>
+      {hasHistory && (
+        <button
+          type="button"
+          title="History options"
+          aria-label={`History options for ${item.title}`}
+          aria-haspopup="menu"
+          aria-expanded={Boolean(menu)}
+          className="absolute right-2 top-2 z-20 grid h-9 w-9 place-items-center rounded-md bg-black/80 text-white hover:bg-zinc-700 focus-visible:outline-sky-400"
+          onClick={openMenu}
+        >
+          <MoreHorizontal size={20} />
+        </button>
+      )}
+      {menu && <HistoryMenu item={item} position={menu} onClose={closeMenu} />}
     </article>
   );
 }
@@ -129,7 +174,10 @@ export function MediaGrid({
   return (
     <div className={classes} aria-busy={ghostCount > 0} aria-live="polite">
       {items.map((item) => (
-        <MediaCard item={item} key={`${item.mediaType}:${item.id}`} />
+        <MediaCard
+          item={item}
+          key={`${item.mediaType}:${item.id}:${item.historyKind === "watched" ? `${item.season}:${item.episode}` : ""}`}
+        />
       ))}
       {Array.from({ length: ghostCount }, (_, index) => (
         <CardSkeleton key={`ghost-${index}`} detailed />

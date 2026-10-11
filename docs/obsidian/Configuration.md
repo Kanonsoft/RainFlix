@@ -10,11 +10,22 @@ Related: [[README|RainFlix Notes]], [[Yastream]], [[Torrentio]], [[Troubleshooti
 
 The default Yastream and Torrentio switches are now off. User-installed providers are managed through `/addons`; see [[Add-ons]].
 
+Built-in iframe providers (VidSrc, 2embed, MultiEmbed, VidLink, VidFast, VidSrcMe, and VidCore) and their base-URL settings have been removed. Install a streaming add-on to add playback sources. The optional Yastream/Torrentio adapters remain disabled by default.
+
+Official viewing services are built in and need no streaming add-on. TMDb/JustWatch regional availability appears alongside the title-page Streams panel. Country is automatically detected via `api.country.is`, with explicit browser locale region as fallback; there is no selector or fixed country override, and `tmdbRegion` remains only the movie release-region setting. Service rows open TMDb's official viewing links externally, not an embedded player. See [[Title Playback#Official Viewing Services]] for the external lookup and privacy behavior.
+
 Edit [scripts/config.js](../../scripts/config.js). Reload the app after changing settings.
+
+`downloads.githubRepository` identifies the public repository used by the web-only header Download link and `/downloads` page. The Windows button resolves the latest published `.exe` release asset; Android is coming soon. Publishing the installer is separate from building or deploying the website. See [[Downloads]].
+
+`tmdbAutoEpisodeGroups` is enabled by default. RainFlix discovers each series' TMDb episode groups and considers up to three season-type (type 6) candidates, preferring the "Seasons" label and then stable group IDs. It uses an alternate group only when it splits the default seasons while covering every original regular episode exactly once, in order, without merging original seasons. Cours, reordered, incomplete and duplicate-containing groups are not chosen. Ordinary series and lookup failures retain their default metadata. The Apothecary Diaries is no longer hardcoded.
+
+`tmdbEpisodeGroups` is an optional override map, empty by default: a series ID mapped to a group ID explicitly selects that order; `false` disables automatic grouping for that series. Set `tmdbAutoEpisodeGroups` to `false` to disable automatic discovery globally. Results use the existing bounded TMDb metadata cache, not add-on response storage. A chosen group ID stays attached to the loaded title metadata so season changes and player drawers reuse the same order.
 
 | Setting                                  | Purpose                                                                                          |
 | ---------------------------------------- | ------------------------------------------------------------------------------------------------ |
 | `tmdbApiKey`                             | Existing TMDb metadata access                                                                    |
+| `publicSiteUrl`                          | HTTPS destination used when sharing a title from the desktop app                                 |
 | `tmdbRegion`                             | Movie release region                                                                             |
 | `tmdbCacheTtlMs` / `tmdbCacheMaxEntries` | Metadata cache lifetime and bound                                                                |
 | `yastream.enabled`                       | Show or hide Yastream in the title-page player list                                              |
@@ -50,7 +61,7 @@ Adding Mediaflow settings does not automatically proxy every URL: Yastream decid
 | `torrentio.requestTimeoutMs`  | Source lookup timeout, default 25000 ms                                                                    |
 | `torrentio.playbackTimeoutMs` | Direct video loading/buffering timeout, default 30000 ms                                                   |
 
-The current Torrentio URL has no debrid credentials. Choose Torrentio to list results. Torrents can use [[Browser WebTorrent]], an existing [[Stremio Service]], or an external torrent app. A debrid configuration returning HTTP(S) streams remains another option. Selecting a source authorizes media loading. A fresh provider lookup with one playable source starts it immediately; multiple sources wait for a source click.
+The current Torrentio URL has no debrid credentials. Choose Torrentio to list results. Torrents use [[Browser WebTorrent]] on the website and [[Native Torrent Desktop|native torrent playback]] in the Windows app by default. An existing [[Stremio Service]] or external torrent app remains selectable. A debrid configuration returning HTTP(S) streams remains another option. Selecting a source authorizes media loading. A fresh provider lookup with one playable source starts it immediately; multiple sources wait for a source click.
 
 Configured URLs may contain account keys. Keep them only in this configuration, not in screenshots, notes, logs, or shared links. They will be readable in a deployed browser bundle, even when placed in Vite environment variables. No credentials or paid services have been added.
 
@@ -65,7 +76,7 @@ Configured URLs may contain account keys. Keep them only in this configuration, 
 | `webTorrent.uploadLimitBps`    | Upload limit in bytes per second; `-1` means unlimited            |
 | `webTorrent.trackers`          | Extra WS/WSS trackers used for browser peer discovery             |
 
-The mode dropdown is stored under `rainflix:torrent-playback:v1`. Browser mode uses only WebRTC peers and does not make ordinary torrent peers browser-compatible. The client and transfer begin only after the authorized launch described in [[Title Playback]].
+The mode dropdown is stored under `rainflix:torrent-playback:v1`. The website defaults to Browser mode, which uses only WebRTC peers. The Windows app defaults to Native mode and reaches conventional torrent swarms. A saved mode unavailable on the current platform falls back to that platform's default. The client and transfer begin only after the authorized launch described in [[Title Playback]].
 
 ## Stremio Service Settings
 

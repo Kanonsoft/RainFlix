@@ -8,27 +8,31 @@ Open this folder as an Obsidian vault, or open the repository as a vault and nav
 
 ## Start Here
 
+- [[Windows Desktop Plan]]: Windows Tauri shell in progress, platform boundaries, storage, and development milestones.
 - [[Title Playback]]: shared title pages, fullscreen playback, source selection, and trailers.
-- [[Add-ons]]: current directory, installation, session storage, and supported capabilities.
+- [[Add-ons]]: installable directory, installed add-on management, Windows website install links, storage, and supported capabilities.
 
 - [[Configuration]]: settings, provider selection, credentials, and local commands.
+- [[Downloads]]: web download page, GitHub Releases installer lookup, and publishing steps.
 - [[Yastream]]: request format, playback, subtitles, and limitations.
 - [[Torrentio]]: IMDb matching, direct streams, and external torrent links.
 - [[Browser WebTorrent]]: pure static WebRTC torrent playback and browser limits.
+- [[Native Torrent Desktop]]: app-owned Windows torrent playback and current format limits.
+- [[Subtitle Add-ons]]: independent subtitle providers and native/browser track loading.
 - [[Stremio Service]]: no-debrid torrent playback through an existing service.
 - [[Architecture]]: source files, data flow, and maintenance rules.
 - [[Troubleshooting]]: lookup failures, unavailable media, and browser errors.
 
 ## Current Setup
 
-Update: Yastream and Torrentio are disabled by default. Use the **Add-ons** header entry to browse or install a manifest. See [[Add-ons]] for current behavior; the provider-specific notes below describe the retained optional adapters.
+Update: Yastream and Torrentio are disabled by default. The **Add-ons** header entry is visible in the desktop app (and reserved for future mobile app builds), but hidden on the website. The `/addons` route remains available for private testing. See [[Add-ons]] for current behavior; the provider-specific notes below describe the retained optional adapters.
 
 Installed catalogs add Home rows and filterable browse pages. Native and add-on cards open the shared title-page UI. IMDb titles use built-in TMDb metadata; custom IDs use compatible add-on metadata internally.
 
-RainFlix uses React, Vite, and hash routes. TMDb provides the catalog and title details. Players are listed on the title page; provider/source clicks open a header-free fullscreen player. Torrentio torrents can use browser WebTorrent, an existing Stremio Service, or an external torrent app. See [[Title Playback]] for the current flow.
+RainFlix uses React, Vite, and hash routes. TMDb provides the catalog and title details. Available Streams are listed on the title page; provider/source clicks open a header-free fullscreen player. Add-on registrations and My List persist on the device. Continue Watching resolves the remembered provider's stream fresh and restores supported track choices. Torrent results use browser WebTorrent on the website and native playback in the Windows app by default; Stremio Service and external torrent apps remain manual options. See [[Title Playback]] for the current flow.
 
 Yastream uses the hosted instance at `https://yastream.tamthai.de` with the supplied KissKH and OneTouchTV configuration. No RainFlix backend is required for browser-compatible streams. The upstream add-on is still an external server dependency.
 
 This integration is being tested locally. Optional token/proxy fields are empty; put values in [config.js](../../scripts/config.js) when needed. The notes point to configuration instead of keeping duplicate credential copies.
 
-Torrentio preserves the supplied `sizefilter=10GB` configuration. No debrid account is configured. Browser WebTorrent is the default playback mode and runs only after Play. Stremio Service remains selectable at the viewing device's `http://127.0.0.1:11470`. RainFlix has no hosted torrent backend.
+Torrentio preserves the supplied `sizefilter=10GB` configuration. No debrid account is configured. Torrent transfer starts only after Play. Stremio Service remains selectable at the viewing device's `http://127.0.0.1:11470`. RainFlix has no hosted torrent backend.

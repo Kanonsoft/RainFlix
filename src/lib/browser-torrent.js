@@ -1,8 +1,9 @@
 import { config } from "./api.js";
 import { registerRainFlixServiceWorker } from "./service-worker.js";
+import { browserTorrentAvailable, isDesktop } from "../platform/index.js";
 
 const PLAYBACK_MODE_KEY = "rainflix:torrent-playback:v1";
-const PLAYBACK_MODES = new Set(["browser", "stremio", "external"]);
+const PLAYBACK_MODES = new Set(["native", "browser", "stremio", "external"]);
 const VIDEO_EXTENSION = /\.(?:m4v|mkv|mov|mp4|og[gv]|webm)$/i;
 let webTorrentModule;
 
@@ -96,14 +97,20 @@ function formatSpeed(bytesPerSecond) {
 }
 
 export function readTorrentPlaybackMode() {
-  const fallback = config.webTorrent?.enabled
-    ? "browser"
-    : config.stremioService?.enabled
-      ? "stremio"
-      : "external";
+  const fallback = isDesktop
+    ? "native"
+    : config.webTorrent?.enabled && browserTorrentAvailable
+      ? "browser"
+      : config.stremioService?.enabled
+        ? "stremio"
+        : "external";
   try {
     const stored = localStorage.getItem(PLAYBACK_MODE_KEY);
-    if (stored === "browser" && config.webTorrent?.enabled === false) {
+    if (
+      (stored === "browser" &&
+        (config.webTorrent?.enabled === false || !browserTorrentAvailable)) ||
+      (stored === "native" && !isDesktop)
+    ) {
       return fallback;
     }
     return PLAYBACK_MODES.has(stored) ? stored : fallback;
@@ -113,7 +120,12 @@ export function readTorrentPlaybackMode() {
 }
 
 export function saveTorrentPlaybackMode(mode) {
-  if (!PLAYBACK_MODES.has(mode)) return;
+  if (
+    !PLAYBACK_MODES.has(mode) ||
+    (mode === "browser" && !browserTorrentAvailable) ||
+    (mode === "native" && !isDesktop)
+  )
+    return;
   try {
     localStorage.setItem(PLAYBACK_MODE_KEY, mode);
   } catch {
@@ -123,6 +135,7 @@ export function saveTorrentPlaybackMode(mode) {
 
 export function withBrowserTorrent(stream) {
   if (!stream?.torrent) return stream;
+  if (!browserTorrentAvailable) return stream;
   return {
     ...stream,
     blockedReason: "",
@@ -132,6 +145,9 @@ export function withBrowserTorrent(stream) {
 }
 
 export async function startBrowserTorrent({ stream, video, signal, onStatus }) {
+  if (!browserTorrentAvailable) {
+    throw new Error("Browser WebTorrent is unavailable in the desktop app.");
+  }
   let client;
   let metadataTimer;
   let activeFile;

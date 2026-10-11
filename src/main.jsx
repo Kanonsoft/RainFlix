@@ -4,6 +4,7 @@ import { HashRouter } from "react-router";
 import App from "./App.jsx";
 import AppErrorBoundary from "./components/AppErrorBoundary.jsx";
 import { registerRainFlixServiceWorker } from "./lib/service-worker.js";
+import { isDesktop } from "./platform/index.js";
 import "../styles/input.css";
 
 function StartupReady() {
@@ -22,7 +23,13 @@ ReactDOM.createRoot(document.querySelector("#root")).render(
   </AppErrorBoundary>,
 );
 
-if ("serviceWorker" in navigator && import.meta.env.PROD) {
+if (isDesktop) {
+  import("./platform/desktop.js")
+    .then(({ initializeDesktopLinks }) => initializeDesktopLinks())
+    .catch((error) => console.warn("Desktop links could not start.", error));
+}
+
+if (!isDesktop && "serviceWorker" in navigator && import.meta.env.PROD) {
   window.addEventListener("load", () => {
     registerRainFlixServiceWorker().catch((error) => {
       console.warn("RainFlix offline support could not start.", error);

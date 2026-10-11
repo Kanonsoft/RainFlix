@@ -1,5 +1,6 @@
 import { config } from "../lib/api.js";
 import StremioServiceSettings from "./StremioServiceSettings.jsx";
+import { browserTorrentAvailable, isDesktop } from "../platform/index.js";
 
 export default function TorrentPlaybackSettings({
   mode,
@@ -16,9 +17,12 @@ export default function TorrentPlaybackSettings({
           value={mode}
           onChange={(event) => onModeChange(event.target.value)}
         >
+          {isDesktop && <option value="native">Native torrent</option>}
           <option
             value="browser"
-            disabled={config.webTorrent?.enabled === false}
+            disabled={
+              config.webTorrent?.enabled === false || !browserTorrentAvailable
+            }
           >
             Browser (WebRTC only)
           </option>

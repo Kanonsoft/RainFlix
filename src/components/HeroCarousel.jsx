@@ -3,7 +3,6 @@ import { Play } from "lucide-react";
 import { Link } from "react-router";
 import { api, imageFallback, watchPath } from "../lib/api.js";
 import { backdropImageProps } from "../lib/images.js";
-import { useDetails } from "./details/DetailsProvider.jsx";
 import TitleArtwork from "./TitleArtwork.jsx";
 
 const SLIDE_DURATION = 8000;
@@ -77,14 +76,7 @@ function interactivePeelStyles(direction, rawProgress, duration = 0) {
   };
 }
 
-function HeroSlide({
-  articleStyle,
-  contentStyle,
-  item,
-  mode,
-  direction,
-  openDetails,
-}) {
+function HeroSlide({ articleStyle, contentStyle, item, mode, direction }) {
   const image = item.backdrop || item.poster || imageFallback(item.title, true);
   const isOutgoing = mode === "outgoing" || mode === "drag-outgoing";
   const isInteractive = !isOutgoing && mode !== "drag-incoming";
@@ -171,14 +163,6 @@ function HeroSlide({
             <Play className="h-4 w-4" fill="currentColor" aria-hidden="true" />
             Watch now
           </Link>
-          <button
-            className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-slate-950/55 px-5 py-3 text-sm font-black text-slate-50 backdrop-blur transition duration-200 hover:border-sky-400/70 hover:bg-slate-950/80 hover:text-sky-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-400/20 md:px-6"
-            type="button"
-            onClick={() => openDetails(item.mediaType, item.id)}
-            tabIndex={isInteractive ? undefined : -1}
-          >
-            More info
-          </button>
         </div>
       </div>
     </article>
@@ -186,7 +170,6 @@ function HeroSlide({
 }
 
 export default function HeroCarousel({ items, onBackdrop }) {
-  const { openDetails } = useDetails();
   const [activeIndex, setActiveIndex] = useState(0);
   const [previousIndex, setPreviousIndex] = useState(null);
   const [direction, setDirection] = useState("left");
@@ -508,7 +491,6 @@ export default function HeroCarousel({ items, onBackdrop }) {
               item={dragFromItem}
               mode="drag-outgoing"
               direction={dragPreview.direction}
-              openDetails={openDetails}
               key={`drag-outgoing-${dragPreview.id}-${dragPreview.fromIndex}`}
             />
             <HeroSlide
@@ -517,7 +499,6 @@ export default function HeroCarousel({ items, onBackdrop }) {
               item={dragTargetItem}
               mode="drag-incoming"
               direction={dragPreview.direction}
-              openDetails={openDetails}
               key={`drag-incoming-${dragPreview.id}-${dragPreview.targetIndex}`}
             />
             <span
@@ -531,7 +512,6 @@ export default function HeroCarousel({ items, onBackdrop }) {
             item={previousItem}
             mode="outgoing"
             direction={direction}
-            openDetails={openDetails}
             key={`outgoing-${previousItem.mediaType}:${previousItem.id}-${activeIndex}`}
           />
         ) : null}
@@ -541,7 +521,6 @@ export default function HeroCarousel({ items, onBackdrop }) {
             item={item}
             mode={previousItem ? "incoming" : "active"}
             direction={direction}
-            openDetails={openDetails}
             key={`active-${item.mediaType}:${item.id}-${activeIndex}`}
           />
         ) : null}

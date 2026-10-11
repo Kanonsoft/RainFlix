@@ -23,6 +23,7 @@ const AddonTitlePage = lazy(() => import("./pages/AddonTitlePage.jsx"));
 const SearchPage = lazy(() => import("./pages/SearchPage.jsx"));
 const WatchPage = lazy(() => import("./pages/WatchPage.jsx"));
 const TitlePage = lazy(() => import("./pages/TitlePage.jsx"));
+const DownloadsPage = lazy(() => import("./pages/DownloadsPage.jsx"));
 const PrivacyAnalytics = lazy(() =>
   import("./components/PrivacyAnalytics.jsx").catch(() => ({
     default: () => null,
@@ -270,6 +271,10 @@ function AppShell() {
               <Route
                 path="/addons"
                 element={<AddonsPage onReady={completeBoot} />}
+              />
+              <Route
+                path="/downloads"
+                element={<DownloadsPage onReady={completeBoot} />}
               />
               <Route path="/" element={<Navigate replace to="/home" />} />
               <Route

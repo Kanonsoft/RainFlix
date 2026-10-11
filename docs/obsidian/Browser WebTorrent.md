@@ -4,11 +4,13 @@ tags: [rainflix, playback, torrent, webtorrent]
 
 # Browser WebTorrent
 
-Related: [[Torrentio]], [[Configuration]], [[Stremio Service]], [[Troubleshooting]].
+Related: [[Torrentio]], [[Configuration]], [[Native Torrent Desktop]], [[Stremio Service]], [[Troubleshooting]].
 
 ## Behavior
 
 **Browser (WebRTC only)** is the default Torrentio playback mode. It runs WebTorrent 3.0.21 inside the RainFlix tab and needs no local application or RainFlix backend. Source lookup does not start a transfer. The client is imported and the torrent is added only after **Play in browser** is pressed.
+
+The Tauri desktop build disables this mode and skips the website service worker. It uses [[Native Torrent Desktop|its own torrent engine]] by default; Stremio Service and an external torrent application remain optional manual choices.
 
 The player uses the Torrentio info hash and file index, keeps only WebSocket trackers that browsers can reach, and adds the configured WSS trackers. An explicit file index is preserved. Without one, RainFlix selects the largest recognized video file. Other files are deselected and requested pieces are prioritized by the native video stream.
 

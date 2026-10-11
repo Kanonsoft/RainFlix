@@ -4,22 +4,23 @@ export default function PlaybackLoader({
   active,
   title,
   logo,
+  fallbackLogo = `${import.meta.env.BASE_URL}rainflix-r.png`,
   progress = null,
   message = "Buffering video",
 }) {
   const [failedLogo, setFailedLogo] = useState("");
-  const artwork = logo && logo !== failedLogo;
+  const artwork = logo && logo !== failedLogo ? logo : fallbackLogo;
   const amount = Number.isFinite(progress)
     ? Math.max(0, Math.min(100, Math.round(progress * 100)))
     : null;
   const layer = () =>
     artwork ? (
       <img
-        src={logo}
+        src={artwork}
         alt=""
         draggable={false}
         className="mx-auto max-h-36 w-auto max-w-full object-contain"
-        onError={() => setFailedLogo(logo)}
+        onError={() => setFailedLogo(artwork)}
       />
     ) : (
       <span className="block break-words text-2xl font-bold leading-tight text-white sm:text-3xl">

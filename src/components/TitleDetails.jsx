@@ -8,6 +8,8 @@ import EpisodeList from "./EpisodeList.jsx";
 import RelatedCarousel from "./RelatedCarousel.jsx";
 import TitleArtwork from "./TitleArtwork.jsx";
 import TitlePlayers from "./TitlePlayers.jsx";
+import { shareBaseUrl } from "../platform/index.js";
+import { getTmdbTitleMeta } from "../lib/addon-catalogs.js";
 
 const actionClass =
   "inline-flex min-h-11 items-center gap-2 rounded-lg border border-white/20 px-4 text-sm font-bold transition hover:border-sky-400 hover:text-sky-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400";
@@ -20,18 +22,132 @@ function relatedPath(type, item) {
 
 function Content({ meta, requestedVideo, onVideoChange }) {
   const location = useLocation();
-  const { isInMyList, toggleMyList, recordViewed } = useLibrary();
+  const { isInMyList, toggleMyList, recordViewed, markWatched } = useLibrary();
   const [shareStatus, setShareStatus] = useState("");
   const [similar, setSimilar] = useState([]);
-  const [episodeChosen, setEpisodeChosen] = useState(false);
+  const [episodeChosen, setEpisodeChosen] = useState(
+    () => new URLSearchParams(location.search).get("resume") === "1",
+  );
   const players = useRef(null);
   const tmdb = meta.tmdbDetails;
-  const saved = tmdb && isInMyList(tmdb);
-  const videos = meta.isLive ? [] : meta.videos || [];
+  const libraryTitle = {
+    ...(tmdb || { ...meta, detailPath: location.pathname }),
+    seasonEpisodeCounts:
+      meta.tmdbSeasons ||
+      [...new Set((meta.videos || []).map((video) => video.season))].map(
+        (seasonNumber) => ({
+          seasonNumber,
+          episodeCount: (meta.videos || []).filter(
+            (video) => video.season === seasonNumber,
+          ).length,
+        }),
+      ),
+  };
+  const saved = isInMyList(libraryTitle);
+  const [extraVideos, setExtraVideos] = useState([]);
+  useEffect(() => {
+    if (!tmdb || !meta.tmdbSeasons?.length) return;
+    const controller = new AbortController();
+    const load = async () => {
+      for (const item of meta.tmdbSeasons) {
+        if (controller.signal.aborted) return;
+        if (item.seasonNumber === meta.selectedSeason) continue;
+        try {
+          const other = await getTmdbTitleMeta(
+            tmdb,
+            item.seasonNumber,
+            controller.signal,
+          );
+          if (!controller.signal.aborted)
+            setExtraVideos((current) => [
+              ...current.filter((video) => video.season !== item.seasonNumber),
+              ...other.videos,
+            ]);
+        } catch {
+          /* A missing season must not prevent playback. */
+        }
+      }
+    };
+    load();
+    return () => controller.abort();
+  }, [tmdb, meta.tmdbSeasons, meta.selectedSeason]);
+  const videos = useMemo(
+    () => (meta.isLive ? [] : meta.videos || []),
+    [meta.isLive, meta.videos],
+  );
+  const playerEpisodes = useMemo(
+    () =>
+      [
+        ...videos,
+        ...extraVideos.filter(
+          (video) => !videos.some((item) => item.id === video.id),
+        ),
+      ]
+        .map((video) => ({
+          id: video.id,
+          season: video.season,
+          episode: video.episode,
+          sourceSeasonNumber: video.sourceSeasonNumber,
+          sourceEpisodeNumber: video.sourceEpisodeNumber,
+          title: video.title,
+          date: video.releaseDate || video.date || "",
+          image: video.image || meta.backdrop || meta.poster,
+          streams: video.streams,
+        }))
+        .sort(
+          (a, b) =>
+            (a.season ?? 0) - (b.season ?? 0) ||
+            (a.episode ?? 0) - (b.episode ?? 0),
+        ),
+    [videos, extraVideos, meta.backdrop, meta.poster],
+  );
   const selectedVideo =
     videos.find((video) => video.id === requestedVideo) ||
+    videos.find((video) => video.sourceVideoId === requestedVideo) ||
     videos.find((video) => video.id === meta.defaultVideoId) ||
     videos[0];
+  const loadPlayerSeason = async (requestedSeason, signal) => {
+    if (!tmdb)
+      return playerEpisodes.filter((item) => item.season === requestedSeason);
+    const other = await getTmdbTitleMeta(tmdb, requestedSeason, signal);
+    if (signal?.aborted) return [];
+    setExtraVideos((current) => [
+      ...current.filter((item) => item.season !== requestedSeason),
+      ...other.videos,
+    ]);
+    return other.videos.map((item) => ({
+      ...item,
+      date: item.releaseDate || "",
+    }));
+  };
+  const continueEpisode = async (signal) => {
+    if (meta.addonType !== "series" || !selectedVideo) return false;
+    const currentSeason = selectedVideo.season ?? 1;
+    const candidates = [...new Set([currentSeason, ...seasons])]
+      .filter((value) => value >= currentSeason)
+      .sort((a, b) => a - b);
+    for (const value of candidates) {
+      const items = await loadPlayerSeason(value, signal);
+      if (signal.aborted) return false;
+      const next = items
+        .filter(
+          (item) =>
+            item.season > currentSeason || item.episode > selectedVideo.episode,
+        )
+        .filter(
+          (item) =>
+            !item.releaseDate ||
+            new Date(item.releaseDate).getTime() <= Date.now(),
+        )
+        .sort((a, b) => a.episode - b.episode)[0];
+      if (next) {
+        setEpisodeChosen(true);
+        onVideoChange(String(next.id), true);
+        return true;
+      }
+    }
+    return false;
+  };
   const seasons =
     meta.tmdbSeasons?.map((season) => season.seasonNumber) ||
     [
@@ -53,6 +169,8 @@ function Content({ meta, requestedVideo, onVideoChange }) {
     () => ({
       ...meta,
       addonVideoId: videoId,
+      sourceEpisodeNumber: selectedVideo?.sourceEpisodeNumber,
+      sourceSeasonNumber: selectedVideo?.sourceSeasonNumber,
       addonStreams: selectedVideo?.streams,
     }),
     [meta, videoId, selectedVideo],
@@ -82,7 +200,7 @@ function Content({ meta, requestedVideo, onVideoChange }) {
   const share = async () => {
     const params = new URLSearchParams(location.search);
     params.delete("play");
-    const url = new URL(import.meta.env.BASE_URL, window.location.origin);
+    const url = new URL(shareBaseUrl());
     url.hash = `${location.pathname}${params.size ? `?${params}` : ""}`;
     const text = [meta.title, meta.synopsis, url.href]
       .filter(Boolean)
@@ -153,12 +271,12 @@ function Content({ meta, requestedVideo, onVideoChange }) {
                 role="group"
                 aria-label="Title actions"
               >
-                {tmdb && (
+                {libraryTitle && (
                   <button
                     className={actionClass}
                     type="button"
                     aria-pressed={saved}
-                    onClick={() => toggleMyList(tmdb)}
+                    onClick={() => toggleMyList(libraryTitle)}
                   >
                     {saved ? (
                       <Check className="h-4 w-4" aria-hidden="true" />
@@ -283,6 +401,20 @@ function Content({ meta, requestedVideo, onVideoChange }) {
             details={details}
             season={season}
             episode={episode}
+            seasons={seasons}
+            episodes={playerEpisodes}
+            onLoadSeason={loadPlayerSeason}
+            onEpisodeEnded={continueEpisode}
+            currentVideoId={selectedVideo?.id}
+            onEpisodeSelect={(id, autoplay = true, playback) => {
+              const video = playerEpisodes.find(
+                (item) => String(item.id) === id,
+              );
+              if (video && video.id !== selectedVideo?.id) {
+                setEpisodeChosen(true);
+                onVideoChange(video.id, autoplay, playback);
+              }
+            }}
             trailerKey={trailerKey}
             episodeChosen={!hasEpisodes || episodeChosen}
             onBackToEpisodes={() => setEpisodeChosen(false)}
@@ -299,7 +431,7 @@ function Content({ meta, requestedVideo, onVideoChange }) {
                   isSeries={meta.addonType === "series"}
                   onVideoChange={(id) => {
                     setEpisodeChosen(true);
-                    if (id !== selectedVideo?.id) onVideoChange(id);
+                    if (id !== selectedVideo?.id) onVideoChange(id, false);
                   }}
                   onSeasonChange={(value) => {
                     const id = meta.tmdbSeasons
@@ -312,8 +444,30 @@ function Content({ meta, requestedVideo, onVideoChange }) {
             }
             canPlay={meta.addonType !== "series" || Boolean(selectedVideo)}
             onStarted={() => {
-              if (tmdb) recordViewed(tmdb, season, episode);
+              recordViewed(
+                {
+                  ...libraryTitle,
+                  sourceEpisodeNumber: selectedVideo?.sourceEpisodeNumber,
+                  sourceSeasonNumber: selectedVideo?.sourceSeasonNumber,
+                },
+                season,
+                episode,
+                videoId,
+              );
             }}
+            onCompleted={() =>
+              markWatched(
+                {
+                  ...libraryTitle,
+                  sourceEpisodeNumber: selectedVideo?.sourceEpisodeNumber,
+                  sourceSeasonNumber: selectedVideo?.sourceSeasonNumber,
+                },
+                season,
+                episode,
+                videoId,
+                playerEpisodes,
+              )
+            }
           />
         </aside>
       </div>

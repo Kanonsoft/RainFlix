@@ -32,9 +32,7 @@ test("the built app and lazy title routes load under the GitHub Pages subfolder"
   await expect(
     page.getByRole("heading", { name: "Playback Test", level: 1 }),
   ).toBeVisible();
-  await page
-    .getByRole("button", { name: "Play with VidSrc", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Play trailer", exact: true }).click();
   await expect(page.locator("#playerShell iframe")).toBeVisible();
   await page.goBack();
   await expect(page.locator("#fullscreenPlayback")).toHaveCount(0);

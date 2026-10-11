@@ -20,6 +20,8 @@ Related: [[Configuration]], [[Yastream]], [[Torrentio]], [[Architecture]].
 | Unwanted old player selection                | Player choices are now manual on every title visit                                                                          |
 | Browser torrent waits for peers              | The swarm may have no WebRTC peers even when conventional torrent clients report seeders; choose Stremio Service            |
 | Browser torrent finds a file but cannot play | Try another source or Stremio Service; the browser may not support its container, video codec, or audio codec               |
+| Desktop native torrent cannot find metadata  | No reachable peer supplied torrent metadata within 75 seconds; try another source or the Stremio Service mode               |
+| Desktop torrent video does not open          | The bundled mpv decoder handles common containers and codecs; check peers, file integrity, and the installed decoder bundle |
 | Blank page in an ad-blocking browser         | Reload after updating RainFlix; analytics is optional and must not be part of the required startup graph                    |
 
 ## GitHub Pages Startup
@@ -33,6 +35,7 @@ The development server stays at `/` even inside GitHub Actions. Only builds/prev
 - **Only Open torrent appears:** change **Torrent playback** from External to Browser WebTorrent or Stremio Service.
 - **Browser mode times out on metadata:** no reachable WebRTC peer supplied the torrent metadata. Conventional seed counts do not prove browser availability.
 - **Browser mode starts but does not decode:** the torrent container or codecs are unsupported by native browser video. Browser mode does not transcode.
+- **Native mode on Windows waits or fails:** the source may lack reachable conventional peers, or the selected file may exceed 12 GiB. MKV/AVI and other common video files now open in the bundled mpv window; damaged, DRM-protected, or rare formats can still fail. See [[Native Torrent Desktop]].
 - **IMDb match missing:** TMDb did not supply an IMDb ID. RainFlix does not send an incorrect TMDb ID to Torrentio.
 - **Several sources appear:** choose a source before playback. A provider with one playable source opens directly. Settings changes and Connect never start a torrent; click a source after configuring it.
 - **Configured direct stream fails:** check account status, source availability, browser codec support, media CORS, and expiry. No account setup or proxy is bundled with RainFlix.

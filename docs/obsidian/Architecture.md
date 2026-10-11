@@ -4,17 +4,27 @@ tags: [rainflix, development]
 
 # Architecture
 
-Related: [[README|RainFlix Notes]], [[Configuration]], [[Yastream]], [[Torrentio]], [[Browser WebTorrent]].
+Registration persistence lives in `src/lib/addon-storage.js` (IndexedDB), while fresh manifests stay in the runtime registry. `src/lib/playback-preferences.js` stores only provider IDs, quality and track preferences, separate from timestamps and expiring stream URLs. Title pages perform cancellable availability lookups before listing Streams. See [[Title Playback#Remembered Playback]].
+
+Related: [[README|RainFlix Notes]], [[Configuration]], [[Yastream]], [[Torrentio]], [[Browser WebTorrent]], [[Native Torrent Desktop]].
+
+The Windows shell is being developed in this repository. Tauri builds the React app from `dist-desktop/` while the website still uses `dist/`; see [[Windows Desktop Plan]].
 
 | File                                                                                           | Responsibility                                                                            |
 | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | [scripts/config.js](../../scripts/config.js)                                                   | Runtime settings and provider configuration                                               |
+| [src/platform/index.js](../../src/platform/index.js)                                           | Desktop capability selection and public sharing URL                                       |
+| [src/platform/desktop.js](../../src/platform/desktop.js)                                       | Lazy Tauri external-link opener for the main window                                       |
+| [src-tauri/tauri.conf.json](../../src-tauri/tauri.conf.json)                                   | Desktop window, Vite output, and NSIS packaging                                           |
 | [scripts/rainflix-api.js](../../scripts/rainflix-api.js)                                       | TMDb mapping/caching and iframe URL builders                                              |
 | [src/lib/api.js](../../src/lib/api.js)                                                         | React access to configuration and legacy API, title routes                                |
 | [src/components/PrivacyAnalytics.jsx](../../src/components/PrivacyAnalytics.jsx)               | Optional, lazy-loaded analytics client and isolated event forwarding                      |
 | [src/lib/yastream.js](../../src/lib/yastream.js)                                               | Config encoding, resource URLs, abortable lookups, stream/subtitle normalization          |
 | [src/lib/torrentio.js](../../src/lib/torrentio.js)                                             | IMDb resource URLs, configured manifest handling, direct/torrent source normalization     |
 | [src/lib/browser-torrent.js](../../src/lib/browser-torrent.js)                                 | Browser WebTorrent mode, WebRTC magnets, file selection, progress, and lifecycle          |
+| [src/lib/native-torrent.js](../../src/lib/native-torrent.js)                                   | Desktop source adaptation, Tauri command bridge, and cancellation                         |
+| [src-tauri/src/native_torrent.rs](../../src-tauri/src/native_torrent.rs)                       | App-owned torrent session, selected-file streaming, and local ranged media delivery       |
+| [scripts/prepare-mpv.ps1](../../scripts/prepare-mpv.ps1)                                       | Pinned, checksum-verified mpv decoder preparation for Windows builds                      |
 | [src/lib/service-worker.js](../../src/lib/service-worker.js)                                   | Shared offline/WebTorrent worker registration across local and deployed builds            |
 | [src/lib/stremio-service.js](../../src/lib/stremio-service.js)                                 | Service address validation, per-device preferences, read-only checks, torrent URLs        |
 | [src/components/TorrentPlaybackSettings.jsx](../../src/components/TorrentPlaybackSettings.jsx) | Browser, Stremio Service, and external torrent mode selector                              |
@@ -35,7 +45,7 @@ The current add-on registry is `src/lib/addons.js`, with directory/installation 
 
 Catalog/metadata normalization and memory-only previews live in `src/lib/addon-catalogs.js`. `TitlePage` and `AddonTitlePage` load metadata into shared `TitleDetails`. IMDb add-on titles use built-in TMDb metadata; custom content IDs use internal add-on metadata selection. `TitlePlayers` owns the fullscreen overlay, `AddonSources` owns source lookup/selection, and `AddonPlayer` plays only the selected stream. `RelatedCarousel` presents similar titles. See [[Title Playback]].
 
-The existing iframe builders remain in the legacy API. Optional Yastream/Torrentio adapters and installed providers appear beside title details and share native video playback. The app stays static. Browser WebTorrent is a lazy, in-tab WebRTC engine; Stremio Service handles conventional swarms; external mode leaves magnet handling to another app. RainFlix includes no transcoder or hosted torrent backend.
+The existing iframe builders remain in the legacy API. Optional Yastream/Torrentio adapters and installed providers appear beside title details and share native video playback. The website stays static. Browser WebTorrent is a lazy, in-tab WebRTC engine; the Windows app has an in-process conventional torrent engine and a bundled mpv decoder in a separate native window. Stremio Service and external torrent apps remain manual alternatives. RainFlix includes no transcoder or hosted torrent backend.
 
 Analytics is outside the required application module graph. When its configuration is empty, RainFlix does not request the analytics component or an external script. Browser blocking of either optional resource must not prevent startup or interaction.
 

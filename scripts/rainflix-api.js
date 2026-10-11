@@ -1571,6 +1571,18 @@
     return fallback ? mapFallbackDetails(fallback) : null;
   }
 
+  async function getWatchProviders(mediaType, id) {
+    if (!/^[1-9]\d*$/.test(String(id))) return {};
+    const data = await tmdbFetch(
+      `${normalizeMediaType(mediaType)}/${id}/watch/providers`,
+      {},
+      { persist: false, cache: "no-store" },
+    );
+    if (!data)
+      throw new Error("TMDb availability requires configured credentials.");
+    return data.results || {};
+  }
+
   async function getSimilar(mediaType, id, limit = PAGE_SIZE) {
     const normalizedType = normalizeMediaType(mediaType);
 
@@ -1602,6 +1614,48 @@
         .slice(0, limit),
       source: "demo",
     };
+  }
+
+  async function getEpisodeGroups(id) {
+    const data = await tmdbFetch(`tv/${id}/episode_groups`);
+    return (Array.isArray(data?.results) ? data.results : []).filter(
+      (group) =>
+        typeof group.id === "string" && /^[a-f\d]{24}$/i.test(group.id),
+    );
+  }
+
+  async function getEpisodeGroup(id) {
+    if (!/^[a-f\d]{24}$/i.test(String(id)))
+      throw new Error("Invalid TMDb episode group.");
+    const data = await tmdbFetch(`tv/episode_group/${id}`);
+    const seasons = (Array.isArray(data?.groups) ? data.groups : [])
+      .filter((group) => Number.isInteger(group.order) && group.order > 0)
+      .map((group) => ({
+        seasonNumber: group.order,
+        name: group.name || `Season ${group.order}`,
+        episodes: (Array.isArray(group.episodes) ? group.episodes : [])
+          .filter(
+            (episode) =>
+              Number.isInteger(episode.season_number) &&
+              Number.isInteger(episode.episode_number),
+          )
+          .sort(
+            (a, b) =>
+              (a.order ?? a.episode_number) - (b.order ?? b.episode_number),
+          )
+          .map((episode, index) => ({
+            episodeNumber: index + 1,
+            sourceSeasonNumber: episode.season_number,
+            sourceEpisodeNumber: episode.episode_number,
+            title: episode.name || `Episode ${index + 1}`,
+            image: imageUrl(episode.still_path, "w500"),
+            releaseDate: episode.air_date || "",
+          })),
+      }))
+      .filter((season) => season.episodes.length)
+      .sort((a, b) => a.seasonNumber - b.seasonNumber);
+    if (!seasons.length) throw new Error("TMDb has no usable grouped seasons.");
+    return seasons;
   }
 
   async function getSeasonDetails(id, seasonNumber = 1, options = {}) {
@@ -1666,319 +1720,9 @@
     return `#watch/movie/${encodeURIComponent(item.id)}`;
   }
 
-  function cleanBaseUrl(value) {
-    return String(value || "").replace(/\/+$/, "");
-  }
-
-  function buildUrlWithQuery(baseUrl, params = {}) {
-    const url = new URL(cleanBaseUrl(baseUrl));
-
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== "") {
-        url.searchParams.set(key, value);
-      }
-    });
-
-    return url.toString();
-  }
-
-  function twoEmbedMovieBaseUrl(value) {
-    const baseUrl = cleanBaseUrl(value || "https://www.2embed.cc/embed");
-
-    if (/\/embed$/i.test(baseUrl)) {
-      return baseUrl;
-    }
-
-    if (/\/embedtv$/i.test(baseUrl)) {
-      return baseUrl.replace(/\/embedtv$/i, "/embed");
-    }
-
-    return `${baseUrl}/embed`;
-  }
-
-  function twoEmbedTvBaseUrl(value) {
-    const baseUrl = cleanBaseUrl(value || "https://www.2embed.cc/embed");
-
-    if (/\/embedtv$/i.test(baseUrl)) {
-      return baseUrl;
-    }
-
-    if (/\/embed$/i.test(baseUrl)) {
-      return baseUrl.replace(/\/embed$/i, "/embedtv");
-    }
-
-    return `${baseUrl}/embedtv`;
-  }
-
-  function buildMultiEmbedUrl({
-    mediaType,
-    id,
-    season = 1,
-    episode = 1,
-    baseUrl,
-  }) {
-    const normalizedType = normalizeMediaType(mediaType);
-    const params = {
-      video_id: id,
-      tmdb: 1,
-    };
-
-    if (normalizedType === "tv") {
-      params.s = Number.parseInt(season, 10) || 1;
-      params.e = Number.parseInt(episode, 10) || 1;
-    }
-
-    return buildUrlWithQuery(baseUrl, params);
-  }
-
-  function buildVidLinkUrl({
-    mediaType,
-    id,
-    season = 1,
-    episode = 1,
-    baseUrl,
-  }) {
-    const normalizedType = normalizeMediaType(mediaType);
-    const cleanBase = cleanBaseUrl(baseUrl || "https://vidlink.pro");
-    const cleanSeason = Number.parseInt(season, 10) || 1;
-    const cleanEpisode = Number.parseInt(episode, 10) || 1;
-
-    if (normalizedType === "tv") {
-      return `${cleanBase}/tv/${encodeURIComponent(id)}/${cleanSeason}/${cleanEpisode}`;
-    }
-
-    return `${cleanBase}/movie/${encodeURIComponent(id)}`;
-  }
-
-  function buildPathPlayerUrl({
-    mediaType,
-    id,
-    season = 1,
-    episode = 1,
-    baseUrl,
-    params = {},
-  }) {
-    const normalizedType = normalizeMediaType(mediaType);
-    const cleanBase = cleanBaseUrl(baseUrl);
-    const cleanSeason = Number.parseInt(season, 10) || 1;
-    const cleanEpisode = Number.parseInt(episode, 10) || 1;
-    const path =
-      normalizedType === "tv"
-        ? `${cleanBase}/tv/${encodeURIComponent(id)}/${cleanSeason}/${cleanEpisode}`
-        : `${cleanBase}/movie/${encodeURIComponent(id)}`;
-
-    return buildUrlWithQuery(path, params);
-  }
-
-  function buildVidFastUrl(options) {
-    const normalizedType = normalizeMediaType(options.mediaType);
-    const params = {
-      autoPlay: "true",
-      theme: "38BDF8",
-      fullscreenButton: "true",
-      sub: "en",
-    };
-
-    if (normalizedType === "tv") {
-      params.nextButton = "true";
-      params.autoNext = "true";
-    }
-
-    return buildPathPlayerUrl({ ...options, params });
-  }
-
-  function buildVidSrcMeUrl({
-    mediaType,
-    id,
-    season = 1,
-    episode = 1,
-    baseUrl,
-  }) {
-    const normalizedType = normalizeMediaType(mediaType);
-    const cleanBase = cleanBaseUrl(baseUrl);
-    const cleanSeason = Number.parseInt(season, 10) || 1;
-    const cleanEpisode = Number.parseInt(episode, 10) || 1;
-    const path =
-      normalizedType === "tv"
-        ? `${cleanBase}/tv/${encodeURIComponent(id)}/${cleanSeason}-${cleanEpisode}`
-        : `${cleanBase}/movie/${encodeURIComponent(id)}`;
-
-    return buildUrlWithQuery(path, {
-      autoplay: 1,
-      autonext: normalizedType === "tv" ? 1 : undefined,
-      ds_lang: "en",
-    });
-  }
-
-  function buildVidCoreUrl(options) {
-    return buildPathPlayerUrl({
-      ...options,
-      params: {
-        autoPlay: "true",
-        theme: "38BDF8",
-        fullscreenButton: "true",
-        sub: "en",
-      },
-    });
-  }
-
-  function streamSources(mediaType = "movie") {
-    const normalizedType = normalizeMediaType(mediaType);
-    const sources = [
-      {
-        id: "vidsrc",
-        label: "VidSrc",
-        baseUrl: cleanBaseUrl(
-          config().vidsrcEmbedBaseUrl || "https://vidsrc.to/embed",
-        ),
-        mediaTypes: ["movie", "tv"],
-      },
-      {
-        id: "2embed",
-        label: "2embed",
-        baseUrl: cleanBaseUrl(
-          config().twoEmbedBaseUrl || "https://www.2embed.cc/embed",
-        ),
-        mediaTypes: ["movie", "tv"],
-      },
-      {
-        id: "multiembed",
-        label: "MultiEmbed",
-        baseUrl: cleanBaseUrl(
-          config().multiEmbedBaseUrl || "https://multiembed.mov",
-        ),
-        mediaTypes: ["movie", "tv"],
-      },
-      {
-        id: "vidlink",
-        label: "VidLink",
-        baseUrl: cleanBaseUrl(
-          config().vidlinkEmbedBaseUrl || "https://vidlink.pro",
-        ),
-        mediaTypes: ["movie", "tv"],
-      },
-      {
-        id: "vidfast",
-        label: "VidFast",
-        baseUrl: cleanBaseUrl(
-          config().vidfastEmbedBaseUrl || "https://vidfast.vc",
-        ),
-        mediaTypes: ["movie", "tv"],
-      },
-      {
-        id: "vidsrcme",
-        label: "VidSrcMe",
-        baseUrl: cleanBaseUrl(
-          config().vidsrcMeEmbedBaseUrl || "https://vidsrc-embed.ru/embed",
-        ),
-        mediaTypes: ["movie", "tv"],
-      },
-      {
-        id: "vidcore",
-        label: "VidCore",
-        baseUrl: cleanBaseUrl(
-          config().vidcoreEmbedBaseUrl || "https://vidcore.org/embed",
-        ),
-        mediaTypes: ["movie", "tv"],
-      },
-    ];
-
-    return sources.filter((source) =>
-      source.mediaTypes.includes(normalizedType),
-    );
-  }
-
-  function buildStreamUrl({
-    mediaType,
-    id,
-    season = 1,
-    episode = 1,
-    source = "vidsrc",
-  }) {
-    const streamSource =
-      streamSources(mediaType).find((item) => item.id === source) ||
-      streamSources(mediaType)[0];
-    const normalizedType = normalizeMediaType(mediaType);
-    const cleanSeason = Number.parseInt(season, 10) || 1;
-    const cleanEpisode = Number.parseInt(episode, 10) || 1;
-
-    if (streamSource.id === "2embed") {
-      if (normalizedType === "tv") {
-        return `${twoEmbedTvBaseUrl(streamSource.baseUrl)}/${encodeURIComponent(id)}&s=${cleanSeason}&e=${cleanEpisode}`;
-      }
-
-      return `${twoEmbedMovieBaseUrl(streamSource.baseUrl)}/${encodeURIComponent(id)}`;
-    }
-
-    if (streamSource.id === "multiembed") {
-      return buildMultiEmbedUrl({
-        mediaType: normalizedType,
-        id,
-        season: cleanSeason,
-        episode: cleanEpisode,
-        baseUrl: streamSource.baseUrl,
-      });
-    }
-
-    if (streamSource.id === "vidlink") {
-      return buildVidLinkUrl({
-        mediaType: normalizedType,
-        id,
-        season: cleanSeason,
-        episode: cleanEpisode,
-        baseUrl: streamSource.baseUrl,
-      });
-    }
-
-    if (streamSource.id === "vidfast") {
-      return buildVidFastUrl({
-        mediaType: normalizedType,
-        id,
-        season: cleanSeason,
-        episode: cleanEpisode,
-        baseUrl: streamSource.baseUrl,
-      });
-    }
-
-    if (streamSource.id === "vidsrcme") {
-      return buildVidSrcMeUrl({
-        mediaType: normalizedType,
-        id,
-        season: cleanSeason,
-        episode: cleanEpisode,
-        baseUrl: streamSource.baseUrl,
-      });
-    }
-
-    if (streamSource.id === "vidcore") {
-      return buildVidCoreUrl({
-        mediaType: normalizedType,
-        id,
-        season: cleanSeason,
-        episode: cleanEpisode,
-        baseUrl: streamSource.baseUrl,
-      });
-    }
-
-    if (normalizedType === "tv") {
-      return `${streamSource.baseUrl}/tv/${encodeURIComponent(id)}/${cleanSeason}/${cleanEpisode}`;
-    }
-
-    return `${streamSource.baseUrl}/movie/${encodeURIComponent(id)}`;
-  }
-
-  function buildStreamSources(params) {
-    return streamSources(params.mediaType).map((source) => ({
-      ...source,
-      url: buildStreamUrl({ ...params, source: source.id }),
-    }));
-  }
-
   window.RainFlixApi = {
     GENRES,
     PAGE_SIZE,
-    buildStreamSources,
-    buildStreamUrl,
     buildWatchUrl,
     createImageFallback,
     escapeHtml,
@@ -1992,7 +1736,10 @@
     getNewestSeries,
     getPersonTitles,
     getSeasonDetails,
+    getEpisodeGroup,
+    getEpisodeGroups,
     getSimilar,
+    getWatchProviders,
     getTitleLogos,
     getTrending,
     getTrendingThisWeek,

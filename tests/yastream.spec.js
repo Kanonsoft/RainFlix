@@ -40,7 +40,7 @@ test("loads Yastream on selection, plays MP4, and displays SRT captions", async 
     });
   });
   await openPlayer(page);
-  expect(requests).toHaveLength(0);
+  expect(requests).toHaveLength(1);
   expect(await history(page)).toHaveLength(0);
   await selectPlayer(page, "yastream");
   const video = page.getByLabel("Playback Test Yastream player", {
@@ -77,7 +77,7 @@ test("loads Yastream on selection, plays MP4, and displays SRT captions", async 
   expect(await video.evaluate((element) => element.textTracks[0].mode)).toBe(
     "disabled",
   );
-  await selectPlayer(page, "vidsrc");
+  await selectPlayer(page, "trailer");
   await expect(page.locator("#playerShell video")).toHaveCount(0);
   await expect(page.locator("#playerShell iframe")).toBeVisible();
 });
@@ -165,7 +165,6 @@ test("handles empty, rate-limited, timed-out and malformed responses with retry"
   await page.evaluate(() => {
     window.RAINFLIX_CONFIG.yastream.requestTimeoutMs = 100;
   });
-  await selectPlayer(page, "yastream");
   await expect(
     page.getByText("No streams found for this title on Yastream."),
   ).toBeVisible();
@@ -228,10 +227,8 @@ test("reports playback and header requirements, and cancels stale episode lookup
     });
   });
   await openPlayer(page, "tv");
-  await selectPlayer(page, "yastream");
-  await expect(
-    page.getByRole("progressbar", { name: /Finding Yastream streams/ }),
-  ).toBeVisible();
+  await page.locator('[data-video-id][aria-pressed="true"]').click();
+  await expect(page.getByText("Finding available streams...")).toBeVisible();
   await expect(page.getByText("Finding streams", { exact: true })).toHaveCount(
     0,
   );

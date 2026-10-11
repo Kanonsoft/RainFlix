@@ -52,13 +52,19 @@ test("installs a manifest, gates media behind Play, and removes the provider", a
   await expect(page.locator("#appLoader")).toHaveClass(/is-hidden/, {
     timeout: 15000,
   });
+  await expect(
+    page.locator('a[href^="https://stremio-addons.net"]'),
+  ).toHaveCount(0);
   await page
-    .getByRole("article")
+    .getByLabel("Manifest URL")
+    .fill("https://addon.example/manifest.json");
+  await page
+    .locator("form")
     .getByRole("button", { name: "Install", exact: true })
     .click();
-  await expect(page.getByRole("status")).toContainText(
-    "Test Streams installed",
-  );
+  await expect(
+    page.getByRole("status").filter({ hasText: "Test Streams installed" }),
+  ).toContainText("Test Streams installed");
   expect(requests).toHaveLength(0);
   await page.goto("/#/watch/movie/505/1/1");
   await expect(page.locator("#appLoader")).toHaveClass(/is-hidden/, {
@@ -80,7 +86,6 @@ test("installs a manifest, gates media behind Play, and removes the provider", a
   await expect(page.locator("#appLoader")).toHaveClass(/is-hidden/, {
     timeout: 15000,
   });
-  await page.getByRole("tab", { name: /Installed/ }).click();
   await page.getByRole("button", { name: "Remove Test Streams" }).click();
   await expect(page.getByText("No add-ons installed.")).toBeVisible();
   await expect

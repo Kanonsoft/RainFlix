@@ -19,6 +19,11 @@ test("loads the catalog and keeps primary navigation usable", async ({
     page.getByRole("link", { name: "Movies", exact: true }),
   ).toBeVisible();
   await expect(page.getByRole("main")).toBeVisible();
+  const carousel = page.getByRole("region", { name: "Featured titles" });
+  await expect(carousel.getByRole("link", { name: "Watch now" })).toBeVisible();
+  await expect(carousel.getByRole("button", { name: "More info" })).toHaveCount(
+    0,
+  );
 
   await page.getByRole("link", { name: "Movies", exact: true }).click();
   await expect(page).toHaveURL(/#\/movies$/);
@@ -401,22 +406,54 @@ test("shares one ordered message linking to the title page", async ({
   );
 });
 
-test("records Continue Watching only after player interaction", async ({
+test("records Continue Watching only after add-on video plays", async ({
   page,
+  baseURL,
 }) => {
-  await page.route("https://vidsrc.to/**", (route) => route.abort());
+  let releaseVideo;
+  const pendingVideo = new Promise((resolve) => {
+    releaseVideo = resolve;
+  });
+  await page.route("https://playback-addon.test/**", (route) =>
+    route.fulfill({
+      json: route.request().url().endsWith("manifest.json")
+        ? {
+            id: "test.playback",
+            name: "Playback fixture",
+            types: ["movie", "series"],
+            resources: ["stream"],
+            catalogs: [],
+          }
+        : {
+            streams: [
+              { name: "Fixture", url: `${baseURL}/__continue__/sample.mp4` },
+            ],
+          },
+    }),
+  );
+  await page.route("**/__continue__/sample.mp4", async (route) => {
+    await pendingVideo;
+    await route.fulfill({
+      path: "tests/fixtures/player-sample.mp4",
+      contentType: "video/mp4",
+    });
+  });
   await page.goto("/#/home");
+  await page.evaluate(async () => {
+    const { installAddon } = await import("/src/lib/addons.js");
+    await installAddon("https://playback-addon.test/manifest.json");
+  });
 
   await page
     .getByRole("link", { name: /^More information about / })
+    .and(page.locator('a[href*="/title/movie/"]'))
     .first()
     .click();
   await page
-    .getByRole("button", { name: "Play with VidSrc", exact: true })
+    .getByRole("button", { name: "Play with Playback fixture", exact: true })
     .click();
 
-  const frame = page.locator("#playerShell iframe");
-  await expect(frame).toBeVisible({ timeout: 15000 });
+  await expect(page.locator("#playerShell video")).toHaveCount(1);
   await expect
     .poll(() =>
       page.evaluate(
@@ -428,19 +465,8 @@ test("records Continue Watching only after player interaction", async ({
     )
     .toBe(0);
 
-  await page.evaluate(() => {
-    const playerFrame = document.querySelector("#playerShell iframe");
-    window.dispatchEvent(
-      new MessageEvent("message", {
-        data: {
-          type: "PLAYER_EVENT",
-          data: { event: "play" },
-        },
-        origin: new URL(playerFrame.src).origin,
-        source: playerFrame.contentWindow,
-      }),
-    );
-  });
+  releaseVideo();
+  await expect(page.locator("#playerShell video")).toBeVisible();
 
   await expect
     .poll(() =>

@@ -4,7 +4,7 @@ const SAVE_INTERVAL = 5000;
 const memory = new Map();
 const persistedAt = new Map();
 const storedKey =
-  /^(?:tmdb:(?:movie|tv):\d+|imdb:(?:movie|tv):tt\d+)(?::s\d+:e\d+)?$/;
+  /^(?:tmdb:(?:movie|tv):\d+|imdb:(?:movie|tv):tt\d+|addon:[A-Za-z0-9%_.~-]+:[A-Za-z0-9%_.~-]+)(?::s\d+:e\d+)?$/;
 
 function validProgress(value) {
   return (
@@ -38,37 +38,51 @@ function readStored() {
 export function playbackIdentity(details, season = 1, episode = 1) {
   if (!details || details.isLive) return null;
   const title = details.tmdbDetails;
+  const progressEpisode =
+    title &&
+    Number.isInteger(details.sourceEpisodeNumber) &&
+    details.sourceEpisodeNumber > 0
+      ? details.sourceEpisodeNumber
+      : episode;
   const type =
-    (title?.mediaType || details.mediaType) === "tv" ? "tv" : "movie";
+    (title?.mediaType || details.mediaType) === "tv" ||
+    details.addonType === "series"
+      ? "tv"
+      : "movie";
+  const progressSeason =
+    title && Number.isInteger(details.sourceSeasonNumber)
+      ? details.sourceSeasonNumber
+      : season;
   const suffix =
     type === "tv"
-      ? `:s${Math.max(0, Number.parseInt(season, 10) || 0)}:e${Math.max(1, Number.parseInt(episode, 10) || 1)}`
+      ? `:s${Math.max(0, Number.parseInt(progressSeason, 10) || 0)}:e${Math.max(1, Number.parseInt(progressEpisode, 10) || 1)}`
       : "";
   if (title && /^\d+$/.test(String(title.id)))
     return { key: `tmdb:${type}:${title.id}${suffix}`, persistent: true };
   if (/^tt\d+$/.test(details.imdbId || ""))
     return { key: `imdb:${type}:${details.imdbId}${suffix}`, persistent: true };
-  // Custom add-on identities stay in memory, like their metadata and stream URLs.
+  // Custom IDs retain only progress, never metadata or stream responses.
   if (!details.addonId) return null;
   return {
-    key: JSON.stringify([
-      details.addonType,
-      details.addonId,
-      details.addonVideoId || details.addonId,
-    ]),
-    persistent: false,
+    key: `addon:${encodeURIComponent(details.addonType)}:${encodeURIComponent(details.addonId)}${suffix}`,
+    persistent: true,
   };
 }
 
-export function readPlaybackPosition(identity) {
-  if (!identity) return 0;
+export function readPlaybackSample(identity) {
+  if (!identity) return null;
   const cached = memory.get(identity.key);
   const stored = identity.persistent ? readStored().get(identity.key) : null;
   const value =
     stored && (!cached || stored.updatedAt > cached.updatedAt)
       ? stored
       : cached;
-  return validProgress(value) && !value.completed ? value.position : 0;
+  return validProgress(value) ? value : null;
+}
+
+export function readPlaybackPosition(identity) {
+  const value = readPlaybackSample(identity);
+  return value && !value.completed ? value.position : 0;
 }
 
 export function savePlaybackProgress(identity, sample, flush = false) {
@@ -104,6 +118,57 @@ export function savePlaybackProgress(identity, sample, flush = false) {
     persistedAt.set(identity.key, Date.now());
   } catch {
     // Seeking still works between players when browser storage is unavailable.
+  }
+}
+
+export function playbackFinished(sample, mediaType = "movie") {
+  if (
+    !Number.isFinite(sample?.duration) ||
+    sample.duration <= 0 ||
+    !Number.isFinite(sample.position) ||
+    sample.position < 0 ||
+    sample.position > sample.duration
+  )
+    return false;
+  const fraction = sample.position / sample.duration;
+  const isSeries = mediaType === "tv" || mediaType === "series";
+  return (
+    sample.completed === true ||
+    (isSeries && fraction >= 0.9) ||
+    fraction >= 0.95 ||
+    (fraction >= 0.9 && sample.duration - sample.position <= 120)
+  );
+}
+
+export function removeTitlePlaybackProgress(item, episodeOnly = false) {
+  const type = item.mediaType === "tv" ? "tv" : "movie";
+  const prefixes = [
+    `tmdb:${type}:${item.id}`,
+    `imdb:${type}:${item.id}`,
+    `addon:${encodeURIComponent(type === "tv" ? "series" : type)}:${encodeURIComponent(item.id)}`,
+  ];
+  const suffix =
+    type === "tv"
+      ? `:s${item.sourceSeasonNumber ?? item.season}:e${item.sourceEpisodeNumber || item.episode}`
+      : "";
+  const matches = (key) =>
+    prefixes.some((prefix) =>
+      episodeOnly
+        ? key === `${prefix}${suffix}`
+        : key === prefix || key.startsWith(`${prefix}:s`),
+    );
+  for (const key of memory.keys())
+    if (matches(key)) {
+      memory.delete(key);
+      persistedAt.delete(key);
+    }
+  try {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify([...readStored()].filter(([key]) => !matches(key))),
+    );
+  } catch {
+    /* Optional storage. */
   }
 }
 

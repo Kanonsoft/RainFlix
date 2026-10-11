@@ -34,7 +34,7 @@
 
 RainFlix is a responsive React interface for exploring movies and television
 series through live TMDB data. It combines fast catalog browsing with cinematic
-motion, shared title pages, flexible embedded players, and navigation that
+motion, shared title pages, add-on playback sources, and navigation that
 works across phones, desktops, keyboards, and TV remotes.
 
 The entire application builds to static files, so it can run on GitHub Pages
@@ -50,7 +50,7 @@ without an application server.
 | **History-aware navigation**  | Browser Back closes fullscreen playback; Forward never restarts a stream automatically                                            |
 | **Personal library**          | Device-local My List bookmarks and Continue Watching links that remember the selected season and episode                          |
 | **Focused search**            | A dedicated, shareable search view with type, genre, and year filters                                                             |
-| **Flexible playback**         | Compact provider and torrent-mode selectors, remembered preferences, fullscreen support, and movie or episode-specific embeds     |
+| **Flexible playback**         | Compact provider and torrent-mode selectors, remembered preferences, fullscreen support, and movie or episode-specific streams    |
 | **Series navigation**         | Season and episode selection with episode metadata and direct watch URLs                                                          |
 | **More to discover**          | Similar titles, expandable browse grids, newest releases, trending titles, search, and filters                                    |
 | **Responsive and accessible** | Mobile navigation drawer, keyboard focus management, reduced-motion support, semantic dialogs, and remote-control key handling    |
@@ -125,7 +125,7 @@ The configuration controls:
 - Cache lifetime and maximum stored entries
 - Initial loader timing and fallback timeout
 - Optional Umami-compatible analytics; it stays disabled while its fields are empty and respects Do Not Track
-- Base URLs for VidSrc, 2embed, MultiEmbed, VidLink, VidFast, VidSrcMe, and VidCore
+- Playback providers come from installed add-ons; built-in iframe providers have been removed.
 
 RainFlix is a static client application. Every value placed in
 `scripts/config.js` is included in the browser bundle and can be inspected by
@@ -158,7 +158,7 @@ RainFlix/
 |-- public/                     PWA manifest, service worker, and install assets
 |-- scripts/
 |   |-- config.js               Public runtime configuration
-|   `-- rainflix-api.js         TMDB data, caching, and embed URL builders
+|   `-- rainflix-api.js         TMDB catalog data and caching
 |-- src/
 |   |-- components/             Header, cards, carousel, loader, and player
 |   |-- hooks/                  Remote and keyboard navigation
@@ -193,7 +193,7 @@ The deployment workflow checks the publishing source before uploading.
 ## Playback Notes
 
 RainFlix does not host or proxy video files. Shared title pages list configured
-iframe players and installed add-ons beside the details. Clicking a player opens
+installed streaming add-ons beside the details. Clicking a player opens
 fullscreen playback. Add-ons with multiple streams show source choices first;
 a single playable source opens immediately after the provider lookup.
 Yastream and Torrentio remain optional adapters, disabled by default.

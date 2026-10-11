@@ -504,7 +504,9 @@ export default function CatalogPage({ mode = "home", onBackdrop, onReady }) {
           item.mediaType === "tv"
             ? `S${item.season}:E${item.episode}`
             : "Resume",
-        resumePath: watchPath(item, item.season, item.episode),
+        resumePath: item.detailPath
+          ? `${item.detailPath}${item.videoId ? `${item.detailPath.includes("?") ? "&" : "?"}video=${encodeURIComponent(item.videoId)}` : ""}`
+          : watchPath(item, item.season, item.episode),
       })),
     [recentlyViewed],
   );

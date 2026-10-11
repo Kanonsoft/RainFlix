@@ -1,6 +1,6 @@
 import { addonFetch, httpUrl } from "./addon-streams.js";
 import { addonResourceUrl, supports } from "./addons.js";
-import { api } from "./api.js";
+import { api, config } from "./api.js";
 
 const previews = new Map();
 const text = (value) => (typeof value === "string" ? value : "");
@@ -178,23 +178,144 @@ export async function getTmdbAddonMeta(
   };
 }
 
+function isSeasonSplit(grouped, defaults) {
+  if (grouped.length <= defaults.length) return false;
+  const expected = new Set(
+    defaults.flatMap((season) =>
+      Array.from(
+        { length: season.episodeCount },
+        (_, index) => `${season.seasonNumber}:${index + 1}`,
+      ),
+    ),
+  );
+  let previousSeason = -1;
+  let previousEpisode = 0;
+  for (const [index, season] of grouped.entries()) {
+    if (season.seasonNumber !== index + 1 || !season.episodes.length)
+      return false;
+    const sourceSeason = season.episodes[0].sourceSeasonNumber;
+    for (const episode of season.episodes) {
+      if (
+        episode.sourceSeasonNumber !== sourceSeason ||
+        sourceSeason < previousSeason ||
+        (sourceSeason === previousSeason &&
+          episode.sourceEpisodeNumber <= previousEpisode) ||
+        !expected.delete(`${sourceSeason}:${episode.sourceEpisodeNumber}`)
+      )
+        return false;
+      previousSeason = sourceSeason;
+      previousEpisode = episode.sourceEpisodeNumber;
+    }
+  }
+  return expected.size === 0;
+}
+
+async function resolveEpisodeOrder(details, signal) {
+  const defaults = details.tmdbDefaultSeasons || details.seasons;
+  const override = config.tmdbEpisodeGroups?.[details.id];
+  if (override === false) return null;
+  const configured = typeof override === "string" ? override : null;
+  if (configured)
+    return { id: configured, seasons: await api.getEpisodeGroup(configured) };
+  if (
+    config.tmdbAutoEpisodeGroups === false ||
+    !defaults.length ||
+    defaults.reduce((sum, season) => sum + (season.episodeCount || 0), 0) >
+      10000 ||
+    defaults.some(
+      (season) =>
+        !Number.isInteger(season.episodeCount) ||
+        season.episodeCount <= 0 ||
+        season.episodeCount > 10000,
+    )
+  )
+    return null;
+  if (details.tmdbEpisodeGroupId) {
+    const seasons = await api.getEpisodeGroup(details.tmdbEpisodeGroupId);
+    return isSeasonSplit(seasons, defaults)
+      ? { id: details.tmdbEpisodeGroupId, seasons }
+      : null;
+  }
+  const candidates = (await api.getEpisodeGroups(details.id))
+    .filter((group) => group.type === 6 && group.group_count > defaults.length)
+    .sort(
+      (a, b) =>
+        Number(/^seasons$/i.test(b.name || "")) -
+          Number(/^seasons$/i.test(a.name || "")) || a.id.localeCompare(b.id),
+    )
+    .slice(0, 3);
+  for (const group of candidates) {
+    if (signal?.aborted) throw new DOMException("Cancelled", "AbortError");
+    try {
+      const seasons = await api.getEpisodeGroup(group.id);
+      if (isSeasonSplit(seasons, defaults)) return { id: group.id, seasons };
+    } catch {
+      // Try another season order; a failed candidate must not block the title.
+    }
+  }
+  return null;
+}
+
 export async function getTmdbTitleMeta(details, requestedSeason, signal) {
   let videos = [];
   let selectedSeason;
+  let groupedSeasons;
+  if (signal?.aborted) throw new DOMException("Cancelled", "AbortError");
+  if (details.mediaType === "tv") {
+    const defaults = details.tmdbDefaultSeasons || details.seasons;
+    try {
+      const order = await resolveEpisodeOrder(details, signal);
+      groupedSeasons = order?.seasons;
+      details = {
+        ...details,
+        tmdbDefaultSeasons: defaults,
+        tmdbEpisodeGroupId: order?.id,
+        seasons: groupedSeasons
+          ? groupedSeasons.map((season) => ({
+              seasonNumber: season.seasonNumber,
+              name: season.name,
+              episodeCount: season.episodes.length,
+            }))
+          : defaults,
+        runtime: groupedSeasons
+          ? `${groupedSeasons.length} seasons`
+          : details.runtime,
+      };
+    } catch {
+      // An unavailable alternate order must not block the original metadata.
+      details = {
+        ...details,
+        seasons: defaults,
+        tmdbEpisodeGroupId: undefined,
+      };
+    }
+    if (signal?.aborted) throw new DOMException("Cancelled", "AbortError");
+  }
   if (details.mediaType === "tv" && details.seasons.length) {
     const season =
       details.seasons.find((item) => item.seasonNumber === requestedSeason)
         ?.seasonNumber ?? details.seasons[0].seasonNumber;
     selectedSeason = season;
-    const data = await api.getSeasonDetails(details.id, season, {
-      strict: true,
-    });
+    const data =
+      groupedSeasons?.find((item) => item.seasonNumber === season) ||
+      (await api.getSeasonDetails(details.id, season, {
+        strict: true,
+      }));
     if (signal?.aborted) throw new DOMException("Cancelled", "AbortError");
-    videos = data.episodes.map((episode) => ({
-      id: `${details.imdbId || details.id}:${season}:${episode.episodeNumber}`,
+    const episodes = [...data.episodes].sort(
+      (a, b) => a.episodeNumber - b.episodeNumber,
+    );
+    // TMDb anime seasons can retain absolute numbering; stream providers use SxxEyy.
+    const offset =
+      season > 0 ? Math.max(0, (episodes[0]?.episodeNumber || 1) - 1) : 0;
+    videos = episodes.map((episode) => ({
+      id: `${details.imdbId || details.id}:${season}:${episode.episodeNumber - offset}`,
+      sourceVideoId: `${details.imdbId || details.id}:${episode.sourceSeasonNumber ?? season}:${episode.sourceEpisodeNumber ?? episode.episodeNumber}`,
+      sourceSeasonNumber: episode.sourceSeasonNumber ?? season,
+      sourceEpisodeNumber: episode.sourceEpisodeNumber ?? episode.episodeNumber,
       title: episode.title,
       season,
-      episode: episode.episodeNumber,
+      episode: episode.episodeNumber - offset,
       image: episode.image,
       releaseDate: episode.releaseDate,
     }));
