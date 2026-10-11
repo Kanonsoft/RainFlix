@@ -30,15 +30,13 @@ export async function mockPlayback(
   enableLegacy = true,
   preserveStorage = false,
 ) {
-  if (enableLegacy !== false) {
-    await page.route("**/scripts/config.js", async (route) => {
-      const response = await route.fetch({ maxRetries: 2 });
-      await route.fulfill({
-        response,
-        body: `${await response.text()}\nwindow.RAINFLIX_CONFIG.yastream.enabled = true;\nwindow.RAINFLIX_CONFIG.torrentio.enabled = true;`,
-      });
+  await page.route("**/scripts/config.js", async (route) => {
+    const response = await route.fetch({ maxRetries: 2 });
+    await route.fulfill({
+      response,
+      body: `${await response.text()}\nwindow.RAINFLIX_CONFIG.webDefaultAddons = [];window.RAINFLIX_CONFIG.nativeDefaultAddons = [];${enableLegacy !== false ? "\nwindow.RAINFLIX_CONFIG.yastream.enabled = true;\nwindow.RAINFLIX_CONFIG.torrentio.enabled = true;" : ""}`,
     });
-  }
+  });
   if (!preserveStorage) await page.addInitScript(() => localStorage.clear());
   await page.route("https://api.country.is/", (route) =>
     route.fulfill({ json: { country: "US" } }),
@@ -111,14 +109,13 @@ export async function openPlayer(page, type = "movie") {
 }
 
 export async function closePlayer(page) {
-  const close = page.getByRole("button", { name: "Close player", exact: true });
-  if (await close.count()) {
-    await close.click();
+  if (await page.locator("#fullscreenPlayback").count()) {
+    await page.keyboard.press("Escape");
     await expect(page.locator("#fullscreenPlayback")).toHaveCount(0);
   }
 }
 
-export async function selectPlayer(page, id) {
+export async function selectPlayer(page, id, episodeNumber) {
   await closePlayer(page);
   if (id === "trailer") {
     await page
@@ -127,24 +124,33 @@ export async function selectPlayer(page, id) {
     await expect(page.locator("#fullscreenPlayback")).toBeVisible();
     return;
   }
-  const episode = page.locator('[data-video-id][aria-pressed="true"]');
-  if (await episode.count()) {
-    await episode.click();
-    await expect(
-      page.getByRole("heading", { name: "Streams", exact: true }),
-    ).toBeVisible();
-  }
-  const back = page.getByRole("button", {
-    name: /^(Back to streams|Cancel stream lookup)$/,
-  });
-  if (await back.count()) await back.click();
   const labels = {
     yastream: "Yastream",
     torrentio: "Torrentio",
   };
-  await page
-    .getByRole("button", { name: `Play with ${labels[id] || id}`, exact: true })
-    .click();
+  const provider = page.getByRole("button", {
+    name: `Play with ${labels[id] || id}`,
+    exact: true,
+  });
+  for (let step = 0; step < 3 && !(await provider.count()); step++) {
+    const back = page.getByRole("button", {
+      name: /^(Back to streams|Back to episodes|Cancel stream lookup)$/,
+    });
+    if (await back.count()) await back.click();
+    else {
+      const episode = page.locator('[data-video-id][aria-pressed="true"]');
+      if (await episode.count()) await episode.click();
+      else break;
+    }
+  }
+  await provider.click();
+  const episode = episodeNumber
+    ? page.getByRole("button", {
+        name: `${episodeNumber}. ${episodeNumber === 1 ? "First" : "Second"}`,
+        exact: true,
+      })
+    : page.locator('[data-video-id][aria-pressed="true"]');
+  if (await episode.count()) await episode.click();
 }
 
 export async function selectStream(page, id) {
@@ -162,29 +168,7 @@ export async function selectCaptions(page, label) {
 }
 
 export async function selectEpisode(page, episode, provider) {
-  await closePlayer(page);
-  const sourceBack = page.getByRole("button", {
-    name: /^(Back to streams|Cancel stream lookup)$/,
-  });
-  if (await sourceBack.count()) await sourceBack.click();
-  const episodeBack = page.getByRole("button", {
-    name: "Back to episodes",
-    exact: true,
-  });
-  if (await episodeBack.count()) await episodeBack.click();
-  await page
-    .getByRole("button", {
-      name: `${episode}. ${episode === 1 ? "First" : "Second"}`,
-      exact: true,
-    })
-    .click();
-  if (provider) {
-    await expect(page.locator("#fullscreenPlayback")).toHaveCount(0);
-    await selectPlayer(page, provider);
-  } else
-    await expect(
-      page.getByRole("heading", { name: "Streams", exact: true }),
-    ).toBeVisible();
+  await selectPlayer(page, provider || "yastream", episode);
 }
 
 export async function history(page) {

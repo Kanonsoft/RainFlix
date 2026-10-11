@@ -3,6 +3,33 @@ import { listen } from "@tauri-apps/api/event";
 import { receiveAddonInstallLink } from "../lib/addon-install-links.js";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { isAndroid, isDesktop } from "./index.js";
+import { readAppSettings } from "../lib/app-settings.js";
+
+async function initializeWindowSettings() {
+  const { getCurrentWindow } = await import("@tauri-apps/api/window");
+  const appWindow = getCurrentWindow();
+  if (readAppSettings().fullscreenOnStart) await appWindow.setFullscreen(true);
+  document.addEventListener("keydown", (event) => {
+    if (
+      event.key !== "Escape" ||
+      event.defaultPrevented ||
+      document.getElementById("fullscreenPlayback")
+    )
+      return;
+    appWindow
+      .isFullscreen()
+      .then((fullscreen) => {
+        if (fullscreen) return appWindow.setFullscreen(false);
+      })
+      .catch(() => {});
+  });
+}
+
+export async function setDesktopFullscreen(fullscreen) {
+  if (!isDesktop || !isTauri()) return;
+  const { getCurrentWindow } = await import("@tauri-apps/api/window");
+  await getCurrentWindow().setFullscreen(fullscreen);
+}
 
 export async function initializeDesktopLinks() {
   if (!isTauri()) return;
@@ -20,6 +47,7 @@ export async function initializeDesktopLinks() {
   }
 
   if (isDesktop) {
+    initializeWindowSettings().catch(() => {});
     await listen("rainflix:addon-link", async () => {
       const link = await invoke("take_addon_install_link");
       if (link) receiveAddonInstallLink(link);

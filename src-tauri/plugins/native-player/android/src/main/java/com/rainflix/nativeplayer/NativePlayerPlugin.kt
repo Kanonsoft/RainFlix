@@ -46,6 +46,27 @@ class NativePlayerPlugin(private val host: Activity) : Plugin(host) {
         host.runOnUiThread {
             host.requestedOrientation = if (landscape) ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
                 else ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+            androidx.core.view.WindowCompat.setDecorFitsSystemWindows(host.window, false)
+            val content = host.findViewById<android.view.View>(android.R.id.content)
+            androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(content) { view, insets ->
+                val bars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars() or androidx.core.view.WindowInsetsCompat.Type.displayCutout())
+                if (landscape) view.setPadding(0, 0, 0, 0)
+                else view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+                androidx.core.view.WindowInsetsCompat.CONSUMED
+            }
+            if (landscape) content.setPadding(0, 0, 0, 0)
+            androidx.core.view.ViewCompat.requestApplyInsets(content)
+            if (android.os.Build.VERSION.SDK_INT >= 28) {
+                host.window.attributes = host.window.attributes.apply {
+                    layoutInDisplayCutoutMode = if (landscape) android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+                        else android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT
+                }
+            }
+            androidx.core.view.WindowInsetsControllerCompat(host.window, host.window.decorView).apply {
+                if (landscape) hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+                else show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+                systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            }
             invoke.resolve()
         }
     }

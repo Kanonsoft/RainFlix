@@ -1,8 +1,6 @@
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { Link } from "react-router";
-import { Check, ExternalLink, RotateCcw, Trash2 } from "lucide-react";
-import { watchPath } from "../lib/api.js";
+import { Check, RotateCcw, Trash2 } from "lucide-react";
 import { useLibrary } from "./library/LibraryProvider.jsx";
 
 export default function HistoryMenu({ item, position, onClose }) {
@@ -72,17 +70,6 @@ export default function HistoryMenu({ item, position, onClose }) {
         } else if (event.key === "Tab") onClose();
       }}
     >
-      <Link
-        role="menuitem"
-        to={item.detailPath || watchPath(item, item.season, item.episode)}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={buttonClass}
-        onClick={onClose}
-      >
-        <ExternalLink size={16} />
-        Open in new tab
-      </Link>
       <button
         role="menuitem"
         className={buttonClass}

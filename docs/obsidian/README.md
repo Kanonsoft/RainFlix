@@ -8,6 +8,9 @@ Open this folder as an Obsidian vault, or open the repository as a vault and nav
 
 ## Start Here
 
+- [[Source Access]]: owner's disclosure preference, privacy limits, and distribution boundaries.
+- [Release instructions](../releases/RELEASING.md): build outputs, signing, publishing, and platform release notes.
+
 - [[Windows Desktop Plan]]: Windows Tauri shell in progress, platform boundaries, storage, and development milestones.
 - [[Android Native]]: Android APK builds, native player, torrent transport and install links.
 - [[Settings]]: native app preferences, playback defaults and cache controls.

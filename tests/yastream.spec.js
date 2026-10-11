@@ -166,22 +166,22 @@ test("handles empty, rate-limited, timed-out and malformed responses with retry"
     window.RAINFLIX_CONFIG.yastream.requestTimeoutMs = 100;
   });
   await expect(
-    page.getByText("No streams found for this title on Yastream."),
+    page.getByText("No streams found for this title from addons"),
   ).toBeVisible();
   response = { retryAfter: "60", streams: [] };
   await page.getByRole("button", { name: "Retry", exact: true }).click();
   await expect(
-    page.getByText("Yastream is busy. Please try again shortly."),
+    page.getByText("No streams found for this title from addons"),
   ).toBeVisible();
   response = {};
   await page.getByRole("button", { name: "Retry", exact: true }).click();
   await expect(
-    page.getByText("Yastream returned an invalid stream list."),
+    page.getByText("No streams found for this title from addons"),
   ).toBeVisible();
   delay = true;
   await page.getByRole("button", { name: "Retry", exact: true }).click();
   await expect(
-    page.getByText("Yastream took too long to respond. Try again."),
+    page.getByText("No streams found for this title from addons"),
   ).toBeVisible();
   expect(await history(page)).toHaveLength(0);
 });
@@ -227,8 +227,13 @@ test("reports playback and header requirements, and cancels stale episode lookup
     });
   });
   await openPlayer(page, "tv");
+  await page
+    .getByRole("button", { name: "Play with Yastream", exact: true })
+    .click();
   await page.locator('[data-video-id][aria-pressed="true"]').click();
-  await expect(page.getByText("Finding available streams...")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Cancel stream lookup" }),
+  ).toBeVisible();
   await expect(page.getByText("Finding streams", { exact: true })).toHaveCount(
     0,
   );
@@ -241,6 +246,7 @@ test("reports playback and header requirements, and cancels stale episode lookup
   ).toBeVisible();
   releaseFirst();
   await closePlayer(page);
+  await selectEpisode(page, 2, "yastream");
   await expect(
     page.getByText(/This stream requires a media proxy/),
   ).toBeVisible();

@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, Menu, Search, SlidersHorizontal, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowRight, Menu, Search, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router";
 import rainflixWordmark from "../../assets/rainflix-wordmark.png";
-import rainflixLogo from "../../assets/rainflix-r.png";
 import { api, imageFallback } from "../lib/api.js";
 import { posterImageProps } from "../lib/images.js";
 import { useDetails } from "./details/DetailsProvider.jsx";
@@ -17,7 +16,7 @@ function routeState(pathname) {
   let primary = routeName;
 
   if (routeName === "watch" || routeName === "title") {
-    primary = api.normalizeMediaType(parts[1]) === "tv" ? "series" : "movies";
+    primary = "browse";
   }
 
   return {
@@ -26,58 +25,6 @@ function routeState(pathname) {
     routeName,
     year: routeName === "year" ? parts[1] || "" : "",
   };
-}
-
-function FilterMenu({
-  activeValue,
-  children,
-  columns,
-  label,
-  onClose,
-  onOpen,
-  open,
-}) {
-  return (
-    <div
-      className={`header-menu flex h-full items-center${open ? " is-open" : ""}`}
-      onPointerEnter={onOpen}
-      onPointerLeave={(event) => {
-        if (!event.currentTarget.contains(document.activeElement)) {
-          onClose();
-        }
-      }}
-      onFocus={onOpen}
-      onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) {
-          onClose();
-        }
-      }}
-    >
-      <button
-        className={`header-nav-link h-full${activeValue ? " is-active" : ""}`}
-        type="button"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        onClick={() => (open ? onClose() : onOpen())}
-      >
-        {label}
-      </button>
-      <div
-        className="header-dropdown absolute left-0 top-full z-[220] w-[min(34rem,calc(100vw-3rem))] pt-2"
-        aria-hidden={!open}
-        inert={!open}
-      >
-        <div
-          className={`grid max-h-[28rem] ${columns} gap-x-4 gap-y-1 overflow-y-auto border border-blue-900/80 bg-slate-950/95 p-4 shadow-2xl shadow-black/45 backdrop-blur-xl`}
-          role="menu"
-          aria-label={`Browse by ${label.toLowerCase()}`}
-          onClick={onClose}
-        >
-          {children}
-        </div>
-      </div>
-    </div>
-  );
 }
 
 function SearchResult({ item, onSelect }) {
@@ -136,14 +83,6 @@ export default function Header() {
   const { openDetails } = useDetails();
   const state = routeState(location.pathname);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [mobileFilter, setMobileFilter] = useState(
-    state.routeName === "genre"
-      ? "genre"
-      : state.routeName === "year"
-        ? "year"
-        : "",
-  );
-  const [desktopMenu, setDesktopMenu] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [searchState, setSearchState] = useState({
@@ -158,16 +97,6 @@ export default function Header() {
   const mobilePreviousFocusRef = useRef(null);
   const mobileToggleRef = useRef(null);
   const requestId = useRef(0);
-  const currentYear = new Date().getFullYear();
-  const years = useMemo(
-    () =>
-      Array.from(
-        { length: currentYear - 1949 },
-        (_, index) => currentYear - index,
-      ),
-    [currentYear],
-  );
-
   useEffect(() => {
     const shell = document.querySelector("#site-header");
     const updateSurface = () =>
@@ -180,15 +109,7 @@ export default function Header() {
 
   useEffect(() => {
     setMobileOpen(false);
-    setDesktopMenu("");
     setSearchOpen(false);
-    setMobileFilter(
-      state.routeName === "genre"
-        ? "genre"
-        : state.routeName === "year"
-          ? "year"
-          : "",
-    );
   }, [location.pathname, state.routeName]);
 
   useEffect(() => {
@@ -271,10 +192,6 @@ export default function Header() {
       ) {
         setSearchOpen(false);
       }
-
-      if (!event.target.closest(".header-menu")) {
-        setDesktopMenu("");
-      }
     };
     const handleKeyDown = (event) => {
       if (event.key !== "Escape") {
@@ -283,8 +200,6 @@ export default function Header() {
 
       if (searchOpen) {
         setSearchOpen(false);
-      } else if (desktopMenu) {
-        setDesktopMenu("");
       } else if (mobileOpen) {
         setMobileOpen(false);
       }
@@ -296,7 +211,7 @@ export default function Header() {
       document.removeEventListener("pointerdown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [desktopMenu, mobileOpen, searchOpen]);
+  }, [mobileOpen, searchOpen]);
 
   const selectSearchResult = (item) => {
     setQuery("");
@@ -306,7 +221,7 @@ export default function Header() {
   const openSearchPage = () => {
     const cleanQuery = query.trim();
 
-    if (cleanQuery.length === 1) {
+    if (cleanQuery.length < 2) {
       searchInputRef.current?.focus();
       return;
     }
@@ -320,8 +235,6 @@ export default function Header() {
     `header-nav-link${state.primary === name ? " is-active" : ""}`;
   const mobilePrimaryClass = (name) =>
     `mobile-nav-link${state.primary === name ? " is-active" : ""}`;
-  const filterLinkClass = (active) =>
-    `filter-menu-link${active ? " is-active" : ""}`;
   const trapMobileFocus = (event) => {
     if (event.key !== "Tab" || !mobileDrawerRef.current) {
       return;
@@ -362,7 +275,7 @@ export default function Header() {
         tabIndex="-1"
       />
       <aside
-        className="mobile-nav-drawer fixed inset-y-0 left-0 z-[310] w-[min(18rem,82vw)] overflow-y-auto border-r border-blue-900/70 bg-slate-950 p-5 shadow-2xl shadow-black/60"
+        className="mobile-nav-drawer fixed inset-y-0 right-0 z-[310] w-[min(18rem,82vw)] overflow-y-auto border-l border-blue-900/70 bg-slate-950 p-5 shadow-2xl shadow-black/60"
         aria-label="Mobile navigation"
         aria-modal="true"
         role="dialog"
@@ -398,98 +311,15 @@ export default function Header() {
           <Link className={mobilePrimaryClass("home")} to="/home">
             Home
           </Link>
-          <Link className={mobilePrimaryClass("movies")} to="/movies">
-            Movies
-          </Link>
-          <Link className={mobilePrimaryClass("series")} to="/series">
-            Series
+          <Link className={mobilePrimaryClass("browse")} to="/browse">
+            Browse
           </Link>
           {!isNativeApp && (
-            <Link
-              className={`${mobilePrimaryClass("downloads")} border border-sky-400/40 bg-sky-400/10 text-sky-200`}
-              to="/downloads"
-              onClick={() => setMobileOpen(false)}
-            >
-              Download{" "}
-              <img
-                src={rainflixLogo}
-                alt="RainFlix"
-                className="inline h-6 w-6 object-contain"
-              />
+            <Link className={mobilePrimaryClass("downloads")} to="/downloads">
+              Downloads
             </Link>
           )}
 
-          <div className="border-t border-blue-950/80 pt-1">
-            <button
-              className={`mobile-nav-link w-full text-left${
-                state.genre ? " is-active" : ""
-              }`}
-              type="button"
-              onClick={() =>
-                setMobileFilter((current) =>
-                  current === "genre" ? "" : "genre",
-                )
-              }
-              aria-controls="mobileGenreList"
-              aria-expanded={mobileFilter === "genre"}
-            >
-              Genres
-            </button>
-            <div
-              id="mobileGenreList"
-              className={`mobile-filter-list grid grid-cols-1${
-                mobileFilter === "genre" ? " is-open" : ""
-              }`}
-              aria-hidden={mobileFilter !== "genre"}
-              inert={mobileFilter !== "genre"}
-            >
-              {api.GENRES.map((genre) => (
-                <Link
-                  className={filterLinkClass(state.genre === genre.slug)}
-                  to={`/genre/${encodeURIComponent(genre.slug)}`}
-                  key={genre.slug}
-                >
-                  {genre.name}
-                </Link>
-              ))}
-            </div>
-          </div>
-
-          <div className="border-t border-blue-950/80 pt-1">
-            <button
-              className={`mobile-nav-link w-full text-left${
-                state.year ? " is-active" : ""
-              }`}
-              type="button"
-              onClick={() =>
-                setMobileFilter((current) => (current === "year" ? "" : "year"))
-              }
-              aria-controls="mobileYearList"
-              aria-expanded={mobileFilter === "year"}
-            >
-              Year
-            </button>
-            <div
-              id="mobileYearList"
-              className={`mobile-filter-list grid grid-cols-3 gap-x-3${
-                mobileFilter === "year" ? " is-open" : ""
-              }`}
-              aria-hidden={mobileFilter !== "year"}
-              inert={mobileFilter !== "year"}
-            >
-              {years.map((year) => (
-                <Link
-                  className={`${filterLinkClass(
-                    state.year === String(year),
-                  )} text-center`}
-                  to={`/year/${year}`}
-                  key={year}
-                >
-                  {year}
-                </Link>
-              ))}
-            </div>
-          </div>
           <Link className={mobilePrimaryClass("library")} to="/library">
             My List
           </Link>
@@ -532,54 +362,14 @@ export default function Header() {
             <Link className={primaryClass("home")} to="/home">
               Home
             </Link>
-            <Link className={primaryClass("movies")} to="/movies">
-              Movies
+            <Link className={primaryClass("browse")} to="/browse">
+              Browse
             </Link>
-            <Link className={primaryClass("series")} to="/series">
-              Series
-            </Link>
-
-            <FilterMenu
-              label="Genres"
-              activeValue={state.genre}
-              open={desktopMenu === "genre"}
-              onOpen={() => setDesktopMenu("genre")}
-              onClose={() => setDesktopMenu("")}
-              columns="grid-cols-3"
-            >
-              {api.GENRES.map((genre) => (
-                <Link
-                  className={filterLinkClass(state.genre === genre.slug)}
-                  to={`/genre/${encodeURIComponent(genre.slug)}`}
-                  role="menuitem"
-                  key={genre.slug}
-                >
-                  {genre.name}
-                </Link>
-              ))}
-            </FilterMenu>
-
-            <FilterMenu
-              label="Year"
-              activeValue={state.year}
-              open={desktopMenu === "year"}
-              onOpen={() => setDesktopMenu("year")}
-              onClose={() => setDesktopMenu("")}
-              columns="grid-cols-5"
-            >
-              {years.map((year) => (
-                <Link
-                  className={`${filterLinkClass(
-                    state.year === String(year),
-                  )} text-center`}
-                  to={`/year/${year}`}
-                  role="menuitem"
-                  key={year}
-                >
-                  {year}
-                </Link>
-              ))}
-            </FilterMenu>
+            {!isNativeApp && (
+              <Link className={primaryClass("downloads")} to="/downloads">
+                Downloads
+              </Link>
+            )}
             <Link className={primaryClass("library")} to="/library">
               My List
             </Link>
@@ -672,17 +462,6 @@ export default function Header() {
                 </button>
               </label>
 
-              {query.trim().length < 2 ? (
-                <Link
-                  className="absolute right-0 top-full mt-2 flex w-full items-center justify-between border border-blue-900/80 bg-slate-950/95 px-4 py-3 text-sm font-black text-sky-300 shadow-2xl shadow-black/45 backdrop-blur-xl transition hover:bg-sky-400/10 hover:text-sky-200 focus-visible:bg-sky-400/10 focus-visible:outline-none"
-                  to="/search"
-                  onClick={() => setSearchOpen(false)}
-                >
-                  Browse with filters
-                  <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
-                </Link>
-              ) : null}
-
               {query.trim().length >= 2 ? (
                 <div
                   id="searchDropdown"
@@ -752,22 +531,6 @@ export default function Header() {
             </div>
           </div>
 
-          {!isNativeApp && (
-            <Link
-              to="/downloads"
-              aria-label="Download RainFlix"
-              aria-current={state.primary === "downloads" ? "page" : undefined}
-              title="Download RainFlix"
-              className={`inline-flex min-h-11 shrink-0 items-center justify-center gap-1 rounded-lg border border-emerald-300/40 bg-emerald-300 px-2 py-2 text-center text-xs font-bold leading-tight text-slate-950 shadow-sm transition duration-200 hover:bg-emerald-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-200 sm:gap-2 sm:px-3 lg:px-4 lg:text-sm ${state.primary === "downloads" ? "ring-2 ring-emerald-200" : ""}`}
-            >
-              <span>Download</span>
-              <img
-                src={rainflixLogo}
-                alt=""
-                className="h-6 w-6 object-contain"
-              />
-            </Link>
-          )}
           <button
             id="mobileNavToggle"
             className="header-icon-button lg:hidden"

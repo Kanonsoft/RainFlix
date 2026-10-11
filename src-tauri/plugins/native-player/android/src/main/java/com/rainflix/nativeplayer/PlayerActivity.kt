@@ -123,6 +123,11 @@ class PlayerActivity : Activity() {
         browsedSeason = ui.optInt("season", 1)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         WindowCompat.setDecorFitsSystemWindows(window, false)
+        if (android.os.Build.VERSION.SDK_INT >= 28) {
+            window.attributes = window.attributes.apply {
+                layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            }
+        }
         WindowInsetsControllerCompat(window, window.decorView).apply {
             hide(WindowInsetsCompat.Type.systemBars())
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
@@ -211,6 +216,10 @@ class PlayerActivity : Activity() {
         surface.findViewById<View>(com.rainflix.nativeplayer.R.id.rainflix_subtitles).setOnClickListener { tracksMenu(C.TRACK_TYPE_TEXT) }
         surface.findViewById<View>(com.rainflix.nativeplayer.R.id.rainflix_rewind).setOnClickListener { seekBy(-5000) }
         surface.findViewById<View>(com.rainflix.nativeplayer.R.id.rainflix_forward).setOnClickListener { seekBy(5000) }
+        surface.findViewById<View>(com.rainflix.nativeplayer.R.id.rainflix_bottom_rewind).setOnClickListener { seekBy(-5000) }
+        surface.findViewById<View>(com.rainflix.nativeplayer.R.id.rainflix_bottom_forward).setOnClickListener { seekBy(5000) }
+        val bottomPlay = surface.findViewById<ImageButton>(com.rainflix.nativeplayer.R.id.rainflix_bottom_play_pause)
+        bottomPlay.setOnClickListener { if (player.isPlaying) player.pause() else player.play() }
         val hasEpisodes = (ui.optJSONArray("seasons")?.length() ?: 0) > 0 || episodes.length() > 0
         for ((id, action) in listOf(
             com.rainflix.nativeplayer.R.id.rainflix_previous to { adjacent(false) },
@@ -250,6 +259,8 @@ class PlayerActivity : Activity() {
             }
             override fun onRenderedFirstFrame() { ready = true; loading.visibility = View.GONE; logoPulse?.cancel() }
             override fun onIsPlayingChanged(isPlaying: Boolean) {
+                bottomPlay.setImageResource(if (isPlaying) androidx.media3.ui.R.drawable.exo_icon_pause else androidx.media3.ui.R.drawable.exo_icon_play)
+                bottomPlay.contentDescription = if (isPlaying) "Pause" else "Play"
                 if (isPlaying) {
                     if (ready) { loading.visibility = View.GONE; logoPulse?.cancel() }
                     PlayerBridge.event("playing")
@@ -611,7 +622,7 @@ class PlayerActivity : Activity() {
             }
             val image = ImageView(this).apply { scaleType = ImageView.ScaleType.FIT_CENTER; setImageResource(com.rainflix.nativeplayer.R.drawable.rainflix_r) }
             row.addView(image, LinearLayout.LayoutParams(dp(44), dp(44)))
-            entry.optString("providerLogo").takeIf { it.startsWith("https://") }?.let { loadImage(it, image) }
+            entry.optString("providerLogo").takeIf { it.startsWith("https://") || it.startsWith("data:image/png;base64,") }?.let { loadImage(it, image) }
             val description = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
             description.addView(text(entry.optString("providerLabel", "Streams"), 18f))
             description.addView(text("${entries.size} sources", 13f).apply { setPadding(dp(12), 0, dp(12), 0); setTextColor(0xff94a3b8.toInt()) })
@@ -663,6 +674,13 @@ class PlayerActivity : Activity() {
     }
     private fun loadImage(url: String, view: ImageView, fallback: String? = null) {
         imageCache.get(url)?.let { view.setImageBitmap(it); return }
+        if (url.startsWith("data:image/png;base64,") && url.length < 200000) {
+            try {
+                val bytes = android.util.Base64.decode(url.substringAfter(','), android.util.Base64.DEFAULT)
+                android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.let { imageCache.put(url, it); view.setImageBitmap(it) }
+            } catch (_: Exception) { }
+            return
+        }
         if (!url.startsWith("http://") && !url.startsWith("https://")) return
         images.execute {
             var connection: HttpURLConnection? = null

@@ -1,4 +1,9 @@
 # Add project specific ProGuard rules here.
+# Jackson initializes these enum tables through reflection in Tauri's plugin manager.
+-keepclassmembers enum com.fasterxml.jackson.** {
+    public static **[] values();
+    public static ** valueOf(java.lang.String);
+}
 # You can control the set of applied configuration files using the
 # proguardFiles setting in build.gradle.
 #

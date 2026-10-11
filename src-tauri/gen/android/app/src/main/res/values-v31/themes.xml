@@ -1,0 +1,8 @@
+<resources>
+    <style name="Theme.rainflix" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:windowBackground">#030712</item>
+        <item name="android:windowSplashScreenBackground">#030712</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/rainflix_app_icon</item>
+        <item name="android:windowSplashScreenAnimationDuration">0</item>
+    </style>
+</resources>

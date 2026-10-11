@@ -16,6 +16,7 @@ import {
   withStremioService,
 } from "../lib/stremio-service.js";
 import TorrentPlaybackSettings from "./TorrentPlaybackSettings.jsx";
+import { isNativeApp } from "../platform/index.js";
 import PlaybackLoader from "./PlaybackLoader.jsx";
 import { preferredStream } from "../lib/playback-preferences.js";
 import { streamPresentation } from "../lib/stream-presentation.js";
@@ -82,7 +83,7 @@ export default function AddonSources({
     () =>
       feed.streams.map((stream) => {
         if (!stream.torrent) return withNativeMedia(stream);
-        if (mode === "native") return withNativeTorrent(stream);
+        if (isNativeApp || mode === "native") return withNativeTorrent(stream);
         if (mode === "browser" && config.webTorrent?.enabled !== false)
           return withBrowserTorrent(stream);
         if (mode === "stremio")
@@ -173,7 +174,7 @@ export default function AddonSources({
       ) : (
         <div className="grid min-w-0 divide-y divide-white/10">
           {streams.map((stream) => {
-            const presentation = streamPresentation(stream.label);
+            const presentation = streamPresentation(stream.label, stream);
             return (
               <div key={stream.id} className="min-w-0">
                 {stream.blockedReason ? (
@@ -240,23 +241,24 @@ export default function AddonSources({
           })}
         </div>
       )}
-      {(source.id === "torrentio" ||
-        feed.streams.some((stream) => stream.torrent)) && (
-        <TorrentPlaybackSettings
-          mode={mode}
-          onModeChange={(value) => {
-            autoHandled.current = true;
-            saveTorrentPlaybackMode(value);
-            setMode(value);
-          }}
-          serviceConnection={connection}
-          onServiceChange={(value) => {
-            autoHandled.current = true;
-            saveServiceConnection(value);
-            setConnection(value);
-          }}
-        />
-      )}
+      {!isNativeApp &&
+        (source.id === "torrentio" ||
+          feed.streams.some((stream) => stream.torrent)) && (
+          <TorrentPlaybackSettings
+            mode={mode}
+            onModeChange={(value) => {
+              autoHandled.current = true;
+              saveTorrentPlaybackMode(value);
+              setMode(value);
+            }}
+            serviceConnection={connection}
+            onServiceChange={(value) => {
+              autoHandled.current = true;
+              saveServiceConnection(value);
+              setConnection(value);
+            }}
+          />
+        )}
     </section>
   );
 }

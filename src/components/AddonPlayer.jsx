@@ -997,7 +997,7 @@ function NativeTorrentPlayer({
                     streams: choices.map((item, index) => ({
                       id: String(index),
                       label: item.label,
-                      ...streamPresentation(item.label),
+                      ...streamPresentation(item.label, item.stream),
                       providerId: item.providerId,
                       providerLabel: item.providerLabel,
                       providerLogo: item.providerLogo,

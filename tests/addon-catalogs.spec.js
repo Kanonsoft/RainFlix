@@ -170,10 +170,10 @@ test("catalog filters, custom metadata and episode identities work on mobile", a
   ).toBeVisible();
   await expect(page.getByText(metadata.description)).toBeVisible();
   await expect(page.getByLabel("Metadata provider")).toHaveCount(0);
-  expect(streamRequests).toHaveLength(1);
+  expect(streamRequests).toHaveLength(0);
   expect(mediaRequests).toBe(0);
-  await page.locator('[data-video-id][aria-pressed="true"]').click();
   await page.getByRole("button", { name: "Play with Custom Streams" }).click();
+  await page.locator('[data-video-id][aria-pressed="true"]').click();
   await expect
     .poll(() => streamRequests)
     .toEqual([
@@ -185,21 +185,19 @@ test("catalog filters, custom metadata and episode identities work on mobile", a
       page.locator("#playerShell video").evaluate((video) => video.currentTime),
     )
     .toBeGreaterThan(0);
-  await page.getByRole("button", { name: "Close player" }).click();
-  await page.getByRole("button", { name: "Back to episodes" }).click();
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Play with Custom Streams" }).click();
   await page
     .getByRole("combobox", { name: "Season", exact: true })
     .selectOption("2");
   await page.locator('[data-video-id][aria-pressed="true"]').click();
-  await expect(page.locator("#fullscreenPlayback")).toHaveCount(0);
-  await page.getByRole("button", { name: "Play with Custom Streams" }).click();
   await expect(page.locator("#fullscreenPlayback")).toBeVisible();
   await expect
     .poll(() => streamRequests.at(-1))
     .toBe("https://streams.example/stream/series/video%3Acustom%2Ftwo.json");
   await expect(page.locator("#playerShell video")).toBeVisible();
-  await page.getByRole("button", { name: "Close player" }).click();
-  await page.getByRole("button", { name: "Back to episodes" }).click();
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Play with Custom Streams" }).click();
   await expect
     .poll(() =>
       page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
@@ -340,7 +338,7 @@ test("home adds catalogs and disabling the owner removes them", async ({
     .filter({
       has: page.getByRole("heading", { name: "Test Catalog", exact: true }),
     })
-    .getByRole("checkbox", { name: "Enabled" })
+    .getByRole("switch", { name: "Enabled" })
     .uncheck();
   await page.evaluate(() => {
     location.hash = "/home";

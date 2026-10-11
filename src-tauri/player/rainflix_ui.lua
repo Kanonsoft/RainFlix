@@ -233,6 +233,8 @@ end
 local icon_paths = {
     play = "m 6 3 l 22 14 l 6 25",
     pause = "m 5 4 l 11 4 l 11 24 l 5 24 m 17 4 l 23 4 l 23 24 l 17 24",
+    rewind = "m 13 4 l 2 14 l 13 24 m 26 4 l 15 14 l 26 24",
+    forward = "m 2 4 l 13 14 l 2 24 m 15 4 l 26 14 l 15 24",
     back = "m 19 3 l 8 14 l 19 25 l 22 22 l 14 14 l 22 6",
     close = "m 5 3 l 14 12 l 23 3 l 25 5 l 16 14 l 25 23 l 23 25 l 14 16 l 5 25 l 3 23 l 12 14 l 3 5",
     volume = "m 2 10 l 8 10 l 16 3 l 16 25 l 8 18 l 2 18 m 20 8 l 23 8 l 23 20 l 20 20 m 25 4 l 27 4 l 27 24 l 25 24",
@@ -967,14 +969,16 @@ local function render()
         local by = height - 58
         icon_button(parts, 24, by, 56, 44, mp.get_property_bool("pause", false) and "play" or "pause", "Play / pause",
             function() mp.commandv("cycle", "pause") end)
-        icon_button(parts, 90, by, 56, 44, mp.get_property_bool("mute", false) and "mute" or "volume", "Mute / volume",
+        icon_button(parts, 82, by, 44, 44, "rewind", "Back 5 seconds", function() mp.commandv("seek", -5, "relative+exact") end)
+        icon_button(parts, 128, by, 44, 44, "forward", "Forward 5 seconds", function() mp.commandv("seek", 5, "relative+exact") end)
+        icon_button(parts, 174, by, 44, 44, mp.get_property_bool("mute", false) and "mute" or "volume", "Mute / volume",
             function() mp.commandv("cycle", "mute") end)
         local volume = clamp(mp.get_property_number("volume", 100), 0, 100)
-        rectangle(parts, 158, by + 19, 118, 5, C.muted, 0x80)
-        rectangle(parts, 158, by + 19, volume * 1.18, 5, C.purple, 0)
-        circle(parts,158+volume*1.18,by+21.5,7,C.white)
-        hit(152, by + 4, 132, 36, function(x)
-            mp.set_property_number("volume", clamp((x - 158) / 118 * 100, 0, 100))
+        rectangle(parts, 228, by + 19, 80, 5, C.muted, 0x80)
+        rectangle(parts, 228, by + 19, volume * .8, 5, C.purple, 0)
+        circle(parts,228+volume*.8,by+21.5,7,C.white)
+        hit(222, by + 4, 92, 36, function(x)
+            mp.set_property_number("volume", clamp((x - 228) / 80 * 100, 0, 100))
             mp.set_property_bool("mute", false)
         end)
         local right = width - 26
@@ -994,8 +998,8 @@ local function render()
         for index,item in ipairs(ui.episodes or {}) do if item.id == ui.currentVideoId then current_index=index end end
         if current_index then
             local previous,next_episode = ui.episodes[current_index-1],ui.episodes[current_index+1]
-            if previous then button(parts,292,by,68,44,"Prev",function() mp.commandv("script-message","rainflix-episode",previous.id) end) end
-            if next_episode then button(parts,366,by,68,44,"Next",function() mp.commandv("script-message","rainflix-episode",next_episode.id) end) end
+            if previous then button(parts,326,by,56,44,"Prev",function() mp.commandv("script-message","rainflix-episode",previous.id) end) end
+            if next_episode then button(parts,388,by,56,44,"Next",function() mp.commandv("script-message","rainflix-episode",next_episode.id) end) end
         end
     end
 

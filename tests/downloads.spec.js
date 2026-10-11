@@ -22,7 +22,7 @@ const release = {
 };
 
 for (const width of [320, 390, 1440]) {
-  test(`web header opens downloads with Windows and upcoming Android at ${width}px`, async ({
+  test(`landing opens downloads with Windows and upcoming Android at ${width}px`, async ({
     page,
     baseURL,
   }) => {
@@ -36,6 +36,10 @@ for (const width of [320, 390, 1440]) {
     await expect(
       page.getByRole("link", { name: "Add-ons", exact: true }),
     ).toHaveCount(0);
+    await expect(
+      page.getByRole("link", { name: "Downloads", exact: true }),
+    ).toHaveCount(width < 1024 ? 0 : 1);
+    await page.goto("/");
     await page
       .getByRole("link", { name: "Download RainFlix", exact: true })
       .click();
@@ -46,9 +50,6 @@ for (const width of [320, 390, 1440]) {
     await expect(
       page.getByRole("link", { name: "Download for Windows", exact: true }),
     ).toHaveAttribute("href", installer);
-    await expect(
-      page.getByRole("link", { name: "Download RainFlix", exact: true }),
-    ).toHaveAttribute("aria-current", "page");
     await expect(page.getByText("v1.0.0", { exact: false })).toContainText(
       "50.0 MB",
     );
@@ -76,11 +77,9 @@ for (const width of [320, 390, 1440]) {
         drawer.getByRole("link", { name: "Add-ons", exact: true }),
       ).toHaveCount(0);
       await expect(
-        drawer.getByRole("link", { name: "Download RainFlix", exact: true }),
+        drawer.getByRole("link", { name: "Downloads", exact: true }),
       ).toBeVisible();
-      await drawer
-        .getByRole("link", { name: "Download RainFlix", exact: true })
-        .click();
+      await drawer.getByRole("button", { name: "Close navigation" }).click();
       await expect(drawer).toBeHidden();
     }
     await page.reload();

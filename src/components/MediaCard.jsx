@@ -1,6 +1,5 @@
 import { Link } from "react-router";
-import { useCallback, useRef, useState } from "react";
-import { MoreHorizontal } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import HistoryMenu from "./HistoryMenu.jsx";
 import { api, imageFallback, watchPath } from "../lib/api.js";
 import { posterImageProps } from "../lib/images.js";
@@ -8,6 +7,13 @@ import { posterImageProps } from "../lib/images.js";
 export function MediaCard({ item }) {
   const [menu, setMenu] = useState(null);
   const card = useRef(null);
+  const press = useRef(null);
+  const suppressClick = useRef(false);
+  const cancelPress = () => {
+    window.clearTimeout(press.current?.timer);
+    press.current = null;
+  };
+  useEffect(() => () => window.clearTimeout(press.current?.timer), []);
   const closeMenu = useCallback(() => setMenu(null), []);
   const hasHistory = Boolean(item.resumePath || item.historyKind);
   const openMenu = (event) => {
@@ -77,6 +83,39 @@ export function MediaCard({ item }) {
     <article
       ref={card}
       onContextMenu={openMenu}
+      onPointerDown={(event) => {
+        if (!hasHistory || event.pointerType === "mouse") return;
+        cancelPress();
+        suppressClick.current = false;
+        const { clientX: x, clientY: y } = event;
+        press.current = {
+          x,
+          y,
+          timer: window.setTimeout(() => {
+            suppressClick.current = true;
+            setMenu({ x, y });
+          }, 600),
+        };
+      }}
+      onPointerMove={(event) => {
+        if (
+          press.current &&
+          Math.hypot(
+            event.clientX - press.current.x,
+            event.clientY - press.current.y,
+          ) > 10
+        )
+          cancelPress();
+      }}
+      onPointerUp={cancelPress}
+      onPointerCancel={cancelPress}
+      onClickCapture={(event) => {
+        if (suppressClick.current && card.current?.contains(event.target)) {
+          event.preventDefault();
+          event.stopPropagation();
+          suppressClick.current = false;
+        }
+      }}
       onKeyDown={(event) => {
         if (
           event.key === "ContextMenu" ||
@@ -101,19 +140,6 @@ export function MediaCard({ item }) {
       >
         {cardContent}
       </Link>
-      {hasHistory && (
-        <button
-          type="button"
-          title="History options"
-          aria-label={`History options for ${item.title}`}
-          aria-haspopup="menu"
-          aria-expanded={Boolean(menu)}
-          className="absolute right-2 top-2 z-20 grid h-9 w-9 place-items-center rounded-md bg-black/80 text-white hover:bg-zinc-700 focus-visible:outline-sky-400"
-          onClick={openMenu}
-        >
-          <MoreHorizontal size={20} />
-        </button>
-      )}
       {menu && <HistoryMenu item={item} position={menu} onClose={closeMenu} />}
     </article>
   );

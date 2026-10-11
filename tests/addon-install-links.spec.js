@@ -6,6 +6,15 @@ test("desktop imports cold-launch and running-app links through the native bridg
   baseURL,
 }) => {
   await mockPlayback({ page, baseURL }, false);
+  await page.route(
+    /https:\/\/(cold|warm|inside)-addon\.example\/.*/,
+    (route) => {
+      const host = new URL(route.request().url()).hostname;
+      return route.fulfill({
+        json: { id: host, name: host, types: ["movie"], resources: ["stream"] },
+      });
+    },
+  );
   await page.route("**/src/platform/index.js", (route) =>
     route.fulfill({
       contentType: "text/javascript",
@@ -41,14 +50,14 @@ test("desktop imports cold-launch and running-app links through the native bridg
     };
   });
   await page.goto("/#/home");
-  await expect(page.getByLabel("Manifest URL")).toHaveValue(
-    "https://cold-addon.example/options/manifest.json",
+  await expect(page.getByRole("main").locator("p[role=status]")).toContainText(
+    "cold-addon.example installed.",
   );
   await page.evaluate(() =>
     window.sendAddonLink("stremio://warm-addon.example/manifest.json"),
   );
-  await expect(page.getByLabel("Manifest URL")).toHaveValue(
-    "https://warm-addon.example/manifest.json",
+  await expect(page.getByRole("main").locator("p[role=status]")).toContainText(
+    "warm-addon.example installed.",
   );
   await page.evaluate(() => {
     const link = document.createElement("a");
@@ -58,8 +67,8 @@ test("desktop imports cold-launch and running-app links through the native bridg
     link.click();
     link.remove();
   });
-  await expect(page.getByLabel("Manifest URL")).toHaveValue(
-    "https://inside-addon.example/settings/manifest.json",
+  await expect(page.getByRole("main").locator("p[role=status]")).toContainText(
+    "inside-addon.example installed.",
   );
   await page.evaluate(() => {
     const link = document.createElement("a");
@@ -68,17 +77,25 @@ test("desktop imports cold-launch and running-app links through the native bridg
     link.click();
     link.remove();
   });
-  await expect(page.getByLabel("Manifest URL")).toHaveValue(
-    "https://inside-addon.example/settings/manifest.json",
-  );
+  await expect(page.getByLabel("Manifest URL")).toHaveValue("");
 });
 
-test("website install links support arbitrary providers without automatic requests or credential routes", async ({
+test("website install links automatically install arbitrary providers without credential routes", async ({
   page,
   baseURL,
 }) => {
   await mockPlayback({ page, baseURL }, false);
   const requests = [];
+  await page.route("https://another-addon.example/**", (route) =>
+    route.fulfill({
+      json: {
+        id: "another.addon",
+        name: "Another Add-on",
+        types: ["movie"],
+        resources: ["stream"],
+      },
+    }),
+  );
   await page.route("https://custom-addon.example/**", (route) => {
     requests.push(route.request().url());
     return route.fulfill({
@@ -98,18 +115,13 @@ test("website install links support arbitrary providers without automatic reques
       "stremio://custom-addon.example/token=private/manifest.json",
     );
   });
-  await expect(page.getByLabel("Manifest URL")).toHaveValue(
-    "https://custom-addon.example/token=private/manifest.json",
-  );
   expect(page.url()).toContain("#/addons");
   expect(page.url()).not.toContain("private");
-  expect(requests).toHaveLength(0);
-  await page
-    .locator("form")
-    .getByRole("button", { name: "Install", exact: true })
-    .click();
   await expect(
-    page.getByRole("status").filter({ hasText: "Custom Add-on installed" }),
+    page
+      .getByRole("main")
+      .getByRole("status")
+      .filter({ hasText: "Custom Add-on installed" }),
   ).toContainText("Custom Add-on installed.");
   expect(requests).toHaveLength(1);
   await page.evaluate(async () => {
@@ -119,9 +131,12 @@ test("website install links support arbitrary providers without automatic reques
       "rainflix://another-addon.example/settings/manifest.json",
     );
   });
-  await expect(page.getByLabel("Manifest URL")).toHaveValue(
-    "https://another-addon.example/settings/manifest.json",
+  await expect(page.getByRole("main").locator("p[role=status]")).toContainText(
+    "Another Add-on installed.",
   );
+  await expect(
+    page.getByRole("tab", { name: "Installed (2)" }),
+  ).toHaveAttribute("aria-selected", "false");
 });
 
 test("rejects non-manifest, executable and credential-bearing install links", async ({

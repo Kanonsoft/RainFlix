@@ -61,10 +61,7 @@ export default function AddonDirectory({ installed, onInstall, busy }) {
 
   return (
     <section aria-labelledby="addonDirectoryHeading" className="space-y-4">
-      <h2
-        id="addonDirectoryHeading"
-        className="border-b border-white/15 pb-3 text-lg font-semibold"
-      >
+      <h2 id="addonDirectoryHeading" className="sr-only">
         Browse add-ons
       </h2>
       <div className="flex flex-wrap gap-3">
@@ -101,7 +98,18 @@ export default function AddonDirectory({ installed, onInstall, busy }) {
         </select>
       </div>
       {feed.loading ? (
-        <p role="status">Loading add-ons...</p>
+        <div
+          role="status"
+          aria-label="Loading add-ons"
+          className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
+        >
+          {Array.from({ length: 6 }, (_, index) => (
+            <div
+              key={index}
+              className="h-48 animate-pulse rounded-lg bg-white/5"
+            />
+          ))}
+        </div>
       ) : feed.error ? (
         <div role="alert">
           <p>{feed.error}</p>
@@ -130,7 +138,7 @@ export default function AddonDirectory({ installed, onInstall, busy }) {
             return (
               <article
                 key={entry.uuid || entry.id || address}
-                className="flex min-w-0 flex-col gap-4 rounded-lg border border-white/15 bg-black/35 p-4"
+                className="flex min-w-0 flex-col gap-4 rounded-lg border border-white/10 bg-white/[0.035] p-5 transition-colors hover:border-white/25"
               >
                 <div className="flex min-w-0 items-center gap-3">
                   {httpUrl(manifest.logo) ? (
@@ -145,14 +153,14 @@ export default function AddonDirectory({ installed, onInstall, busy }) {
                   ) : (
                     <Package className="h-12 w-12 shrink-0 text-sky-300" />
                   )}
-                  <h3 className="min-w-0 break-words text-base font-bold">
+                  <h3 className="min-w-0 break-words text-lg font-bold">
                     {manifest.name || entry.slug}
                   </h3>
                 </div>
-                <p className="line-clamp-3 break-words text-sm text-slate-300">
+                <p className="line-clamp-3 break-words text-sm leading-6 text-slate-400">
                   {String(manifest.description || "")}
                 </p>
-                <div className="mt-auto flex flex-wrap items-center gap-2">
+                <div className="mt-auto flex flex-wrap items-center gap-3 border-t border-white/10 pt-4">
                   {active ? (
                     <span className="text-sm text-sky-300">Installed</span>
                   ) : (
@@ -212,7 +220,6 @@ export default function AddonDirectory({ installed, onInstall, busy }) {
           </button>
         </div>
       )}
-      <p className="text-xs text-slate-500">Directory by Stremio Addons</p>
     </section>
   );
 }

@@ -22,6 +22,8 @@ import {
   refreshStartupArtwork,
 } from "./lib/startup-artwork.js";
 import CatalogPage from "./pages/CatalogPage.jsx";
+import BackToTop from "./components/BackToTop.jsx";
+const LandingPage = lazy(() => import("./pages/LandingPage.jsx"));
 
 const LibraryPage = lazy(() => import("./pages/LibraryPage.jsx"));
 const AddonsPage = lazy(() => import("./pages/AddonsPage.jsx"));
@@ -91,6 +93,8 @@ function RouteFallback() {
 }
 
 function AppShell() {
+  const location = useLocation();
+  const landing = !isNativeApp && ["/", "/about"].includes(location.pathname);
   const settings = useAppSettings();
   const [ambientBackdrop, setAmbientBackdrop] = useState({
     current: "",
@@ -172,7 +176,7 @@ function AppShell() {
 
   const updateBackdrop = useCallback(
     (imageUrl) => {
-      if (settings.reduceAnimations && requestedBackdrop.current) return;
+      if (settings.reduceAnimations) return;
       if (!imageUrl || requestedBackdrop.current === imageUrl) {
         return;
       }
@@ -203,7 +207,8 @@ function AppShell() {
       }
 
       const image = new Image();
-      image.onload = () => {
+      image.onload = async () => {
+        await image.decode().catch(() => {});
         preloadedBackdrops.current.add(imageUrl);
         showBackdrop();
       };
@@ -242,34 +247,39 @@ function AppShell() {
 
   return (
     <>
-      <AppLoader
-        dataReady={dataReady && loaderPostersReady}
-        posters={loaderPosters}
-      />
+      {!landing && (
+        <AppLoader
+          dataReady={dataReady && loaderPostersReady}
+          posters={loaderPosters}
+        />
+      )}
       <div
         className={`ambient-backdrop${settings.reduceAnimations ? " is-static" : ""}`}
         aria-hidden="true"
       >
-        {ambientBackdrop.previous ? (
+        {!settings.reduceAnimations && ambientBackdrop.previous ? (
           <div
             className="ambient-backdrop-layer ambient-backdrop-previous"
             style={{
               backgroundImage: `url("${ambientBackdrop.previous.replaceAll('"', "%22")}")`,
             }}
-            key={`previous-${ambientBackdrop.revision}`}
+            key={ambientBackdrop.previous}
           />
         ) : null}
-        {ambientBackdrop.current ? (
+        {!settings.reduceAnimations && ambientBackdrop.current ? (
           <div
             className="ambient-backdrop-layer ambient-backdrop-current"
             style={{
               backgroundImage: `url("${ambientBackdrop.current.replaceAll('"', "%22")}")`,
             }}
-            key={`current-${ambientBackdrop.revision}`}
+            key={ambientBackdrop.current}
           />
         ) : null}
       </div>
-      <div id="app-shell" className="relative z-10 flex min-h-screen flex-col">
+      <div
+        id="app-shell"
+        className={`relative z-10 flex min-h-screen flex-col ${!isNativeApp ? "web-app" : ""}`}
+      >
         <button
           className="fixed left-4 top-3 z-[500] -translate-y-20 rounded-lg bg-sky-400 px-4 py-3 text-sm font-black text-slate-950 shadow-xl transition focus:translate-y-0 focus:outline-none focus:ring-4 focus:ring-white/30"
           type="button"
@@ -281,9 +291,11 @@ function AppShell() {
         >
           Skip to content
         </button>
-        <div id="site-header" className="sticky top-0 z-[200]">
-          <Header />
-        </div>
+        {!landing && (
+          <div id="site-header" className="sticky top-0 z-[200]">
+            <Header />
+          </div>
+        )}
         <main id="app-view" className="flex-1 outline-none" tabIndex="-1">
           <Suspense fallback={<RouteFallback />}>
             <Routes>
@@ -327,7 +339,17 @@ function AppShell() {
                 path="/downloads"
                 element={<DownloadsPage onReady={completeBoot} />}
               />
-              <Route path="/" element={<Navigate replace to="/home" />} />
+              <Route
+                path="/"
+                element={
+                  isNativeApp ? (
+                    <Navigate replace to="/home" />
+                  ) : (
+                    <LandingPage />
+                  )
+                }
+              />
+              <Route path="/about" element={<LandingPage />} />
               <Route
                 path="/home"
                 element={
@@ -388,6 +410,16 @@ function AppShell() {
                 }
               />
               <Route
+                path="/browse"
+                element={
+                  <SearchPage
+                    browse
+                    onBackdrop={updateBackdrop}
+                    onReady={completeBoot}
+                  />
+                }
+              />
+              <Route
                 path="/search"
                 element={
                   <SearchPage
@@ -412,6 +444,7 @@ function AppShell() {
         <Footer />
       </div>
       <ScrollManager />
+      <BackToTop />
       {config.analyticsScriptUrl && config.analyticsWebsiteId ? (
         <Suspense fallback={null}>
           <PrivacyAnalytics />

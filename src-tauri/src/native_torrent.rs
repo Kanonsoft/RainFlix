@@ -189,19 +189,23 @@ pub struct PlayerEpisode {
 }
 
 async fn artwork(url: Option<&str>, width: u32, height: u32) -> Option<PlayerLogo> {
-    let url = url::Url::parse(url?).ok()?;
-    if !matches!(url.scheme(), "http" | "https")
-        || !url.username().is_empty()
-        || url.password().is_some()
-    {
-        return None;
-    }
+    let value = url?;
+    let inline = value.strip_prefix("data:image/png;base64,");
+    if inline.is_some_and(|data| data.len() > 200_000) { return None; }
+    let url = if inline.is_none() {
+        let url = url::Url::parse(value).ok()?;
+        if !matches!(url.scheme(), "http" | "https") || !url.username().is_empty() || url.password().is_some() { return None; }
+        Some(url)
+    } else { None };
     let work = async {
+        let bytes = if let Some(data) = inline {
+            base64::engine::general_purpose::STANDARD.decode(data).ok()?
+        } else {
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(3))
             .build()
             .ok()?;
-        let mut response = client.get(url).send().await.ok()?.error_for_status().ok()?;
+        let mut response = client.get(url?).send().await.ok()?.error_for_status().ok()?;
         let mut bytes = Vec::new();
         while let Some(chunk) = response.chunk().await.ok()? {
             if bytes.len() + chunk.len() > 8 * 1024 * 1024 {
@@ -209,6 +213,8 @@ async fn artwork(url: Option<&str>, width: u32, height: u32) -> Option<PlayerLog
             }
             bytes.extend_from_slice(&chunk);
         }
+        bytes
+        };
         let mut reader = image::ImageReader::new(std::io::Cursor::new(bytes))
             .with_guessed_format()
             .ok()?;

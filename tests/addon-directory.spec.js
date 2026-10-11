@@ -55,6 +55,11 @@ test("directory browsing, filters, pagination and installation remain without a 
     page.locator('a[href^="https://stremio-addons.net"]'),
   ).toHaveCount(0);
   expect(requests).toBe(0);
+  await expect(page.getByText("Directory by Stremio Addons")).toHaveCount(0);
+  await page.screenshot({
+    path: test.info().outputPath("addons-browse-mobile.png"),
+    fullPage: true,
+  });
   await directory.getByLabel("Search add-ons").fill("Provider");
   await directory.getByLabel("Add-on category").selectOption("streaming");
   await expect
@@ -65,6 +70,10 @@ test("directory browsing, filters, pagination and installation remain without a 
   await expect.poll(() => queries.at(-1)?.page).toBe("2");
   await directory.getByRole("button", { name: "Install", exact: true }).click();
   await expect(
+    page.getByRole("tab", { name: "Browse", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  await page.getByRole("tab", { name: "Installed (1)" }).click();
+  await expect(
     page.getByRole("button", { name: "Remove Browse Provider" }),
   ).toBeVisible();
   expect(requests).toBe(1);
@@ -72,12 +81,16 @@ test("directory browsing, filters, pagination and installation remain without a 
     page.getByRole("tab", { name: "Installed (1)" }),
   ).toHaveAttribute("aria-selected", "true");
   await expect(directory).toBeHidden();
+  await page.screenshot({
+    path: test.info().outputPath("addons-installed-mobile.png"),
+    fullPage: true,
+  });
   await page.getByRole("tab", { name: "Browse", exact: true }).click();
   await expect(directory.getByLabel("Search add-ons")).toHaveValue("Provider");
   await expect(directory.getByText("Page 2", { exact: true })).toBeVisible();
   await expect(directory.getByText("Installed", { exact: true })).toBeVisible();
   await expect(
-    page.getByText("Directory-only description", { exact: true }),
+    directory.getByText("Directory-only description", { exact: true }),
   ).toHaveCount(1);
   expect(
     await page.evaluate(
@@ -126,7 +139,7 @@ test("directory failures retry without removing installed management or manual i
 });
 
 for (const width of [390, 1440]) {
-  test(`desktop navigation places My List after Year and Add-ons last at ${width}px`, async ({
+  test(`desktop navigation places My List after Browse and Add-ons last at ${width}px`, async ({
     page,
     baseURL,
   }) => {
@@ -151,10 +164,7 @@ for (const width of [390, 1440]) {
       .allTextContents();
     expect(labels.map((label) => label.trim())).toEqual([
       "Home",
-      "Movies",
-      "Series",
-      "Genres",
-      "Year",
+      "Browse",
       "My List",
       "Settings",
       "Add-ons",

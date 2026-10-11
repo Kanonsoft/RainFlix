@@ -49,8 +49,6 @@ for (const type of ["movie", "tv"]) {
         }),
     );
     await openPlayer(page, type);
-    if (type === "tv")
-      await page.locator('[data-video-id][aria-pressed="true"]').click();
     const services = page.getByRole("region", {
       name: "Streams",
       exact: true,
@@ -80,8 +78,6 @@ for (const type of ["movie", "tv"]) {
     ).toEqual([]);
     country = "PH";
     await page.reload();
-    if (type === "tv")
-      await page.locator('[data-video-id][aria-pressed="true"]').click();
     await expect(services).not.toContainText("Availability by");
     await expect(provider).toHaveCount(0);
     await expect(services.getByRole("combobox")).toHaveCount(0);
@@ -202,7 +198,7 @@ test("installed stream providers use manifest logos with a broken-image fallback
   baseURL,
 }) => {
   await mockPlayback({ page, baseURL }, false);
-  const logo = `${baseURL}/assets/windows.svg`;
+  const logo = `${baseURL}/assets/rainflix-r.png`;
   await page.route("https://logos.example/manifest.json", (route) =>
     route.fulfill({
       json: {
@@ -229,7 +225,7 @@ test("installed stream providers use manifest logos with a broken-image fallback
   await openPlayer(page);
   const provider = page.getByRole("button", { name: "Play with Logo Streams" });
   const image = provider.locator("img");
-  await expect(image).toHaveAttribute("src", logo);
+  await expect(image).toHaveAttribute("src", /^data:image\/png;base64,/);
   await expect
     .poll(() =>
       image.evaluate((node) => node.complete && node.naturalWidth > 0),
@@ -237,8 +233,7 @@ test("installed stream providers use manifest logos with a broken-image fallback
     .toBe(true);
   await expect(image).toHaveAttribute("draggable", "false");
   await image.evaluate((node) => node.dispatchEvent(new Event("error")));
-  await expect(provider.locator("img")).toHaveCount(0);
-  await expect(provider.locator("svg")).toBeVisible();
+  await expect(image).toHaveAttribute("src", /rainflix-r/);
 });
 
 test("official offers merge per provider and reject untrusted destinations", async ({

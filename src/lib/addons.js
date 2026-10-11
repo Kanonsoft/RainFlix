@@ -8,6 +8,9 @@ import {
 } from "./addon-streams.js";
 import { torrentSource } from "./torrentio.js";
 import { addonRegistrations } from "./addon-storage.js";
+import { cachedAddonLogo } from "./addon-logos.js";
+import { config } from "./api.js";
+import { isNativeApp } from "../platform/index.js";
 
 const storageKey = "rainflix:addons:session:v1";
 function validManifest(manifest) {
@@ -120,7 +123,34 @@ addonRegistrations()
     installed = [...current.values()];
   })
   .catch(() => {})
+  .then(async () => {
+    const defaults = isNativeApp
+      ? config.nativeDefaultAddons
+      : config.webDefaultAddons;
+    if (!Array.isArray(defaults)) return;
+    const seedKey = isNativeApp
+      ? "native-default-addons"
+      : "web-default-addons";
+    const seeded = new Set(
+      await addonRegistrations(undefined, seedKey).catch(() => []),
+    );
+    await Promise.all(
+      [...new Set(defaults)].map(async (address) => {
+        try {
+          const url = manifestAddress(address);
+          if (seeded.has(url)) return;
+          if (!installed.some((entry) => entry.manifestUrl === url))
+            await installAddon(url, AbortSignal.timeout(5000));
+          seeded.add(url);
+        } catch {
+          // An unavailable default provider must not block the catalog.
+        }
+      }),
+    );
+    await addonRegistrations([...seeded], seedKey).catch(() => {});
+  })
   .finally(() => {
+    installed.forEach((entry) => void cachedAddonLogo(entry.manifest.logo));
     restoring = false;
     listeners.forEach((listener) => listener());
   });
@@ -133,6 +163,7 @@ export function useAddons() {
 }
 function update(next) {
   installed = next;
+  next.forEach((entry) => void cachedAddonLogo(entry.manifest.logo));
   storageRevision += 1;
   if (registrationsRead) addonRegistrations(registrations()).catch(() => {});
   try {

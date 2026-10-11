@@ -1,6 +1,57 @@
 import { test, expect } from "@playwright/test";
 import { mockPlayback } from "./helpers/playback.js";
 
+test("desktop applies startup fullscreen and Escape returns to windowed mode", async ({
+  page,
+  baseURL,
+}) => {
+  await mockPlayback({ page, baseURL }, false, true);
+  await page.route("**/src/platform/index.js", (route) =>
+    route.fulfill({
+      contentType: "text/javascript",
+      body: "export const isNativeApp=true,isAndroid=false,isDesktop=true,browserTorrentAvailable=false; export function shareBaseUrl(){return location.origin;}",
+    }),
+  );
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      "rainflix:settings:v1",
+      JSON.stringify({ fullscreenOnStart: true }),
+    );
+    window.isTauri = true;
+    window.fullscreenCalls = [];
+    let fullscreen = false;
+    window.__TAURI_INTERNALS__ = {
+      metadata: { currentWindow: { label: "main" } },
+      transformCallback: () => 1,
+      async invoke(command, args) {
+        if (command === "plugin:window|set_fullscreen") {
+          fullscreen = args.value;
+          window.fullscreenCalls.push(args.value);
+        }
+        if (command === "plugin:window|is_fullscreen") return fullscreen;
+        if (command === "plugin:event|listen") return 1;
+      },
+    };
+  });
+  await page.goto("/#/settings");
+  await expect
+    .poll(() => page.evaluate(() => window.fullscreenCalls))
+    .toEqual([true]);
+  await page.keyboard.press("Escape");
+  await expect
+    .poll(() => page.evaluate(() => window.fullscreenCalls))
+    .toEqual([true, false]);
+  await page
+    .getByRole("switch", { name: "Fullscreen on start", exact: true })
+    .uncheck();
+  await page
+    .getByRole("switch", { name: "Fullscreen on start", exact: true })
+    .check();
+  await expect
+    .poll(() => page.evaluate(() => window.fullscreenCalls.at(-1)))
+    .toBe(true);
+});
+
 for (const android of [true, false])
   test(`native settings defaults and preferences persist on ${android ? "Android" : "desktop"}`, async ({
     page,
@@ -19,14 +70,33 @@ for (const android of [true, false])
       page.getByRole("heading", { name: "Settings", exact: true }),
     ).toBeVisible();
     const reduced = page.getByRole("switch", { name: "Reduce animations" });
-    if (android) await expect(reduced).toBeChecked();
-    else await expect(reduced).not.toBeChecked();
+    if (android) {
+      await expect(reduced).toBeChecked();
+      await expect(page.locator(".ambient-backdrop")).toHaveCSS(
+        "background-color",
+        "rgb(45, 51, 59)",
+      );
+      await expect(page.locator(".ambient-backdrop-layer")).toHaveCount(0);
+    } else await expect(reduced).not.toBeChecked();
     await expect(page.getByLabel("Preferred subtitles")).toHaveValue("en");
     await expect(page.getByLabel("Preferred audio")).toHaveValue("");
+    await expect(page.getByText("Storage", { exact: true })).toHaveCount(0);
+    await expect(page.getByLabel("Intro fallback length")).toHaveCount(0);
+    if (!android) {
+      const fullscreen = page.getByRole("switch", {
+        name: "Fullscreen on start",
+      });
+      await expect(fullscreen).not.toBeChecked();
+      await fullscreen.check();
+    }
     await reduced.setChecked(!android);
     await page.getByLabel("Preferred audio").selectOption("ja");
     await page.reload();
     await expect(page.getByLabel("Preferred audio")).toHaveValue("ja");
+    if (!android)
+      await expect(
+        page.getByRole("switch", { name: "Fullscreen on start" }),
+      ).toBeChecked();
     await expect(
       page.getByRole("switch", { name: "Reduce animations" }),
     ).toHaveJSProperty("checked", !android);
@@ -38,7 +108,14 @@ for (const android of [true, false])
     await expect(page.locator("#appLoader")).toHaveClass(/is-hidden/, {
       timeout: 15000,
     });
-    if (!android) await page.setViewportSize({ width: 1440, height: 1000 });
+    if (!android) {
+      await page.setViewportSize({ width: 1440, height: 1000 });
+      await expect(page.locator(".ambient-backdrop")).toHaveCSS(
+        "background-color",
+        "rgb(45, 51, 59)",
+      );
+      await expect(page.locator(".ambient-backdrop-layer")).toHaveCount(0);
+    }
     await page.screenshot({
       path: test
         .info()

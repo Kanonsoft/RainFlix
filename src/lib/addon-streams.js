@@ -158,6 +158,12 @@ export function normalizeHttpStream(stream, index, providerLabel) {
     id: String(index),
     url,
     label: streamLabel(stream, index),
+    peers:
+      Number.isSafeInteger(stream.peers) && stream.peers >= 0
+        ? stream.peers
+        : Number.isSafeInteger(stream.seeders) && stream.seeders >= 0
+          ? stream.seeders
+          : null,
     blockedReason: requiresHeaders
       ? `This stream requires a media proxy. Choose another stream or configure a proxy in ${providerLabel}.`
       : window.location.protocol === "https:" &&

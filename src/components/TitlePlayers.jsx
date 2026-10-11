@@ -7,8 +7,8 @@ import {
   useState,
 } from "react";
 import { createPortal, flushSync } from "react-dom";
-import { ArrowLeft, Maximize, Play, X } from "lucide-react";
-import { useLocation, useNavigate } from "react-router";
+import { ArrowLeft, Maximize, X } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router";
 import { config, trackEvent } from "../lib/api.js";
 import { httpUrl } from "../lib/addon-streams.js";
 import { supports, useAddons, useAddonRestoring } from "../lib/addons.js";
@@ -31,7 +31,10 @@ import {
 import PlaybackLoader from "./PlaybackLoader.jsx";
 import OfficialProviders from "./OfficialProviders.jsx";
 import { withNativeMedia, withNativeTorrent } from "../lib/native-torrent.js";
-import { isAndroid } from "../platform/index.js";
+import { isAndroid, isNativeApp } from "../platform/index.js";
+import rainflixLogo from "../../assets/rainflix-r.png";
+import AddonLogo from "./AddonLogo.jsx";
+import { cachedAddonLogo } from "../lib/addon-logos.js";
 import {
   readPlaybackHandoff,
   takePlaybackHandoff,
@@ -40,21 +43,7 @@ import {
 const ignorePlayback = () => {};
 
 function StreamProviderLogo({ url }) {
-  const [failed, setFailed] = useState(false);
-  return url && !failed ? (
-    <img
-      src={url}
-      alt=""
-      draggable={false}
-      referrerPolicy="no-referrer"
-      className="h-10 w-10 shrink-0 rounded-lg object-contain"
-      onError={() => setFailed(true)}
-    />
-  ) : (
-    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-white/5">
-      <Play className="h-5 w-5 text-sky-300" aria-hidden="true" />
-    </span>
-  );
+  return <AddonLogo url={url} />;
 }
 
 function requestFullscreen() {
@@ -169,6 +158,15 @@ function Playback({
   transition,
 }) {
   const root = useRef(null);
+  const closeCallback = useRef(onClose);
+  useEffect(() => {
+    closeCallback.current = onClose;
+  }, [onClose]);
+  useEffect(() => {
+    const close = () => closeCallback.current();
+    window.addEventListener("rainflix:close-playback", close);
+    return () => window.removeEventListener("rainflix:close-playback", close);
+  }, []);
   const closeButton = useRef(null);
   const [controlsVisible, setControlsVisible] = useState(true);
   const controlsTimer = useRef(null);
@@ -217,7 +215,7 @@ function Playback({
     const previousFocus = document.activeElement;
     const overflow = document.body.style.overflow;
     const wasInert = shell?.inert;
-    closeButton.current?.focus({ preventScroll: true });
+    (closeButton.current || container)?.focus({ preventScroll: true });
     if (shell) {
       shell.inert = true;
       shell.setAttribute("aria-hidden", "true");
@@ -233,7 +231,7 @@ function Playback({
       // Its events must not become this player's close signal.
       if (element === container || element === document.documentElement)
         enteredFullscreen = true;
-      else if (!element && enteredFullscreen) onClose();
+      else if (!element && enteredFullscreen) closeCallback.current();
     };
     document.addEventListener("fullscreenchange", fullscreenChange);
     document.addEventListener("webkitfullscreenchange", fullscreenChange);
@@ -265,7 +263,7 @@ function Playback({
       if (previousFocus?.isConnected)
         previousFocus.focus({ preventScroll: true });
     };
-  }, [onClose, transition]);
+  }, [transition]);
 
   return createPortal(
     <div
@@ -274,6 +272,7 @@ function Playback({
       role="dialog"
       aria-modal="true"
       aria-label={`${details.title} playback`}
+      tabIndex={-1}
       className="fullscreen-playback fixed inset-0 z-[1000] h-[100dvh] min-h-0 w-full bg-black text-slate-100"
       data-controls-visible={controlsVisible}
       onPointerMove={revealControls}
@@ -305,16 +304,18 @@ function Playback({
           onProgress={onProgress}
         />
       )}
-      {!nativePlayback && (
+      {!nativePlayback && isNativeApp && (
         <div className="pointer-events-none absolute right-3 top-3 z-40 flex gap-2">
-          <button
-            className="player-overlay-control pointer-events-auto grid h-11 w-11 place-items-center rounded-lg bg-black/75 text-white focus-visible:ring-2 focus-visible:ring-sky-400"
-            aria-label="Enter fullscreen"
-            title="Enter fullscreen"
-            onClick={requestFullscreen}
-          >
-            <Maximize className="h-5 w-5" aria-hidden="true" />
-          </button>
+          {source.id !== "trailer" && (
+            <button
+              className="player-overlay-control pointer-events-auto grid h-11 w-11 place-items-center rounded-lg bg-black/75 text-white focus-visible:ring-2 focus-visible:ring-sky-400"
+              aria-label="Enter fullscreen"
+              title="Enter fullscreen"
+              onClick={requestFullscreen}
+            >
+              <Maximize className="h-5 w-5" aria-hidden="true" />
+            </button>
+          )}
           <button
             ref={closeButton}
             data-playback-close
@@ -352,6 +353,9 @@ export default function TitlePlayers({
   episodeTitle,
   episodeChosen = true,
   onBackToEpisodes,
+  seriesProvider = "",
+  onSeriesProviderChange,
+  onSelectionStepChange,
 }) {
   const installed = useAddons();
   const restoring = useAddonRestoring();
@@ -378,6 +382,7 @@ export default function TitlePlayers({
   const pendingPreference = useRef(null);
   const remembered = useRef(readPlaybackPreferences(details));
   const sourceBack = useRef(null);
+  const selectionPanel = useRef(null);
   const sourcePanel = useRef(null);
   const providerButtons = useRef(new Map());
   const progressIdentity = useMemo(
@@ -429,9 +434,12 @@ export default function TitlePlayers({
         .map((addon) => ({ id: addon.id, label: addon.manifest.name, addon })),
     ];
   }, [details, installed]);
+  const providerFirst =
+    Boolean(episodePicker) && details.addonType === "series";
   useEffect(() => {
     const controller = new AbortController();
     setAvailability({});
+    if (providerFirst && !episodeChosen) return () => controller.abort();
     for (const source of sources) {
       const metadata =
         !source.addon && details.tmdbDetails ? details.tmdbDetails : details;
@@ -453,12 +461,24 @@ export default function TitlePlayers({
         });
     }
     return () => controller.abort();
-  }, [sources, details, season, episode, availabilityRevision]);
+  }, [
+    sources,
+    details,
+    season,
+    episode,
+    availabilityRevision,
+    providerFirst,
+    episodeChosen,
+  ]);
   const availableSources = sources.filter(
     (source) => availability[source.id]?.streams.length,
   );
   const checkingSources =
-    restoring || sources.some((source) => !availability[source.id]);
+    restoring ||
+    (!(providerFirst && !episodeChosen) &&
+      sources.some((source) => !availability[source.id]));
+  const listedSources =
+    providerFirst && !episodeChosen ? sources : availableSources;
   useEffect(() => {
     if (resumed.current || !resumePreference?.providerId) return;
     const source = availableSources.find(
@@ -470,11 +490,15 @@ export default function TitlePlayers({
     setSourcesVisible(false);
   }, [availableSources, resumePreference]);
   const chosenProvider = sources.find(
-    (source) => source.id === providerChoice && !source.url,
+    (source) =>
+      source.id === (providerChoice || (episodeChosen ? seriesProvider : "")) &&
+      !source.url,
   );
   const chosenProviderId = chosenProvider?.id;
   const showSources = Boolean(chosenProvider && sourcesVisible);
   const hasEpisodePicker = Boolean(episodePicker);
+  const pickingEpisode =
+    !episodeChosen && (!providerFirst || Boolean(seriesProvider));
   const revealSources = useCallback(() => setSourcesVisible(true), []);
   const trailer = useMemo(
     () =>
@@ -482,7 +506,7 @@ export default function TitlePlayers({
         ? {
             id: "trailer",
             label: "Trailer",
-            url: `https://www.youtube-nocookie.com/embed/${trailerKey}?autoplay=1&controls=1&playsinline=1&rel=0`,
+            url: `https://www.youtube-nocookie.com/embed/${trailerKey}?autoplay=1&controls=1&playsinline=1&rel=0&fs=0`,
           }
         : null,
     [trailerKey],
@@ -492,13 +516,21 @@ export default function TitlePlayers({
     (selection.id === "trailer"
       ? trailer
       : sources.find((source) => source.id === selection.id));
-  const lookupPending = Boolean(chosenProvider && !sourcesVisible && !active);
+  const lookupPending = Boolean(
+    episodeChosen && chosenProvider && !sourcesVisible && !active,
+  );
   const close = useCallback(() => {
     transition.current = false;
     endController.current?.abort();
     setSelection(null);
+    if (providerFirst) {
+      setProviderChoice("");
+      setSourcesVisible(false);
+      onSeriesProviderChange?.("");
+      onBackToEpisodes?.();
+    }
     navigate(-1);
-  }, [navigate]);
+  }, [navigate, providerFirst, onSeriesProviderChange, onBackToEpisodes]);
   const finishPlayback = async () => {
     if (endController.current) return;
     const controller = new AbortController();
@@ -617,6 +649,10 @@ export default function TitlePlayers({
               video.episode ?? 1,
               signal,
             );
+            const providerLogo = await cachedAddonLogo(
+              source.addon?.manifest.logo || source.logo,
+            );
+            if (signal?.aborted) return [];
             return streams
               .map(withNativeTorrent)
               .map(withNativeMedia)
@@ -624,9 +660,7 @@ export default function TitlePlayers({
               .map((stream) => ({
                 providerId: source.id,
                 providerLabel: source.label,
-                providerLogo: httpUrl(
-                  source.addon?.manifest.logo || source.logo,
-                ),
+                providerLogo,
                 label: stream.label,
                 stream,
               }));
@@ -657,6 +691,16 @@ export default function TitlePlayers({
     },
   }));
   useEffect(() => {
+    const selecting = pickingEpisode || showSources || lookupPending;
+    onSelectionStepChange?.(selecting);
+    if (selecting && window.matchMedia("(max-width: 767px)").matches) {
+      selectionPanel.current?.scrollIntoView({
+        block: "start",
+        behavior: "auto",
+      });
+    }
+  }, [pickingEpisode, showSources, lookupPending, onSelectionStepChange]);
+  useEffect(() => {
     if (chosenProviderId && (showSources || lookupPending)) {
       sourceBack.current?.focus({ preventScroll: true });
       if (sourcePanel.current) sourcePanel.current.scrollTop = 0;
@@ -676,6 +720,10 @@ export default function TitlePlayers({
     flushSync(() => {
       setProviderChoice("");
       setSourcesVisible(false);
+      if (providerFirst) {
+        onSeriesProviderChange?.(id || seriesProvider);
+        onBackToEpisodes?.();
+      }
     });
     providerButtons.current.get(id)?.focus({ preventScroll: true });
     if (sourcePanel.current) sourcePanel.current.scrollTop = 0;
@@ -694,11 +742,15 @@ export default function TitlePlayers({
   }, [selection, active]);
   return (
     <section
+      ref={selectionPanel}
       aria-labelledby="titlePlayersHeading"
-      className="flex max-h-[min(42rem,75svh)] min-h-0 flex-col"
+      className="flex max-h-[min(42rem,75svh)] min-h-0 scroll-mt-24 flex-col"
     >
       <div className="mb-3 flex min-h-11 shrink-0 items-center gap-3">
-        {(lookupPending || showSources || (episodePicker && episodeChosen)) && (
+        {(lookupPending ||
+          showSources ||
+          pickingEpisode ||
+          (episodePicker && episodeChosen)) && (
           <button
             ref={sourceBack}
             type="button"
@@ -706,8 +758,12 @@ export default function TitlePlayers({
               lookupPending
                 ? "Cancel stream lookup"
                 : showSources
-                  ? "Back to streams"
-                  : `Back to ${episodeLabel.toLowerCase()}`
+                  ? providerFirst
+                    ? "Back to episodes"
+                    : "Back to streams"
+                  : pickingEpisode
+                    ? "Back to streams"
+                    : `Back to ${episodeLabel.toLowerCase()}`
             }
             title={
               lookupPending
@@ -722,6 +778,7 @@ export default function TitlePlayers({
                 : () => {
                     setProviderChoice("");
                     setSourcesVisible(false);
+                    if (providerFirst) onSeriesProviderChange?.("");
                     onBackToEpisodes();
                   }
             }
@@ -735,7 +792,7 @@ export default function TitlePlayers({
             id="titlePlayersHeading"
             className="min-w-0 break-words text-lg font-bold"
           >
-            {!episodeChosen
+            {pickingEpisode
               ? episodeLabel
               : showSources
                 ? chosenProvider.label
@@ -754,10 +811,32 @@ export default function TitlePlayers({
         data-source-list
         className="min-h-0 overflow-y-auto overscroll-y-contain pr-1 [scrollbar-gutter:stable]"
       >
-        {episodeChosen && !lookupPending && !showSources && canPlay && (
-          <OfficialProviders details={details} />
+        {!pickingEpisode && !lookupPending && !showSources && canPlay && (
+          <>
+            <OfficialProviders details={details} />
+            {!isNativeApp && (
+              <Link
+                to="/downloads"
+                aria-label="RainFlix App free streams - download the app"
+                className="flex min-h-16 min-w-0 items-center gap-3 rounded-lg px-3 py-2 transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
+              >
+                <img
+                  src={rainflixLogo}
+                  alt=""
+                  draggable={false}
+                  className="h-10 w-10 shrink-0 object-contain"
+                />
+                <span>
+                  <span className="block text-sm font-bold">RainFlix App</span>
+                  <span className="block text-xs text-slate-400">
+                    Free streams
+                  </span>
+                </span>
+              </Link>
+            )}
+          </>
         )}
-        {!episodeChosen ? (
+        {pickingEpisode ? (
           episodePicker
         ) : lookupPending ? (
           <div className="min-h-24" aria-busy="true" role="status">
@@ -773,16 +852,11 @@ export default function TitlePlayers({
           <p role="status" className="text-sm text-slate-400">
             No episodes are available for this title.
           </p>
-        ) : !availableSources.length && !checkingSources ? (
+        ) : !listedSources.length && !checkingSources ? (
           <div className="text-sm text-slate-400">
-            {sources.length
-              ? sources.map((source) => (
-                  <p key={source.id} role="status">
-                    {availability[source.id]?.error ||
-                      `No streams found for this title on ${source.label}.`}
-                  </p>
-                ))
-              : null}
+            {!!sources.length && (
+              <p role="status">No streams found for this title from addons</p>
+            )}
             {!!sources.length && (
               <button
                 className="mt-3 min-h-11 text-sky-300"
@@ -803,7 +877,7 @@ export default function TitlePlayers({
                 Finding available streams...
               </p>
             )}
-            {availableSources.map((source) => (
+            {listedSources.map((source) => (
               <button
                 key={source.id}
                 ref={(node) => {
@@ -816,6 +890,11 @@ export default function TitlePlayers({
                   if (source.url) {
                     setProviderChoice("");
                     start(source);
+                  } else if (providerFirst) {
+                    onSeriesProviderChange?.(source.id);
+                    onBackToEpisodes?.();
+                    setProviderChoice("");
+                    setSourcesVisible(false);
                   } else {
                     setProviderChoice(source.id);
                     setSourcesVisible(false);
@@ -831,7 +910,14 @@ export default function TitlePlayers({
                   }
                   url={httpUrl(source.addon?.manifest.logo || source.logo)}
                 />
-                <span className="min-w-0 break-words">{source.label}</span>
+                <span className="min-w-0 break-words">
+                  <span className="block">{source.label}</span>
+                  {/yastream/i.test(source.label) && (
+                    <span className="block text-xs font-normal text-slate-400">
+                      Free stream
+                    </span>
+                  )}
+                </span>
               </button>
             ))}
             {!checkingSources && (
@@ -845,7 +931,7 @@ export default function TitlePlayers({
             )}
           </div>
         )}
-        {chosenProvider && episodeChosen && (
+        {chosenProvider && episodeChosen && availability[chosenProvider.id] && (
           <div hidden={!showSources}>
             <AddonSources
               key={chosenProvider.id}

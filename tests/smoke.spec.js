@@ -16,7 +16,7 @@ test("loads the catalog and keeps primary navigation usable", async ({
     page.getByRole("link", { name: "RainFlix home" }).first(),
   ).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "Movies", exact: true }),
+    page.getByRole("link", { name: "Browse", exact: true }),
   ).toBeVisible();
   await expect(page.getByRole("main")).toBeVisible();
   const carousel = page.getByRole("region", { name: "Featured titles" });
@@ -25,22 +25,23 @@ test("loads the catalog and keeps primary navigation usable", async ({
     0,
   );
 
-  await page.getByRole("link", { name: "Movies", exact: true }).click();
-  await expect(page).toHaveURL(/#\/movies$/);
+  await page.getByRole("link", { name: "Browse", exact: true }).click();
+  await expect(page).toHaveURL(/#\/browse$/);
   await expect(
-    page.getByRole("link", { name: "Movies", exact: true }),
+    page.getByRole("link", { name: "Browse", exact: true }),
   ).toHaveClass(/is-active/);
 });
 
-test("supports dedicated search URLs and filters", async ({ page }) => {
+test("search results show a search bar without catalog filters", async ({
+  page,
+}) => {
   await page.goto("/#/search?q=batman");
 
+  await expect(page.getByRole("search")).toBeVisible();
+  await expect(page.getByRole("combobox")).toHaveCount(0);
   await expect(
     page.getByRole("heading", { name: "Search RainFlix" }),
-  ).toBeVisible();
-  await expect(page.getByRole("combobox", { name: "Type" })).toBeVisible();
-  await expect(page.getByRole("combobox", { name: "Genre" })).toBeVisible();
-  await expect(page.getByRole("combobox", { name: "Year" })).toBeVisible();
+  ).toHaveCount(0);
   await expect(page).toHaveTitle(/Search: batman/);
 });
 
@@ -79,7 +80,7 @@ test("browses with combined filters without horizontal overflow", async ({
     });
   });
 
-  await page.goto("/#/search?type=movie&genre=drama&year=2024");
+  await page.goto("/#/browse?type=movie&genre=drama&year=2024");
 
   await expect(
     page.getByRole("heading", { name: "Browse 2024 Drama movies" }),
@@ -126,7 +127,11 @@ test("browses with combined filters without horizontal overflow", async ({
     )
     .toBeLessThanOrEqual(1);
 
-  const searchForm = await page.getByRole("search").boundingBox();
+  await expect(page.getByRole("search")).toHaveCount(0);
+  const searchForm = await page
+    .getByLabel("Browse catalog", { exact: true })
+    .locator("form")
+    .boundingBox();
   expect(searchForm).not.toBeNull();
   expect(
     Math.abs(
@@ -269,7 +274,9 @@ test("searches people and production companies and links them from details", asy
   ).toBeVisible();
   await actorLink.click();
   await expect(page).toHaveURL(/person=20/);
-  await expect(page.getByText("Filmography", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Movies and series with Zendaya" }),
+  ).toBeVisible();
   await page.goBack();
   await expect(page).toHaveURL(/#\/title\/movie\/101$/);
   await page.goBack();
@@ -282,9 +289,9 @@ test("searches people and production companies and links them from details", asy
     .getByRole("region", { name: "Title details", exact: true })
     .getByRole("link", { name: "Browse Drama movies and series" })
     .click();
-  await expect(page).toHaveURL(/#\/genre\/drama$/);
+  await expect(page).toHaveURL(/#\/browse\?genre=drama$/);
   await expect(
-    page.getByRole("heading", { name: "Popular Drama" }),
+    page.getByRole("heading", { name: "Browse Drama movies and series" }),
   ).toBeVisible();
   await page.goBack();
   await expect(page).toHaveURL(/#\/title\/movie\/101$/);
@@ -300,7 +307,7 @@ test("searches people and production companies and links them from details", asy
     .click();
   await expect(page).toHaveURL(/company=41077/);
   await expect(
-    page.getByText("Production catalog", { exact: true }),
+    page.getByRole("heading", { name: "Movies and series from A24" }),
   ).toBeVisible();
   await expect(
     page.getByText("Studio Movie", { exact: true }).first(),
@@ -481,7 +488,7 @@ test("records Continue Watching only after add-on video plays", async ({
     )
     .toBe(1);
 
-  await page.getByRole("button", { name: "Close player" }).click();
+  await page.keyboard.press("Escape");
   await page.getByRole("link", { name: "RainFlix home" }).first().click();
   await expect(page).toHaveURL(/#\/home$/);
   const continueHeading = page.getByRole("heading", {

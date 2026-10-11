@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { Download, ExternalLink, Package, Trash2 } from "lucide-react";
 import { httpUrl } from "../lib/addon-streams.js";
 import {
@@ -9,6 +9,7 @@ import {
 } from "../lib/addons.js";
 import { takeAddonInstallLink } from "../lib/addon-install-links.js";
 import AddonDirectory from "../components/AddonDirectory.jsx";
+import AddonLogo from "../components/AddonLogo.jsx";
 
 const inputClass =
   "min-h-11 min-w-0 rounded-lg border border-white/20 bg-black/50 px-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-400";
@@ -22,11 +23,17 @@ export default function AddonsPage({ onReady }) {
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState("browse");
   const installController = useRef(null);
+  const receiveLink = useEffectEvent(() => {
+    const link = takeAddonInstallLink();
+    if (link) {
+      setAddress(link);
+      install(link, true);
+    }
+  });
   useEffect(() => {
     onReady?.();
     const receive = () => {
-      const link = takeAddonInstallLink();
-      if (link) setAddress(link);
+      receiveLink();
     };
     receive();
     window.addEventListener("rainflix:addon-install", receive);
@@ -36,8 +43,9 @@ export default function AddonsPage({ onReady }) {
     };
   }, [onReady]);
 
-  async function install(url = address) {
-    if (busy) return;
+  async function install(url = address, fromLink = false) {
+    if (busy && !fromLink) return;
+    installController.current?.abort();
     setBusy(true);
     setMessage("");
     const requestedAddress = url;
@@ -47,7 +55,6 @@ export default function AddonsPage({ onReady }) {
       const addon = await installAddon(requestedAddress, controller.signal);
       if (!controller.signal.aborted) {
         setMessage(`${addon.manifest.name} installed.`);
-        setTab("installed");
         setAddress((current) => (current === requestedAddress ? "" : current));
       }
     } catch (error) {
@@ -58,10 +65,10 @@ export default function AddonsPage({ onReady }) {
   }
 
   return (
-    <div className="mx-auto w-full max-w-[1440px] space-y-6 px-6 py-8 md:px-10 lg:px-12">
-      <h1 className="text-2xl font-bold">Add-ons</h1>
+    <div className="mx-auto w-full max-w-[1200px] space-y-6 px-4 py-8 sm:px-6 md:px-10 lg:px-12">
+      <h1 className="text-3xl font-bold">Add-ons</h1>
       <form
-        className="flex flex-wrap gap-2"
+        className="flex flex-wrap items-center gap-3 border-y border-white/10 py-5"
         onSubmit={(event) => {
           event.preventDefault();
           install();
@@ -70,7 +77,7 @@ export default function AddonsPage({ onReady }) {
         <input
           className={`${inputClass} w-full flex-1 basis-64`}
           aria-label="Manifest URL"
-          placeholder="https://example.com/manifest.json"
+          placeholder="Install from manifest URL"
           value={address}
           onChange={(event) => setAddress(event.target.value)}
           required
@@ -144,30 +151,33 @@ export default function AddonsPage({ onReady }) {
                 ));
             return (
               <article
-                className="flex min-w-0 flex-col gap-4 rounded-lg border border-white/15 bg-black/35 p-4"
+                className="flex min-w-0 flex-col gap-5 rounded-lg border border-white/10 bg-white/[0.035] p-5 transition-colors hover:border-white/25"
                 key={entry.id}
               >
                 <div className="flex min-w-0 items-center gap-3">
                   {httpUrl(manifest.logo) ? (
-                    <img
-                      src={httpUrl(manifest.logo)}
-                      alt=""
-                      referrerPolicy="no-referrer"
-                      loading="lazy"
-                      draggable={false}
+                    <AddonLogo
+                      url={httpUrl(manifest.logo)}
                       className="h-12 w-12 shrink-0 rounded-lg object-contain"
                     />
                   ) : (
                     <Package className="h-12 w-12 shrink-0 text-sky-300" />
                   )}
-                  <h3 className="min-w-0 break-words text-base font-bold">
+                  <h3 className="min-w-0 break-words text-lg font-bold">
                     {manifest.name}
                   </h3>
                 </div>
-                <div className="mt-auto flex flex-wrap items-center gap-2">
-                  <label className="flex min-h-11 items-center gap-2 text-sm">
+                {manifest.description && (
+                  <p className="line-clamp-3 break-words text-sm leading-6 text-slate-400">
+                    {manifest.description}
+                  </p>
+                )}
+                <div className="mt-auto flex flex-wrap items-center gap-3 border-t border-white/10 pt-4">
+                  <label className="mr-auto flex min-h-11 items-center gap-2 text-sm text-slate-300">
                     <input
                       type="checkbox"
+                      role="switch"
+                      className="h-5 w-9 accent-sky-400"
                       checked={entry.enabled}
                       onChange={() => toggleAddon(entry.id)}
                     />

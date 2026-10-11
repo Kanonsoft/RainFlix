@@ -8,6 +8,8 @@ Registration persistence lives in `src/lib/addon-storage.js` (IndexedDB), while 
 
 Related: [[README|RainFlix Notes]], [[Configuration]], [[Yastream]], [[Torrentio]], [[Browser WebTorrent]], [[Native Torrent Desktop]].
 
+Navigation uses Home, Browse, My List, native Settings and native Add-ons (last). `/browse` shares the result grid and infinite pagination with SearchPage, but shows only type/genre/year filters without a search bar or promotional heading. `/search` shows only the query bar and results, without filters. Person and production-company links retain their dedicated result queries; title genre links open filtered Browse. Legacy movie/series/genre/year routes remain valid for old links, but are not header items. My List section headings have no decorative icons.
+
 The Windows shell is being developed in this repository. Tauri builds the React app from `dist-desktop/` while the website still uses `dist/`; see [[Windows Desktop Plan]].
 
 | File                                                                                           | Responsibility                                                                            |

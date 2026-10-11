@@ -7,6 +7,9 @@ import { registerRainFlixServiceWorker } from "./lib/service-worker.js";
 import { isNativeApp } from "./platform/index.js";
 import "../styles/input.css";
 
+// Suppress browser menus without interfering with RainFlix's card menus.
+document.addEventListener("contextmenu", (event) => event.preventDefault());
+
 function StartupReady() {
   useEffect(() => {
     window.dispatchEvent(new Event("rainflix:mounted"));

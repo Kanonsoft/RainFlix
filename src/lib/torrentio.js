@@ -67,6 +67,12 @@ export function torrentSource(raw, index) {
   for (const tracker of trackers) magnet.searchParams.append("tr", tracker);
   return {
     id: String(index),
+    peers:
+      Number.isSafeInteger(raw.peers) && raw.peers >= 0
+        ? raw.peers
+        : Number.isSafeInteger(raw.seeders) && raw.seeders >= 0
+          ? raw.seeders
+          : null,
     torrentKey: `${hash}:${fileIdx ?? "largest"}`,
     torrent: {
       infoHash: hash,

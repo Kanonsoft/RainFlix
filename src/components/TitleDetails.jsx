@@ -20,10 +20,17 @@ function relatedPath(type, item) {
   return `/search?${new URLSearchParams({ q: item.name, [type]: item.id })}`;
 }
 
-function Content({ meta, requestedVideo, onVideoChange }) {
+function Content({
+  meta,
+  requestedVideo,
+  onVideoChange,
+  seriesProvider,
+  onSeriesProviderChange,
+}) {
   const location = useLocation();
   const { isInMyList, toggleMyList, recordViewed, markWatched } = useLibrary();
   const [shareStatus, setShareStatus] = useState("");
+  const [selectionStep, setSelectionStep] = useState(false);
   const [similar, setSimilar] = useState([]);
   const [episodeChosen, setEpisodeChosen] = useState(
     () => new URLSearchParams(location.search).get("resume") === "1",
@@ -222,7 +229,9 @@ function Content({ meta, requestedVideo, onVideoChange }) {
   return (
     <>
       <div className="grid min-w-0 items-start gap-10 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_440px]">
-        <article className="min-w-0">
+        <article
+          className={`min-w-0 ${selectionStep ? "hidden md:block" : ""}`}
+        >
           <div className="grid min-w-0 gap-6 sm:grid-cols-[160px_minmax(0,1fr)]">
             <img
               className="aspect-[2/3] w-32 rounded-lg object-cover shadow-xl shadow-black/40 sm:w-40"
@@ -331,7 +340,7 @@ function Content({ meta, requestedVideo, onVideoChange }) {
                       <Link
                         className={linkClass}
                         key={genre.slug}
-                        to={`/genre/${encodeURIComponent(genre.slug)}`}
+                        to={`/browse?genre=${encodeURIComponent(genre.slug)}`}
                         aria-label={`Browse ${genre.name} movies and series`}
                       >
                         {genre.name}
@@ -396,6 +405,7 @@ function Content({ meta, requestedVideo, onVideoChange }) {
           aria-label="Playback options"
         >
           <TitlePlayers
+            onSelectionStepChange={setSelectionStep}
             ref={players}
             key={`${meta.id}:${videoId}`}
             details={details}
@@ -411,12 +421,18 @@ function Content({ meta, requestedVideo, onVideoChange }) {
                 (item) => String(item.id) === id,
               );
               if (video && video.id !== selectedVideo?.id) {
-                setEpisodeChosen(true);
+                setEpisodeChosen(video.id);
                 onVideoChange(video.id, autoplay, playback);
               }
             }}
             trailerKey={trailerKey}
-            episodeChosen={!hasEpisodes || episodeChosen}
+            episodeChosen={
+              !hasEpisodes ||
+              episodeChosen === true ||
+              episodeChosen === selectedVideo?.id
+            }
+            seriesProvider={seriesProvider}
+            onSeriesProviderChange={onSeriesProviderChange}
             onBackToEpisodes={() => setEpisodeChosen(false)}
             episodeLabel={meta.addonType === "series" ? "Episodes" : "Videos"}
             episodeTitle={selectedVideo?.title}
@@ -430,7 +446,7 @@ function Content({ meta, requestedVideo, onVideoChange }) {
                   selectedVideo={selectedVideo}
                   isSeries={meta.addonType === "series"}
                   onVideoChange={(id) => {
-                    setEpisodeChosen(true);
+                    setEpisodeChosen(id);
                     if (id !== selectedVideo?.id) onVideoChange(id, false);
                   }}
                   onSeasonChange={(value) => {
@@ -471,13 +487,18 @@ function Content({ meta, requestedVideo, onVideoChange }) {
           />
         </aside>
       </div>
-      {similar.length > 0 && <RelatedCarousel items={similar} />}
+      {similar.length > 0 && (
+        <div className={selectionStep ? "hidden md:block" : ""}>
+          <RelatedCarousel items={similar} />
+        </div>
+      )}
     </>
   );
 }
 
 export default function TitleDetails({ feed, onRetry, onBackdrop, ...props }) {
   const meta = feed.meta;
+  const [providers, setProviders] = useState({});
   useEffect(() => {
     if (meta?.backdrop || meta?.poster)
       onBackdrop?.(meta.backdrop || meta.poster);
@@ -504,7 +525,15 @@ export default function TitleDetails({ feed, onRetry, onBackdrop, ...props }) {
           </button>
         </div>
       ) : (
-        <Content key={`${meta.mediaType}:${meta.id}`} meta={meta} {...props} />
+        <Content
+          key={`${meta.mediaType}:${meta.id}`}
+          meta={meta}
+          {...props}
+          seriesProvider={providers[meta.id] || ""}
+          onSeriesProviderChange={(value) =>
+            setProviders((current) => ({ ...current, [meta.id]: value }))
+          }
+        />
       )}
     </section>
   );

@@ -127,9 +127,7 @@ for (const width of [390, 1440]) {
       node.dispatchEvent(new Event("waiting"));
     });
     await expect(loader).toHaveAttribute("aria-valuenow", "13");
-    await page
-      .getByRole("button", { name: "Close player", exact: true })
-      .click();
+    await page.keyboard.press("Escape");
     await expect(page.locator(".playback-loader")).toHaveCount(0);
   });
 }

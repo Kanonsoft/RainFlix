@@ -31,6 +31,12 @@
                 android:textColor="#FFFFFF" android:textSize="14sp" />
         </LinearLayout>
         <LinearLayout android:layout_width="match_parent" android:layout_height="48dp" android:gravity="center_vertical">
+            <ImageButton android:id="@+id/rainflix_bottom_play_pause" style="@style/RainFlixPlayerButton"
+                android:contentDescription="Play or pause" android:src="@drawable/exo_icon_play" />
+            <ImageButton android:id="@+id/rainflix_bottom_rewind" style="@style/RainFlixPlayerButton"
+                android:contentDescription="Back 5 seconds" android:src="@drawable/exo_ic_rewind" />
+            <ImageButton android:id="@+id/rainflix_bottom_forward" style="@style/RainFlixPlayerButton"
+                android:contentDescription="Forward 5 seconds" android:src="@drawable/exo_ic_forward" />
             <Space android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />
             <ImageButton android:id="@+id/rainflix_previous" style="@style/RainFlixPlayerButton"
                 android:contentDescription="Previous episode" android:src="@drawable/exo_ic_skip_previous" />

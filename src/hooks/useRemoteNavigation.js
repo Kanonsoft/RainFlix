@@ -223,6 +223,10 @@ function isBackEvent(event) {
 }
 
 function closeTopLayer() {
+  if (document.getElementById("fullscreenPlayback")) {
+    window.dispatchEvent(new Event("rainflix:close-playback"));
+    return true;
+  }
   const playerClose = document.querySelector("[data-playback-close]");
   if (playerClose) {
     playerClose.click();

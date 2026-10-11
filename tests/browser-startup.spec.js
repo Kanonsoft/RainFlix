@@ -70,16 +70,14 @@ for (const scenario of scenarios) {
     await expect(
       page.locator('meta[name="mobile-web-app-capable"]'),
     ).toHaveAttribute("content", "yes");
-    await page.getByRole("link", { name: "Movies", exact: true }).click();
-    await expect(page).toHaveURL(/#\/movies$/);
+    await page.getByRole("link", { name: "Browse", exact: true }).click();
+    await expect(page).toHaveURL(/#\/browse$/);
 
     // Use a known title without leaving the SPA, exercising lazy route imports too.
     await page.evaluate(() => {
       window.location.hash = "/search?q=test";
     });
-    await expect(
-      page.getByRole("heading", { name: "Search RainFlix" }),
-    ).toBeVisible();
+    await expect(page.getByRole("search")).toBeVisible();
     await page.locator("#catalogSearch").fill("test again");
     await page.locator("#catalogSearch").press("Enter");
     await expect(page).toHaveURL(/q=test\+again/);
@@ -101,7 +99,9 @@ for (const scenario of scenarios) {
     await expect(page.locator("#playerShell iframe")).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Close player" }),
-    ).toBeVisible();
+    ).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(page.locator("#fullscreenPlayback")).toHaveCount(0);
 
     if (!scenario.enabled) {
       expect(analyticsRequests).toEqual([]);

@@ -59,20 +59,22 @@ function numericSearchParam(searchParams, name) {
   return /^\d+$/.test(value) ? value : "";
 }
 
-export default function SearchPage({ onBackdrop, onReady }) {
+export default function SearchPage({ onBackdrop, onReady, browse = false }) {
   const [searchParams, setSearchParams] = useSearchParams();
-  const query = (searchParams.get("q") || "").trim();
-  const personId = numericSearchParam(searchParams, "person");
-  const companyId = personId ? "" : numericSearchParam(searchParams, "company");
+  const query = browse ? "" : (searchParams.get("q") || "").trim();
+  const personId = browse ? "" : numericSearchParam(searchParams, "person");
+  const companyId =
+    browse || personId ? "" : numericSearchParam(searchParams, "company");
   const relationshipType = personId ? "person" : companyId ? "company" : "";
   const relationshipId = personId || companyId;
-  const type = ["movie", "tv"].includes(searchParams.get("type"))
-    ? searchParams.get("type")
-    : "all";
-  const genreSlug = searchParams.get("genre") || "";
-  const year = searchParams.get("year") || "";
+  const type =
+    browse && ["movie", "tv"].includes(searchParams.get("type"))
+      ? searchParams.get("type")
+      : "all";
+  const genreSlug = browse ? searchParams.get("genre") || "" : "";
+  const year = browse ? searchParams.get("year") || "" : "";
   const genre = genreSlug ? api.getGenre(genreSlug) : null;
-  const browseMode = !relationshipId && query.length === 0;
+  const browseMode = browse;
   const [inputValue, setInputValue] = useState(query);
   const [retryVersion, setRetryVersion] = useState(0);
   const [state, setState] = useState({
@@ -118,7 +120,7 @@ export default function SearchPage({ onBackdrop, onReady }) {
     pendingPage.current = null;
     setMoreError(false);
 
-    if (!relationshipId && query.length === 1) {
+    if (!browse && !relationshipId && query.length < 2) {
       setState({
         error: false,
         loading: false,
@@ -193,6 +195,7 @@ export default function SearchPage({ onBackdrop, onReady }) {
       cancelled = true;
     };
   }, [
+    browse,
     browseMode,
     companyId,
     genre,
@@ -246,7 +249,8 @@ export default function SearchPage({ onBackdrop, onReady }) {
   const submitSearch = (event) => {
     event.preventDefault();
     const cleanValue = inputValue.trim();
-    const next = new URLSearchParams(searchParams);
+    if (cleanValue.length < 2) return;
+    const next = new URLSearchParams();
 
     if (cleanValue) {
       next.set("q", cleanValue);
@@ -385,106 +389,97 @@ export default function SearchPage({ onBackdrop, onReady }) {
   return (
     <section
       className="mx-auto min-w-0 w-full max-w-[1440px] px-4 py-8 sm:px-6 md:px-10 lg:px-12"
-      aria-labelledby="searchPageTitle"
+      aria-label={browse ? "Browse catalog" : "Search results"}
     >
-      <header className="mx-auto w-full max-w-5xl border-b border-blue-950/80 pb-7 text-center">
-        <p className="text-xs font-black uppercase text-sky-300">
-          {relationshipType === "person"
-            ? "Filmography"
-            : relationshipType === "company"
-              ? "Production catalog"
-              : browseMode
-                ? "Browse the catalog"
-                : "Find your next title"}
-        </p>
-        <h1
-          id="searchPageTitle"
-          className="mt-2 text-3xl font-black text-slate-50 md:text-4xl"
-        >
-          Search RainFlix
-        </h1>
-      </header>
-
+      {browse && <h1 className="text-3xl font-bold">Browse</h1>}
       <form
         className="mt-7 min-w-0 border-b border-blue-950/80 pb-7"
         onSubmit={submitSearch}
-        role="search"
+        role={browse ? undefined : "search"}
       >
-        <div className="mx-auto grid w-full min-w-0 max-w-5xl gap-4">
-          <label
-            className="flex min-h-14 w-full min-w-0 items-center gap-3 border border-blue-900/80 bg-slate-950/80 px-3 transition focus-within:border-sky-400 focus-within:ring-4 focus-within:ring-sky-400/10 sm:px-4"
-            htmlFor="catalogSearch"
-          >
-            <Search
-              className="h-5 w-5 shrink-0 text-slate-500"
-              aria-hidden="true"
-            />
-            <input
-              id="catalogSearch"
-              className="min-w-0 flex-1 bg-transparent text-base text-slate-100 outline-none placeholder:text-slate-500"
-              type="search"
-              value={inputValue}
-              onChange={(event) => setInputValue(event.target.value)}
-              placeholder="Search titles, people, or studios"
-              aria-label="Search titles, people, or studios"
-              autoComplete="off"
-            />
-            <button
-              className="shrink-0 rounded-lg bg-sky-400 px-3 py-2 text-sm font-black text-slate-950 transition hover:bg-sky-300 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-400/25 sm:px-4"
-              type="submit"
+        <div
+          className={`${browse ? "" : "mx-auto"} grid w-full min-w-0 max-w-5xl gap-4`}
+        >
+          {!browse && (
+            <label
+              className="flex min-h-14 w-full min-w-0 items-center gap-3 border border-blue-900/80 bg-slate-950/80 px-3 transition focus-within:border-sky-400 focus-within:ring-4 focus-within:ring-sky-400/10 sm:px-4"
+              htmlFor="catalogSearch"
             >
-              Search
-            </button>
-          </label>
-
-          <div className="mx-auto grid w-full min-w-0 max-w-4xl grid-cols-1 gap-3 sm:grid-cols-3">
-            <label className="grid min-w-0 gap-2 text-xs font-black uppercase text-slate-400">
-              Type
-              <select
-                className="block min-h-11 w-full min-w-0 max-w-full rounded-lg border border-blue-900/80 bg-slate-950 px-3 text-sm font-bold normal-case text-slate-100 outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-400/10"
-                value={type}
-                onChange={(event) => updateFilter("type", event.target.value)}
+              <Search
+                className="h-5 w-5 shrink-0 text-slate-500"
+                aria-hidden="true"
+              />
+              <input
+                id="catalogSearch"
+                className="min-w-0 flex-1 bg-transparent text-base text-slate-100 outline-none placeholder:text-slate-500"
+                type="search"
+                value={inputValue}
+                onChange={(event) => setInputValue(event.target.value)}
+                placeholder="Search titles, people, or studios"
+                aria-label="Search titles, people, or studios"
+                autoComplete="off"
+              />
+              <button
+                className="shrink-0 rounded-lg bg-sky-400 px-3 py-2 text-sm font-black text-slate-950 transition hover:bg-sky-300 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-400/25 sm:px-4"
+                type="submit"
               >
-                <option value="all">Movies and series</option>
-                <option value="movie">Movies</option>
-                <option value="tv">Series</option>
-              </select>
+                Search
+              </button>
             </label>
+          )}
 
-            <label className="grid min-w-0 gap-2 text-xs font-black uppercase text-slate-400">
-              Genre
-              <select
-                className="block min-h-11 w-full min-w-0 max-w-full rounded-lg border border-blue-900/80 bg-slate-950 px-3 text-sm font-bold normal-case text-slate-100 outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-400/10"
-                value={genre?.slug || ""}
-                onChange={(event) => updateFilter("genre", event.target.value)}
-              >
-                <option value="">All genres</option>
-                {api.GENRES.map((item) => (
-                  <option value={item.slug} key={item.slug}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+          {browse && (
+            <div className="grid w-full min-w-0 max-w-4xl grid-cols-1 gap-3 sm:grid-cols-3">
+              <label className="grid min-w-0 gap-2 text-xs font-black uppercase text-slate-400">
+                Type
+                <select
+                  className="block min-h-11 w-full min-w-0 max-w-full rounded-lg border border-blue-900/80 bg-slate-950 px-3 text-sm font-bold normal-case text-slate-100 outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-400/10"
+                  value={type}
+                  onChange={(event) => updateFilter("type", event.target.value)}
+                >
+                  <option value="all">Movies and series</option>
+                  <option value="movie">Movies</option>
+                  <option value="tv">Series</option>
+                </select>
+              </label>
 
-            <label className="grid min-w-0 gap-2 text-xs font-black uppercase text-slate-400">
-              Year
-              <select
-                className="block min-h-11 w-full min-w-0 max-w-full rounded-lg border border-blue-900/80 bg-slate-950 px-3 text-sm font-bold normal-case text-slate-100 outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-400/10"
-                value={year}
-                onChange={(event) => updateFilter("year", event.target.value)}
-              >
-                <option value="">All years</option>
-                {years.map((item) => (
-                  <option value={item} key={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
+              <label className="grid min-w-0 gap-2 text-xs font-black uppercase text-slate-400">
+                Genre
+                <select
+                  className="block min-h-11 w-full min-w-0 max-w-full rounded-lg border border-blue-900/80 bg-slate-950 px-3 text-sm font-bold normal-case text-slate-100 outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-400/10"
+                  value={genre?.slug || ""}
+                  onChange={(event) =>
+                    updateFilter("genre", event.target.value)
+                  }
+                >
+                  <option value="">All genres</option>
+                  {api.GENRES.map((item) => (
+                    <option value={item.slug} key={item.slug}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-          {type !== "all" || genreSlug || year ? (
+              <label className="grid min-w-0 gap-2 text-xs font-black uppercase text-slate-400">
+                Year
+                <select
+                  className="block min-h-11 w-full min-w-0 max-w-full rounded-lg border border-blue-900/80 bg-slate-950 px-3 text-sm font-bold normal-case text-slate-100 outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-400/10"
+                  value={year}
+                  onChange={(event) => updateFilter("year", event.target.value)}
+                >
+                  <option value="">All years</option>
+                  {years.map((item) => (
+                    <option value={item} key={item}>
+                      {item}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          )}
+
+          {browse && (type !== "all" || genreSlug || year) ? (
             <button
               className="inline-flex min-h-11 justify-self-center items-center justify-center gap-2 rounded-lg border border-blue-900/80 px-4 text-sm font-black text-slate-300 transition hover:border-sky-400 hover:text-sky-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-400/20"
               type="button"
@@ -513,7 +508,9 @@ export default function SearchPage({ onBackdrop, onReady }) {
                 : relationshipType === "company"
                   ? `Movies and series from ${query}`
                   : `Results for "${query}"`
-              : browseTitle}
+              : browse
+                ? browseTitle
+                : "Results"}
           </h2>
           {!state.loading &&
           (browseMode || relationshipId || query.length >= 2) ? (
@@ -543,7 +540,7 @@ export default function SearchPage({ onBackdrop, onReady }) {
             browse
             ghostCount={state.loadingMore ? BROWSE_LIMIT : 0}
             emptyText={
-              !relationshipId && query.length === 1
+              !browse && !relationshipId && query.length < 2
                 ? "Enter at least two characters to search."
                 : relationshipType
                   ? "No related titles match these filters."

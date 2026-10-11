@@ -4,6 +4,7 @@ import { isAndroid, isNativeApp } from "../platform/index.js";
 const key = "rainflix:settings:v1";
 const defaults = {
   reduceAnimations: isAndroid,
+  fullscreenOnStart: false,
   subtitleLanguage: "en",
   audioLanguage: "",
   skipIntro: false,

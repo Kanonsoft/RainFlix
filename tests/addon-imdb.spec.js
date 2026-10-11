@@ -338,9 +338,13 @@ for (const type of ["movie", "series"]) {
     ).toHaveCount(0);
     expect(lookups[0].pathname).toBe("/3/find/tt9335498");
     expect(lookups[0].searchParams.get("external_source")).toBe("imdb_id");
-    expect(streams).toHaveLength(1);
-    if (type === "series")
+    expect(streams).toHaveLength(type === "series" ? 0 : 1);
+    if (type === "series") {
+      await page
+        .getByRole("button", { name: "Play with Streams", exact: true })
+        .click();
       await page.getByRole("button", { name: "1. First", exact: true }).click();
+    }
     await expect(
       page.getByRole("button", { name: "Play with Streams", exact: true }),
     ).toHaveCount(0);
@@ -383,19 +387,23 @@ for (const type of ["movie", "series"]) {
         "/#/addon/catalog/title/series/tt9335498?video=tt9335498%3A2%3A1124",
         "/#/title/tv/505?season=2&episode=1124",
       ]) {
+        await page.goto("/#/home");
         await page.goto(link);
-        if (link.includes("/addon/")) {
-          await expect(
-            page.getByText("S2 E2: Second season follow-up", { exact: true }),
-          ).toBeVisible();
-          await page.getByRole("button", { name: "Back to episodes" }).click();
-        }
+        await page
+          .getByRole("button", { name: "Play with Streams", exact: true })
+          .click();
         await expect(
           page.getByRole("button", {
             name: "2. Second season follow-up",
             exact: true,
           }),
         ).toHaveAttribute("aria-pressed", "true");
+        await page
+          .getByRole("button", {
+            name: "2. Second season follow-up",
+            exact: true,
+          })
+          .click();
         await expect
           .poll(() => streams.at(-1))
           .toBe("https://streams.example/stream/series/tt9335498%3A2%3A2.json");

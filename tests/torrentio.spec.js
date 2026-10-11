@@ -319,8 +319,13 @@ test("uses IMDb episode IDs and ignores old responses after navigation or provid
       "external",
     ),
   );
+  await page
+    .getByRole("button", { name: "Play with Torrentio", exact: true })
+    .click();
   await page.locator('[data-video-id][aria-pressed="true"]').click();
-  await expect(page.getByText("Finding available streams...")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Cancel stream lookup" }),
+  ).toBeVisible();
   await expect(page.getByText("Finding streams", { exact: true })).toHaveCount(
     0,
   );
@@ -375,25 +380,24 @@ test("handles empty, unavailable, malformed, rate-limited and timed-out response
     window.RAINFLIX_CONFIG.torrentio.requestTimeoutMs = 100;
   });
   await expect(
-    page.getByText("No streams found for this title on Torrentio."),
+    page.getByText("No streams found for this title from addons"),
   ).toBeVisible();
-  for (const [next, message] of [
-    [{ status: 429 }, "Torrentio is busy. Please try again shortly."],
-    [{ status: 503 }, "Torrentio request failed (503). Try again."],
-    [
-      { body: "not json" },
-      "Torrentio returned an unreadable response. Try again later.",
-    ],
-    [{ json: {} }, "Torrentio returned an invalid stream list."],
+  for (const next of [
+    { status: 429 },
+    { status: 503 },
+    { body: "not json" },
+    { json: {} },
   ]) {
     response = next;
     await page.getByRole("button", { name: "Retry", exact: true }).click();
-    await expect(page.getByText(message)).toBeVisible();
+    await expect(
+      page.getByText("No streams found for this title from addons"),
+    ).toBeVisible();
   }
   delay = true;
   await page.getByRole("button", { name: "Retry", exact: true }).click();
   await expect(
-    page.getByText("Torrentio took too long to respond. Try again."),
+    page.getByText("No streams found for this title from addons"),
   ).toBeVisible();
   expect(await history(page)).toHaveLength(0);
 });

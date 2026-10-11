@@ -79,12 +79,31 @@ test("manual watched marks remove the whole series and preserve unrelated histor
   const series = page.getByRole("link", {
     name: "Continue watching Series history",
   });
+  await expect(
+    page.getByRole("button", { name: /History options/ }),
+  ).toHaveCount(0);
+  await expect(page.locator("#appLoader")).toHaveClass(/is-hidden/, {
+    timeout: 15000,
+  });
+  const beforeHold = page.url();
+  await series.dispatchEvent("pointerdown", {
+    pointerType: "touch",
+    clientX: 50,
+    clientY: 250,
+  });
+  await expect(
+    page.getByRole("menu", { name: "Series history history" }),
+  ).toBeVisible();
+  await series.dispatchEvent("pointerup", { pointerType: "touch" });
+  await series.dispatchEvent("click");
+  expect(page.url()).toBe(beforeHold);
+  await page.keyboard.press("Escape");
   await series.click({ button: "right" });
   const menu = page.getByRole("menu", { name: "Series history history" });
   await expect(menu).toBeVisible();
   await expect(
     menu.getByRole("menuitem", { name: "Open in new tab" }),
-  ).toHaveAttribute("target", "_blank");
+  ).toHaveCount(0);
   const rect = await menu.boundingBox();
   expect(rect.x + rect.width).toBeLessThanOrEqual(390);
   await menu
@@ -111,8 +130,8 @@ test("manual watched marks remove the whole series and preserve unrelated histor
   ).toHaveCount(1);
   await expect(series).toHaveCount(0);
   await page
-    .getByRole("button", { name: "History options for Series history" })
-    .click();
+    .getByRole("link", { name: "More information about Series history" })
+    .click({ button: "right" });
   await page.getByRole("menuitem", { name: "Remove from watched" }).click();
   const state = await page.evaluate(() => ({
     recent: JSON.parse(localStorage.getItem("rainflix:recently-viewed:v1")),
@@ -175,8 +194,8 @@ for (const mediaType of ["movie", "tv"]) {
       }),
     ).toHaveCount(1);
     await watched
-      .getByRole("button", { name: "History options for Manual title" })
-      .click();
+      .getByRole("link", { name: "More information about Manual title" })
+      .click({ button: "right" });
     await page
       .getByRole("menuitem", { name: "Mark as unwatched", exact: true })
       .click();
@@ -420,16 +439,16 @@ test("startup migrates duplicate episodes and respects removing unfinished serie
     )
     .toBe(2);
   await page
-    .getByRole("button", { name: "History options for Unfinished series" })
-    .click();
+    .getByRole("link", { name: "Continue watching Unfinished series" })
+    .click({ button: "right" });
   await page.getByRole("menuitem", { name: "Remove from history" }).click();
   await page.reload();
   await expect(
     page.getByRole("link", { name: "Continue watching Unfinished series" }),
   ).toHaveCount(0);
   await watched
-    .getByRole("button", { name: "History options for Finished series" })
-    .click();
+    .getByRole("link", { name: "More information about Finished series" })
+    .click({ button: "right" });
   await page.getByRole("menuitem", { name: "Mark as unwatched" }).click();
   await expect(watched.getByText("Finished series")).toHaveCount(0);
   await expect(

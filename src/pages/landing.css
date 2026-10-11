@@ -1,0 +1,256 @@
+.landing {
+  background: #080b0e;
+  color: #f5f7f9;
+}
+.landing-nav {
+  position: absolute;
+  z-index: 3;
+  top: 0;
+  left: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 26px 5%;
+}
+.landing-nav img {
+  width: 148px;
+  height: 42px;
+  object-fit: contain;
+}
+.landing-nav > a:last-child {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 14px;
+}
+.landing-hero {
+  position: relative;
+  min-height: 620px;
+  height: 82svh;
+  max-height: 850px;
+  overflow: hidden;
+}
+.landing-scene {
+  position: absolute;
+  inset: 0;
+}
+.landing-movie-backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.18;
+  animation: landing-backdrop-in 900ms ease both;
+}
+@keyframes landing-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 0.18;
+  }
+}
+.landing-scene canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.landing-fallback {
+  position: absolute;
+  width: 55%;
+  right: -4%;
+  top: 25%;
+  transform: perspective(1000px) rotateY(-16deg) rotateZ(-4deg);
+  border: 5px solid #24303a;
+}
+.landing-scene:has(canvas) .landing-fallback {
+  visibility: hidden;
+}
+.landing-copy {
+  position: relative;
+  z-index: 2;
+  width: 44%;
+  max-width: 650px;
+  padding: 185px 0 60px 5%;
+  pointer-events: none;
+}
+.landing-copy a {
+  pointer-events: auto;
+}
+.landing-eyebrow {
+  color: #38bdf8;
+  font-size: 12px;
+  font-weight: 700;
+}
+.landing h1 {
+  margin: 20px 0;
+  font-size: 72px;
+  line-height: 1.05;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+.landing-description {
+  max-width: 370px;
+  font-size: 21px;
+  line-height: 1.6;
+  color: #bec6cc;
+}
+.landing-actions {
+  margin-top: 30px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.landing-download,
+.landing-open {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  min-height: 50px;
+  padding: 12px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 700;
+  transition:
+    background 0.2s,
+    transform 0.2s;
+}
+.landing-download {
+  background: #38bdf8;
+  color: #04131b;
+}
+.landing-download:hover {
+  background: #7dd3fc;
+  transform: translateY(-2px);
+}
+.landing-open {
+  border: 1px solid #47535d;
+  background: #080b0e;
+}
+.landing-open:hover {
+  background: #20282d;
+}
+.landing a:focus-visible {
+  outline: 2px solid #38bdf8;
+  outline-offset: 5px;
+}
+.landing-platforms {
+  font-size: 12px;
+  color: #94a3ae;
+  margin-top: 20px;
+}
+.landing-features {
+  border-top: 1px solid #293138;
+  padding: 58px 5% 72px;
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr 1fr;
+  gap: 35px;
+}
+.landing h2 {
+  font-size: 30px;
+  line-height: 1.3;
+  font-weight: 700;
+  margin-top: 14px;
+}
+.landing-feature svg {
+  color: #38bdf8;
+  width: 28px;
+  height: 28px;
+  margin: 8px 0 22px;
+}
+.landing-feature h3 {
+  font-size: 17px;
+  font-weight: 600;
+}
+.landing-feature p {
+  color: #a8b5bf;
+  font-size: 14px;
+  line-height: 1.8;
+  margin-top: 12px;
+}
+.landing-bottom {
+  padding: 65px 5%;
+  border-top: 1px solid #293138;
+  text-align: center;
+  background: #10161b;
+}
+.landing-bottom a {
+  margin: 25px 0 20px;
+}
+.landing-bottom p {
+  color: #94a3ae;
+  font-size: 12px;
+}
+@media (max-width: 1000px) {
+  .landing-copy {
+    width: 52%;
+    padding-top: 150px;
+  }
+  .landing h1 {
+    font-size: 60px;
+  }
+  .landing-features {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 767px) {
+  .landing-nav {
+    padding: 18px 5%;
+  }
+  .landing-nav img {
+    width: 122px;
+  }
+  .landing-hero {
+    height: 84svh;
+    min-height: 680px;
+    max-height: 820px;
+  }
+  .landing-copy {
+    width: 100%;
+    padding: 108px 6% 0;
+  }
+  .landing h1 {
+    font-size: 48px;
+    margin: 14px 0;
+  }
+  .landing-description {
+    font-size: 17px;
+    max-width: 340px;
+  }
+  .landing-actions {
+    margin-top: 22px;
+  }
+  .landing-download,
+  .landing-open {
+    padding: 10px 14px;
+    font-size: 13px;
+  }
+  .landing-platforms {
+    margin-top: 14px;
+  }
+  .landing-fallback {
+    width: 88%;
+    top: 60%;
+    right: -4%;
+  }
+  .landing-features {
+    grid-template-columns: 1fr;
+    padding: 40px 6%;
+    gap: 28px;
+  }
+  .landing h2 {
+    font-size: 27px;
+  }
+  .landing-feature svg {
+    margin-bottom: 12px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .landing a {
+    transition: none;
+  }
+}

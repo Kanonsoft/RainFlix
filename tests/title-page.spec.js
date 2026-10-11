@@ -219,7 +219,7 @@ test("a sole stream skips source navigation and returns to Players after closing
   release();
   await selectPlayer(page, "yastream");
   await expect(page.locator("#playerShell video")).toBeVisible();
-  await page.getByRole("button", { name: "Close player" }).click();
+  await page.keyboard.press("Escape");
   await expect(
     page.getByRole("heading", { name: "Streams", exact: true }),
   ).toBeVisible();
@@ -354,6 +354,12 @@ for (const width of [390, 1440]) {
       },
     );
     await openPlayer(page, "tv");
+    await expect(
+      page.getByRole("region", { name: "Episodes", exact: true }),
+    ).toHaveCount(0);
+    await page
+      .getByRole("button", { name: "Play with Yastream", exact: true })
+      .click();
     const episodes = page.getByRole("region", {
       name: "Episodes",
       exact: true,
@@ -402,7 +408,7 @@ for (const width of [390, 1440]) {
       .click();
     await expect(page).toHaveURL(/season=1&episode=40/);
     await expect(
-      page.getByRole("heading", { name: "Streams", exact: true }),
+      page.getByRole("heading", { name: "Yastream", exact: true }),
     ).toBeVisible();
     await expect(page.locator("[data-episode-list]")).toHaveCount(0);
     await page.getByRole("button", { name: "Back to episodes" }).click();
@@ -536,7 +542,7 @@ test("native fullscreen fallback autoplays, switches sources, and stops on Escap
   await video.evaluate((node) => {
     window.__oldVideo = node;
   });
-  await page.getByRole("button", { name: "Close player" }).focus();
+  await page.locator("#fullscreenPlayback").focus();
   await page.keyboard.press("Escape");
   await expect(page.locator("#fullscreenPlayback")).toHaveCount(0);
   expect(
@@ -554,6 +560,9 @@ for (const width of [390, 1440]) {
   }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });
     await openPlayer(page, "tv");
+    await page
+      .getByRole("button", { name: "Play with Yastream", exact: true })
+      .click();
     await expect(
       page.getByRole("region", { name: "Episodes", exact: true }),
     ).toBeVisible();

@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import { Bookmark, Clock3, Trash2, Check } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { MediaGrid } from "../components/MediaCard.jsx";
 import { useLibrary } from "../components/library/LibraryProvider.jsx";
 import { watchPath } from "../lib/api.js";
@@ -67,7 +67,6 @@ export default function LibraryPage({ onBackdrop, onReady }) {
 
       <section className="mt-9" aria-labelledby="savedTitlesHeading">
         <div className="mb-5 flex items-center gap-3">
-          <Bookmark className="h-5 w-5 text-sky-300" aria-hidden="true" />
           <h2
             id="savedTitlesHeading"
             className="text-2xl font-black text-slate-50 md:text-3xl"
@@ -89,7 +88,6 @@ export default function LibraryPage({ onBackdrop, onReady }) {
         <>
           <section className="mt-12" aria-labelledby="continueWatchingHeading">
             <div className="mb-5 flex flex-wrap items-center gap-3">
-              <Clock3 className="h-5 w-5 text-sky-300" aria-hidden="true" />
               <h2
                 id="continueWatchingHeading"
                 className="text-2xl font-black text-slate-50 md:text-3xl"
@@ -115,7 +113,6 @@ export default function LibraryPage({ onBackdrop, onReady }) {
           </section>
           <section className="mt-12" aria-labelledby="watchedHeading">
             <div className="mb-5 flex items-center gap-3">
-              <Check className="h-5 w-5 text-emerald-400" aria-hidden="true" />
               <h2
                 id="watchedHeading"
                 className="text-2xl font-black text-slate-50 md:text-3xl"

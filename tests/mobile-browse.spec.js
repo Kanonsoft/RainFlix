@@ -52,7 +52,7 @@ test("mobile search loads the next page on scroll and fits three cards", async (
   ).toBe(true);
 });
 
-test("drawer genre labels fit one line on narrow phones", async ({
+test("drawer exposes Browse instead of separate genre menus on narrow phones", async ({
   page,
   baseURL,
 }) => {
@@ -61,13 +61,18 @@ test("drawer genre labels fit one line on narrow phones", async ({
   await page.goto("/#/home");
   await expect(page.locator("#appLoader")).toHaveClass(/is-hidden/);
   await page.getByRole("button", { name: "Open navigation" }).click();
-  await page.getByRole("button", { name: "Genres", exact: true }).click();
-  const overflow = await page
-    .locator("#mobileGenreList a")
-    .evaluateAll((nodes) =>
-      nodes.some(
-        (node) => node.scrollWidth > node.clientWidth || node.clientHeight > 50,
-      ),
-    );
-  expect(overflow).toBe(false);
+  const nav = page.getByRole("navigation", {
+    name: "Mobile primary navigation",
+  });
+  await expect(
+    nav.getByRole("button", { name: "Genres", exact: true }),
+  ).toHaveCount(0);
+  await nav.getByRole("link", { name: "Browse", exact: true }).click();
+  await expect(page.getByRole("combobox", { name: "Genre" })).toBeVisible();
+  await expect(page.getByRole("search")).toHaveCount(0);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
 });

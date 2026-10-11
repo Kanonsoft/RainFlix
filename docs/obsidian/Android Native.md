@@ -4,6 +4,8 @@ tags: [rainflix, android, playback, torrent]
 
 # Android Native
 
+Launcher and Android 12+ launch screens reference the transparent bundled R drawable, not a text title. The HTML pre-module fallback also shows R with an animated progress bar; failure messages and Reload remain available if startup fails. Android launchers may still impose their own icon mask/background. The catalog uses its dark launch theme to prevent a light flash before the React loader mounts.
+
 Related: [[Title Playback]], [[Native Torrent Desktop]], [[Add-ons]], [[Downloads]].
 
 The Android Tauri build shares the React catalog, title pages, add-on installation, My List and Continue Watching with Windows. Vite's `mobile` mode writes `dist-mobile`; app navigation includes Add-ons and hides the website download action. The Windows mpv executable and named-pipe code are excluded from Android builds.
@@ -35,6 +37,8 @@ Mobile listeners must deserialize a typed `tauri::ipc::Channel<Value>` in the Ru
 The main Activity declares `stremio://` and `rainflix://` intent filters. The native plugin validates a provider-independent HTTP-style host and `/manifest.json` path, rejects credentials/fragments and keeps the incoming link in memory. Cold and warm links open Add-ons with the manifest filled in; the user must still press Install. No configured manifest URL is logged or written to the route. Android chooses the handler: if Stremio is installed or already set as default, the user must choose RainFlix or clear that association themselves. RainFlix does not override another app's defaults.
 
 ## Build
+
+Release builds must include Android's `proguard-android-optimize.txt` defaults and the Jackson enum reflection rules in `app/proguard-rules.pro`. Without these, R8 removes `SerializationFeature.values()`, causing Tauri's PluginManager/ObjectMapper initialization to crash before React starts. Debug builds do not reproduce this because minification is disabled. Always verify a signed release launch as well as debug playback.
 
 1. Install Android Studio, SDK platform/build tools 36, NDK and Rust Android targets.
 2. Run `npm run android:init` only for initial project setup. The checked-in Android project includes custom configuration; do not regenerate it over edits.

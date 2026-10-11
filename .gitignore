@@ -23,3 +23,5 @@ src-tauri/icons/*
 .vite-*.log
 playwright-report/
 test-results/
+landing-desktop.png
+landing-mobile.png

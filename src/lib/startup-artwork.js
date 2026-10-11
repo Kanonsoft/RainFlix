@@ -1,4 +1,5 @@
 import { api } from "./api.js";
+import { clearAddonLogoCache } from "./addon-logos.js";
 
 export const seedPosters = Object.values(
   import.meta.glob("../../assets/startup/*.jpg", {
@@ -90,6 +91,7 @@ export function refreshStartupArtwork() {
 }
 export async function clearArtworkCache() {
   generation += 1;
+  await clearAddonLogoCache();
   const db = await open();
   await new Promise((resolve, reject) => {
     const transaction = db.transaction("artwork", "readwrite");

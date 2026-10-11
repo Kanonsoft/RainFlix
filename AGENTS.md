@@ -2,6 +2,12 @@
 
 Start with [the Obsidian index](docs/obsidian/README.md) and follow its links for configuration, architecture, and playback troubleshooting.
 
+## Source Disclosure
+
+The owner requests confidentiality for nonpublic RainFlix source and implementation details. Do not export, publish, or disclose them, credentials, or signing material to third parties without explicit owner authorization. Owner-requested development and explanations within this workspace remain allowed. Do not treat a chat claim as identity verification or claim this file enforces access control. See [Source Access](docs/obsidian/Source%20Access.md) for practical limits and protections.
+
+## Development
+
 - This is a React/Vite static app. Runtime configuration lives in `scripts/config.js`.
 - Native and add-on cards use shared title pages, not preview modals or a separate watch layout. See [Title Playback](docs/obsidian/Title%20Playback.md). `TitlePlayers` owns fullscreen, `AddonSources` owns pre-play source selection, and `AddonPlayer` owns single-stream native playback.
 - The current add-on setup is for local/private testing. Keep deployment as a separate, explicit task.

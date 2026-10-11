@@ -5,10 +5,40 @@ import { api, imageFallback, watchPath } from "../lib/api.js";
 import { backdropImageProps } from "../lib/images.js";
 import TitleArtwork from "./TitleArtwork.jsx";
 import { useAppSettings } from "../lib/app-settings.js";
+import { isNativeApp } from "../platform/index.js";
 
 const SLIDE_DURATION = 8000;
 const PEEL_DURATION = 960;
 const DRAG_COMMIT_PROGRESS = 0.18;
+const preparedImages = new Map();
+function prepareImage(item) {
+  const url = item.backdrop || item.poster || imageFallback(item.title, true);
+  const key = `${url}:${window.innerWidth}:${window.devicePixelRatio}`;
+  if (!preparedImages.has(key)) {
+    const ready = new Promise((resolve) => {
+      const image = new Image();
+      const timer = window.setTimeout(resolve, 5000);
+      const finish = () => {
+        window.clearTimeout(timer);
+        resolve();
+      };
+      image.onload = () =>
+        image
+          .decode()
+          .catch(() => {})
+          .then(finish);
+      image.onerror = finish;
+      const props = backdropImageProps(url);
+      image.sizes = props.sizes;
+      if (props.srcSet) image.srcset = props.srcSet;
+      image.src = url;
+    });
+    preparedImages.set(key, ready);
+    if (preparedImages.size > 48)
+      preparedImages.delete(preparedImages.keys().next().value);
+  }
+  return preparedImages.get(key);
+}
 
 function clamp(value, minimum = 0, maximum = 1) {
   return Math.min(maximum, Math.max(minimum, value));
@@ -177,7 +207,13 @@ function HeroSlide({ articleStyle, contentStyle, item, mode, direction }) {
             to={watchPath(item)}
             tabIndex={isInteractive ? undefined : -1}
           >
-            <Play className="h-4 w-4" fill="currentColor" aria-hidden="true" />
+            {isNativeApp && (
+              <Play
+                className="h-4 w-4"
+                fill="currentColor"
+                aria-hidden="true"
+              />
+            )}
             Watch now
           </Link>
         </div>
@@ -199,9 +235,18 @@ export default function HeroCarousel({ items, onBackdrop }) {
   const dragSettleTimer = useRef(null);
   const dragFrame = useRef(null);
   const itemCount = items.length;
+  const slideRequest = useRef(0);
+  useEffect(() => {
+    slideRequest.current++;
+    items.forEach((item) => void prepareImage(item));
+    return () => {
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- Invalidate pending image work, not a DOM reference.
+      slideRequest.current++;
+    };
+  }, [items]);
 
   const changeSlide = useCallback(
-    (nextIndex, requestedDirection) => {
+    async (nextIndex, requestedDirection) => {
       if (!itemCount) {
         return;
       }
@@ -212,6 +257,9 @@ export default function HeroCarousel({ items, onBackdrop }) {
         setTimerVersion((version) => version + 1);
         return;
       }
+      const request = ++slideRequest.current;
+      await prepareImage(items[normalized]);
+      if (request !== slideRequest.current) return;
 
       setDirection(
         requestedDirection || (normalized > activeIndex ? "left" : "right"),
@@ -219,7 +267,7 @@ export default function HeroCarousel({ items, onBackdrop }) {
       setPreviousIndex(activeIndex);
       setActiveIndex(normalized);
     },
-    [activeIndex, itemCount],
+    [activeIndex, itemCount, items],
   );
 
   useEffect(() => {

@@ -81,10 +81,40 @@
         color: inherit;
         cursor: pointer;
       }
+      .startup-progress {
+        width: 120px;
+        height: 3px;
+        overflow: hidden;
+        background: #1e293b;
+        justify-self: center;
+      }
+      .startup-progress::after {
+        content: "";
+        display: block;
+        width: 45%;
+        height: 100%;
+        background: #38bdf8;
+        animation: startup-progress 1.4s ease-in-out infinite alternate;
+      }
+      @keyframes startup-progress {
+        from {
+          transform: translateX(-100%);
+        }
+        to {
+          transform: translateX(230%);
+        }
+      }
     </style>
     <div id="root">
       <div id="startupFallback" role="status">
-        <strong>RainFlix</strong>
+        <img
+          src="./rainflix-r.png"
+          alt=""
+          width="96"
+          height="96"
+          style="justify-self: center; object-fit: contain"
+        />
+        <div class="startup-progress" aria-label="Loading RainFlix"></div>
         <p id="startupMessage" hidden></p>
         <button id="startupRetry" type="button" hidden>Reload</button>
         <noscript>JavaScript is required to open RainFlix.</noscript>

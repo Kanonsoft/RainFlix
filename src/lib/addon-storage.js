@@ -8,7 +8,7 @@ function database() {
   });
 }
 
-export async function addonRegistrations(value) {
+export async function addonRegistrations(value, key = "addons") {
   const db = await database();
   try {
     return await new Promise((resolve, reject) => {
@@ -17,7 +17,7 @@ export async function addonRegistrations(value) {
         value ? "readwrite" : "readonly",
       );
       const store = transaction.objectStore("settings");
-      const request = value ? store.put(value, "addons") : store.get("addons");
+      const request = value ? store.put(value, key) : store.get(key);
       transaction.oncomplete = () => resolve(value || request.result || []);
       transaction.onerror = () => reject(transaction.error);
       transaction.onabort = () => reject(transaction.error);

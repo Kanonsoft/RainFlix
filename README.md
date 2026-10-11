@@ -4,229 +4,179 @@
 
 <h1 align="center">RainFlix</h1>
 
-<p align="center">
-  <strong>A cinematic, touch-first movie and series discovery experience.</strong>
-</p>
+<p align="center"><strong>Discover on the web. Watch in the app.</strong></p>
 
 <p align="center">
-  <a href="https://kaaanooon.github.io/RainFlix/"><strong>Open RainFlix</strong></a>
-  |
-  <a href="#features">Features</a>
-  |
-  <a href="#quick-start">Quick Start</a>
-  |
-  <a href="#deployment">Deployment</a>
+  <a href="https://kanonsoft.github.io/RainFlix/">Explore RainFlix</a> |
+  <a href="https://github.com/Kanonsoft/RainFlix/releases">Windows and Android releases</a> |
+  <a href="#features">Features</a> |
+  <a href="#development">Development</a>
 </p>
 
-<p align="center">
-  <a href="https://github.com/kaaanooon/RainFlix/actions/workflows/deploy.yml">
-    <img src="https://github.com/kaaanooon/RainFlix/actions/workflows/deploy.yml/badge.svg" alt="GitHub Pages deployment">
-  </a>
-  <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white" alt="React 19">
-  <img src="https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white" alt="Vite 8">
-  <img src="https://img.shields.io/badge/Tailwind_CSS-3-38BDF8?logo=tailwindcss&logoColor=white" alt="Tailwind CSS 3">
-  <img src="https://img.shields.io/badge/Static-Hosting-22C55E" alt="Static hosting">
-</p>
+<img src="public/screenshots/home-desktop.png" alt="RainFlix home with featured titles and movie discovery">
 
-<a href="https://kaaanooon.github.io/RainFlix/">
-  <img src="assets/rainflix-preview.jpg" alt="RainFlix home screen showing its featured carousel and trending catalog">
-</a>
+RainFlix brings movie and series discovery, a personal library, and add-on
+playback together in one interface. The React website runs on static hosting;
+the Windows and Android apps add native playback and app-owned torrent support.
 
-RainFlix is a responsive React interface for exploring movies and television
-series through live TMDB data. It combines fast catalog browsing with cinematic
-motion, shared title pages, add-on playback sources, and navigation that
-works across phones, desktops, keyboards, and TV remotes.
-
-The entire application builds to static files, so it can run on GitHub Pages
-without an application server.
+The website opens with a cinematic introduction and real RainFlix screenshots
+in a tilted 3D scene. Open RainFlix on web takes you straight to the catalog.
+Native apps start at Home.
 
 ## Features
 
-| Experience                    | Highlights                                                                                                                        |
-| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| **Cinematic discovery**       | Home, Movies, Series, Genre, and Year views powered by current TMDB feeds                                                         |
-| **Gesture-driven hero**       | A diagonal peel transition that follows the pointer while swiping, settles naturally on release, and crossfades the page backdrop |
-| **Rich title pages**          | Shareable title URLs with synopsis, cast, genres, runtime, status, rating, title logos, and fullscreen trailers                   |
-| **History-aware navigation**  | Browser Back closes fullscreen playback; Forward never restarts a stream automatically                                            |
-| **Personal library**          | Device-local My List bookmarks and Continue Watching links that remember the selected season and episode                          |
-| **Focused search**            | A dedicated, shareable search view with type, genre, and year filters                                                             |
-| **Flexible playback**         | Compact provider and torrent-mode selectors, remembered preferences, fullscreen support, and movie or episode-specific streams    |
-| **Series navigation**         | Season and episode selection with episode metadata and direct watch URLs                                                          |
-| **More to discover**          | Similar titles, expandable browse grids, newest releases, trending titles, search, and filters                                    |
-| **Responsive and accessible** | Mobile navigation drawer, keyboard focus management, reduced-motion support, semantic dialogs, and remote-control key handling    |
-| **Fast repeat visits**        | Responsive TMDB artwork plus bounded caching for metadata, title logos, loader posters, and player preferences                    |
-| **Installable static app**    | A lightweight service worker caches RainFlix assets and catalog artwork without touching third-party player requests              |
-| **Resilient interface**       | Retry states plus a last-resort recovery screen that preserves saved titles and viewing history                                   |
+| Experience         | What you get                                                                                                                           |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Discovery          | Trending titles, newest movies and series, and infinite-scroll Browse with type, genre, and year filters                               |
+| Search             | Title, actor, and production searches with scroll-to-load results; blank searches are ignored                                          |
+| Title pages        | Title logos, artwork, synopsis, cast, official availability, episodes, streams, and similar titles                                     |
+| Personal library   | Persistent My List; native apps also offer Continue Watching and Watched with right-click or long-press actions                        |
+| Resume playback    | Fresh source resolution with remembered provider/release preferences, position, subtitles, and audio where supported                   |
+| Add-ons            | Separate directory and installed tabs, catalog/stream/subtitle support, cached logos, and native install-link handling                 |
+| Series playback    | Season navigation, episode thumbnails, next/previous, automatic next, optional intro/outro skipping, and next-episode preview/prefetch |
+| Player controls    | Seek, pause, speed, language-grouped subtitles/audio, subtitle appearance, and episode/provider/source selection                       |
+| Native settings    | Reduced animations, fullscreen on Windows, language preferences, playback options, and clear cache                                     |
+| Visual polish      | Swipe-following hero transitions, decoded-image background fades, compact mobile cards, and a transparent R startup logo               |
+| Reduced animations | Solid charcoal background (`#2d333b`), no movie backdrop, and simplified motion; enabled by default on Android                         |
+| Caching            | Weekly startup poster snapshots with bundled first-install artwork, bounded catalog/artwork caches, and device-local preferences       |
 
-## Tech Stack
+## Platforms
 
-- [React 19](https://react.dev/) for the interface and state
-- [React Router](https://reactrouter.com/) with hash routing for static hosting
-- [Vite 8](https://vite.dev/) for development and production builds
-- [Tailwind CSS 3](https://tailwindcss.com/) plus focused custom animation styles
-- [Lucide React](https://lucide.dev/) for interface icons
-- [TMDB API](https://developer.themoviedb.org/docs/getting-started) for movie and series metadata
-- [WebTorrent](https://webtorrent.io/) for optional in-browser WebRTC torrent playback
-- GitHub Actions and GitHub Pages for continuous deployment
+**Web:** React/Vite static build with hash routes, official viewing links, and
+the configured Yastream free-stream provider. Add-ons and Settings navigation
+are hidden. RainFlix App links direct users to Downloads. Web players and
+trailers exit through Back or Escape without extra fullscreen/close overlays.
 
-## Quick Start
+**Windows x64:** Tauri 2, WebView2, app-owned BitTorrent transport, and bundled
+mpv playback with RainFlix controls. Starts maximized; fullscreen is optional.
 
-### Requirements
+**Android ARM64:** Tauri 2 with Media3 playback and native torrent transport.
+Includes immersive landscape playback, center and bottom touch controls,
+double-tap seeking, and hardware volume control. Codec support depends on the
+device and is not identical to Windows mpv. Casting is not implemented.
 
-- Node.js `22.22.0` or newer
-- npm
-- A TMDB API key intended for browser use
+Available APKs can be attached to GitHub Releases. The current website download
+page still labels Android as Coming soon; it discovers only Windows installers.
 
-### Install and run
+## Development
 
-```bash
-git clone https://github.com/kaaanooon/RainFlix.git
-cd RainFlix
+Use Node.js `22.22.0` or newer and npm. Configure a browser-appropriate TMDb API
+key in [`scripts/config.js`](scripts/config.js).
+
+```powershell
 npm ci
 npm run dev
 ```
 
-Open the local URL printed by Vite, normally
-[`http://localhost:5173`](http://localhost:5173).
+Open the URL printed by Vite. For a static production build:
 
-### Production build
-
-```bash
+```powershell
 npm run build
 npm run preview
 ```
 
-Vite writes the deployable application to `dist/`.
+Build outputs are `dist/` (web), `dist-desktop/` (Windows frontend), and
+`dist-mobile/` (Android frontend).
 
-## Configuration
+### Native builds
 
-Runtime settings live in [`scripts/config.js`](scripts/config.js).
+Windows requires Rust/MSVC, Microsoft C++ Build Tools, and WebView2. Android
+requires Android Studio, SDK/build tools 36, an NDK, and Rust Android targets.
+The checked-in Android project contains customizations; do not regenerate it.
 
-Linked configuration and development notes for Obsidian are in
-[`docs/obsidian/`](docs/obsidian/README.md), including the
-[Yastream setup](docs/obsidian/Yastream.md) and
-[Torrentio setup](docs/obsidian/Torrentio.md).
-
-```js
-window.RAINFLIX_CONFIG = {
-  tmdbApiKey: "YOUR_TMDB_V3_API_KEY",
-  tmdbRegion: "US",
-  tmdbCacheTtlMs: 900000,
-  analyticsScriptUrl: "",
-  analyticsWebsiteId: "",
-  analyticsDomains: "",
-  // Player base URLs...
-};
+```powershell
+npm run desktop:build
+npm run android:build
 ```
 
-The configuration controls:
+The desktop command prepares bundled mpv and builds an NSIS installer. Android
+builds a signed ARM64 APK using the local release keystore. Preserve that key
+and its properties for all future updates.
 
-- TMDB API, image, and regional settings
-- Cache lifetime and maximum stored entries
-- Initial loader timing and fallback timeout
-- Optional Umami-compatible analytics; it stays disabled while its fields are empty and respects Do Not Track
-- Playback providers come from installed add-ons; built-in iframe providers have been removed.
+See [release instructions](docs/releases/RELEASING.md) for output paths,
+publishing steps, signing precautions, and platform-specific release notes.
 
-RainFlix is a static client application. Every value placed in
-`scripts/config.js` is included in the browser bundle and can be inspected by
-visitors. Do not place private client secrets or server credentials there.
+### Quality checks
+
+```powershell
+npm run check
+npm run test:e2e
+npm run test:pages
+```
+
+The latest UI update passed `npm run check` and 132 browser tests. Both native
+packages built successfully and APK signing was verified. Browser tests do not
+replace installation and playback checks on real devices.
+
+## Configuration and Notes
+
+Start with the [Obsidian index](docs/obsidian/README.md). It links configuration,
+architecture, playback, add-ons, settings, and troubleshooting notes.
+
+- Runtime configuration: [`scripts/config.js`](scripts/config.js).
+- Shared title pages and playback: [Title Playback](docs/obsidian/Title%20Playback.md).
+- Native Android behavior: [Android Native](docs/obsidian/Android%20Native.md).
+- Release instructions: [Releasing](docs/releases/RELEASING.md).
+- Source disclosure policy: [Source Access](docs/obsidian/Source%20Access.md).
+
+Client configuration and bundled assets can be inspected by recipients.
+Never ship private service credentials, signing keys, or reusable secrets.
+Fresh stream responses and signed media URLs are not persisted in history or
+the service worker. Analytics is optional and kept out of the required startup
+module graph so privacy tools cannot prevent the app from loading.
 
 ## Routes
 
-Hash routing keeps every view compatible with GitHub Pages and other static
-hosts without rewrite rules.
-
 ```text
-#/home
-#/movies
-#/series
-#/genre/action
-#/year/2025
-#/library
-#/search?q=batman&type=movie&year=2022
-#/title/movie/533535
+#/                            Website introduction
+#/home                        Catalog home
+#/browse                      Filterable catalog
+#/search?q=batman              Search results
+#/library                     Personal library
+#/title/movie/533535           Movie details and streams
 #/title/tv/1399?season=1&episode=1
+#/downloads                   Website downloads
+#/addons                      Native add-on management
+#/settings                    Native preferences
 ```
 
-Title URLs open directly. Old watch and preview links redirect to the shared title page.
-
-## Project Structure
-
-```text
-RainFlix/
-|-- assets/                     Brand and README imagery
-|-- public/                     PWA manifest, service worker, and install assets
-|-- scripts/
-|   |-- config.js               Public runtime configuration
-|   `-- rainflix-api.js         TMDB catalog data and caching
-|-- src/
-|   |-- components/             Header, cards, carousel, loader, and player
-|   |-- hooks/                  Remote and keyboard navigation
-|   |-- pages/                  Catalog, search, library, and title experiences
-|   |-- App.jsx                 Routes and application shell
-|   `-- main.jsx                React entry point
-|-- tests/                      Playwright browser smoke tests
-|-- styles/input.css            Tailwind layers and custom motion
-|-- .github/workflows/          Deployment and quality checks
-`-- vite.config.js
-```
+Old watch and preview links redirect to shared title pages. Movies, series,
+genre, and year routes remain compatible, but Browse replaces those header links.
 
 ## Deployment
 
-RainFlix includes a GitHub Pages workflow that installs dependencies, builds
-the Vite project, uploads `dist/`, and deploys the resulting artifact.
+The GitHub Pages workflow builds and publishes `dist/`. Use GitHub Actions as
+the Pages source, not the unbuilt repository root. Repository-path assets are
+handled by Vite during Actions builds.
 
-1. Open the repository's **Settings > Pages**.
-2. Set **Source** to **GitHub Actions**.
-3. Push to `main`, or run **Deploy RainFlix to GitHub Pages** manually from the Actions tab.
-4. Wait for both workflow jobs to complete successfully.
+Native installers are separate release assets: a successful Pages deployment
+does not upload an EXE or APK. The Windows Downloads page reads the latest
+public, non-prerelease release from the configured repository.
 
-`vite.config.js` automatically applies the repository base path during GitHub
-Actions builds, so generated assets load correctly from `/RainFlix/`.
+Publishing and deployment remain explicit owner tasks. Keep proprietary source
+in a private repository; a separate public distribution repository can host
+installers without publishing the application source.
 
-Do not publish the repository root using **Deploy from a branch**: it serves
-unbuilt React source and can overwrite the workflow's built site. A deployed
-page referencing `/src/main.jsx` is a sign of this configuration problem.
-The deployment workflow checks the publishing source before uploading.
-`npm run test:pages` verifies the production build under `/RainFlix/` locally.
+## Playback and Limitations
 
-## Playback Notes
+RainFlix does not host a video catalog or guarantee external streams. Native
+apps transfer selected torrents locally; source availability, peers, regional
+access, subtitles, DRM, and codec support depend on the provider and platform.
+Next-episode prefetch preserves provider/release preferences where possible,
+but cannot guarantee instant playback. Legacy browser WebTorrent and Stremio
+Service adapters remain in the codebase; the old torrent-mode selection UI is
+not part of the current stream-selection experience.
 
-RainFlix does not host or proxy video files. Shared title pages list configured
-installed streaming add-ons beside the details. Clicking a player opens
-fullscreen playback. Add-ons with multiple streams show source choices first;
-a single playable source opens immediately after the provider lookup.
-Yastream and Torrentio remain optional adapters, disabled by default.
-Torrentio is also available: direct HTTP(S) sources use the native player,
-while torrent sources offer three manual modes. Browser WebTorrent is the
-default pure-static option and reaches WebRTC peers only. An existing
-[Stremio Service](docs/obsidian/Stremio%20Service.md) at
-`http://127.0.0.1:11470` can handle conventional torrent swarms, and External
-mode keeps magnet links available. Browser codec and network restrictions still
-apply. A source click or the sole result of an explicit provider click authorizes
-transfer; opening a title or changing service settings does not.
-Availability, regional access, media CORS, and codec support depend on the
-provider and browser. See the [playback notes](docs/obsidian/Title%20Playback.md) for
-configuration, subtitles, and limitations.
+Default add-ons install once on native apps, and removed defaults stay removed.
+Provider failures are consolidated into one no-streams message, while official
+availability retains its regional status.
 
-Use only providers and media for which you have the necessary rights, and
-review each provider's terms before deploying a public instance.
-
-## Contributing
-
-1. Fork the repository and create a focused branch.
-2. Make the change using the existing component and styling patterns.
-3. Run `npm run check` and `npm run test:e2e`.
-4. Open a pull request with a short description and screenshots for visual changes.
-
-Bug reports and ideas are welcome in
-[GitHub Issues](https://github.com/kaaanooon/RainFlix/issues).
+Use only media and providers for which you have the necessary rights. Review
+third-party terms and bundled dependency license/source obligations before
+public distribution, including the bundled mpv build.
 
 ## Acknowledgements
 
-Movie and television metadata and artwork are provided by
-[The Movie Database](https://www.themoviedb.org/).
-
+Metadata and artwork are provided by [The Movie Database](https://www.themoviedb.org/).
 This product uses the TMDB API but is not endorsed or certified by TMDB.
-
-RainFlix is an independent project and is not affiliated with any organization.
+RainFlix is independent and is not affiliated with streaming services or add-on providers.
