@@ -1,9 +1,11 @@
 export const isDesktop = import.meta.env.MODE === "desktop";
+export const isAndroid = import.meta.env.MODE === "mobile";
+export const isNativeApp = isDesktop || isAndroid;
 
-export const browserTorrentAvailable = !isDesktop;
+export const browserTorrentAvailable = !isNativeApp;
 
 export function shareBaseUrl() {
-  if (!isDesktop) {
+  if (!isNativeApp) {
     return new URL(import.meta.env.BASE_URL, window.location.origin).href;
   }
   const configured = window.RAINFLIX_CONFIG?.publicSiteUrl;

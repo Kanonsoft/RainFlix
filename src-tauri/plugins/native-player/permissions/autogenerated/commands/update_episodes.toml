@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-update-episodes"
+description = "Enables the update_episodes command without any pre-configured scope."
+commands.allow = ["update_episodes"]
+
+[[permission]]
+identifier = "deny-update-episodes"
+description = "Denies the update_episodes command without any pre-configured scope."
+commands.deny = ["update_episodes"]

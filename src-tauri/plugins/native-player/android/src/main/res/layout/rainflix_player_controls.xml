@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent" android:layout_height="match_parent">
+    <LinearLayout android:layout_width="wrap_content" android:layout_height="72dp"
+        android:layout_gravity="center" android:gravity="center_vertical">
+        <ImageButton android:id="@+id/rainflix_rewind" style="@style/RainFlixPlayerButton"
+            android:layout_width="64dp" android:layout_height="64dp" android:alpha="0.8"
+            android:contentDescription="Back 5 seconds" android:src="@drawable/exo_ic_rewind" />
+        <ImageButton android:id="@id/exo_play_pause" style="@style/RainFlixPlayerButton"
+            android:layout_width="72dp" android:layout_height="72dp" android:alpha="0.85"
+            android:layout_marginHorizontal="32dp" android:contentDescription="Play or pause" android:src="@drawable/exo_icon_play" />
+        <ImageButton android:id="@+id/rainflix_forward" style="@style/RainFlixPlayerButton"
+            android:layout_width="64dp" android:layout_height="64dp" android:alpha="0.8"
+            android:contentDescription="Forward 5 seconds" android:src="@drawable/exo_ic_forward" />
+    </LinearLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_gravity="bottom" android:orientation="vertical"
+        android:paddingStart="20dp" android:paddingEnd="20dp" android:paddingBottom="12dp"
+        android:background="@drawable/player_control_shade">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="40dp"
+            android:gravity="center_vertical">
+            <TextView android:id="@id/exo_position" android:layout_width="64dp"
+                android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="14sp" />
+            <androidx.media3.ui.DefaultTimeBar android:id="@id/exo_progress"
+                android:layout_width="0dp" android:layout_weight="1" android:layout_height="40dp"
+                app:played_color="#38BDF8" app:buffered_color="#64748B" app:unplayed_color="#554B5563"
+                app:scrubber_color="#FFFFFF" app:scrubber_enabled_size="12dp" app:bar_height="4dp" />
+            <TextView android:id="@id/exo_duration" android:layout_width="64dp"
+                android:layout_height="wrap_content" android:gravity="end"
+                android:textColor="#FFFFFF" android:textSize="14sp" />
+        </LinearLayout>
+        <LinearLayout android:layout_width="match_parent" android:layout_height="48dp" android:gravity="center_vertical">
+            <Space android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />
+            <ImageButton android:id="@+id/rainflix_previous" style="@style/RainFlixPlayerButton"
+                android:contentDescription="Previous episode" android:src="@drawable/exo_ic_skip_previous" />
+            <ImageButton android:id="@+id/rainflix_next" style="@style/RainFlixPlayerButton"
+                android:contentDescription="Next episode" android:src="@drawable/exo_ic_skip_next" />
+            <ImageButton android:id="@+id/rainflix_speed" style="@style/RainFlixPlayerButton"
+                android:contentDescription="Playback speed" android:src="@drawable/exo_ic_speed" />
+            <ImageButton android:id="@+id/rainflix_subtitles" style="@style/RainFlixPlayerButton"
+                android:contentDescription="Subtitles" android:src="@drawable/exo_ic_subtitle_on" />
+            <ImageButton android:id="@+id/rainflix_audio" style="@style/RainFlixPlayerButton"
+                android:contentDescription="Audio tracks" android:src="@drawable/exo_ic_audiotrack" />
+            <ImageButton android:id="@+id/rainflix_episodes" style="@style/RainFlixPlayerButton"
+                android:contentDescription="Episodes" android:src="@android:drawable/ic_menu_sort_by_size" />
+        </LinearLayout>
+    </LinearLayout>
+</FrameLayout>

@@ -85,7 +85,7 @@
     <div id="root">
       <div id="startupFallback" role="status">
         <strong>RainFlix</strong>
-        <p id="startupMessage">Starting RainFlix...</p>
+        <p id="startupMessage" hidden></p>
         <button id="startupRetry" type="button" hidden>Reload</button>
         <noscript>JavaScript is required to open RainFlix.</noscript>
       </div>
@@ -96,6 +96,7 @@
         const retry = document.getElementById("startupRetry");
         const fail = () => {
           if (!fallback.isConnected) return;
+          document.getElementById("startupMessage").hidden = false;
           document.getElementById("startupMessage").textContent =
             "RainFlix could not start. Reload to try again. If this continues, the site may need to be redeployed.";
           retry.hidden = false;

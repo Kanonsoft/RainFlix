@@ -3,12 +3,13 @@ import { ArrowRight, Menu, Search, SlidersHorizontal, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router";
 import rainflixWordmark from "../../assets/rainflix-wordmark.png";
+import rainflixLogo from "../../assets/rainflix-r.png";
 import { api, imageFallback } from "../lib/api.js";
 import { posterImageProps } from "../lib/images.js";
 import { useDetails } from "./details/DetailsProvider.jsx";
-import { isDesktop } from "../platform/index.js";
+import { isNativeApp } from "../platform/index.js";
 
-const showAddonsNavigation = isDesktop || import.meta.env.MODE === "mobile";
+const showAddonsNavigation = isNativeApp;
 
 function routeState(pathname) {
   const parts = pathname.split("/").filter(Boolean);
@@ -348,7 +349,7 @@ export default function Header() {
   const mobileLayer = (
     <div
       id="mobileNavLayer"
-      className={`mobile-nav-layer md:hidden${mobileOpen ? " is-open" : ""}`}
+      className={`mobile-nav-layer lg:hidden${mobileOpen ? " is-open" : ""}`}
       aria-hidden={!mobileOpen}
       inert={!mobileOpen}
       onKeyDown={trapMobileFocus}
@@ -403,13 +404,18 @@ export default function Header() {
           <Link className={mobilePrimaryClass("series")} to="/series">
             Series
           </Link>
-          {!isDesktop && (
+          {!isNativeApp && (
             <Link
               className={`${mobilePrimaryClass("downloads")} border border-sky-400/40 bg-sky-400/10 text-sky-200`}
               to="/downloads"
               onClick={() => setMobileOpen(false)}
             >
-              Download RainFlix
+              Download{" "}
+              <img
+                src={rainflixLogo}
+                alt="RainFlix"
+                className="inline h-6 w-6 object-contain"
+              />
             </Link>
           )}
 
@@ -431,7 +437,7 @@ export default function Header() {
             </button>
             <div
               id="mobileGenreList"
-              className={`mobile-filter-list grid grid-cols-2 gap-x-3${
+              className={`mobile-filter-list grid grid-cols-1${
                 mobileFilter === "genre" ? " is-open" : ""
               }`}
               aria-hidden={mobileFilter !== "genre"}
@@ -487,6 +493,11 @@ export default function Header() {
           <Link className={mobilePrimaryClass("library")} to="/library">
             My List
           </Link>
+          {isNativeApp && (
+            <Link className={mobilePrimaryClass("settings")} to="/settings">
+              Settings
+            </Link>
+          )}
           {showAddonsNavigation && (
             <Link className={mobilePrimaryClass("addons")} to="/addons">
               Add-ons
@@ -500,14 +511,14 @@ export default function Header() {
   return (
     <>
       <header className="relative bg-transparent">
-        <div className="mx-auto flex h-[4.5rem] w-full max-w-[1536px] items-center gap-2 px-4 md:gap-6 md:px-10 lg:px-12">
+        <div className="mx-auto flex h-[4.5rem] w-full max-w-[1536px] items-center gap-1 px-3 sm:gap-2 sm:px-4 lg:gap-6 lg:px-12">
           <Link
             className="inline-flex min-w-0 shrink-0 items-center text-slate-50 no-underline"
             to="/home"
             aria-label="RainFlix home"
           >
             <img
-              className="h-7 w-auto max-w-[90px] object-contain sm:max-w-none md:h-8"
+              className="h-7 w-auto max-w-[70px] object-contain sm:max-w-none md:h-8"
               src={rainflixWordmark}
               alt="RainFlix"
               draggable="false"
@@ -515,7 +526,7 @@ export default function Header() {
           </Link>
 
           <nav
-            className="relative hidden h-full items-center gap-5 md:flex"
+            className="relative hidden h-full items-center gap-5 lg:flex"
             aria-label="Primary navigation"
           >
             <Link className={primaryClass("home")} to="/home">
@@ -572,6 +583,11 @@ export default function Header() {
             <Link className={primaryClass("library")} to="/library">
               My List
             </Link>
+            {isNativeApp && (
+              <Link className={primaryClass("settings")} to="/settings">
+                Settings
+              </Link>
+            )}
             {showAddonsNavigation && (
               <Link className={primaryClass("addons")} to="/addons">
                 Add-ons
@@ -736,22 +752,25 @@ export default function Header() {
             </div>
           </div>
 
-          {!isDesktop && (
+          {!isNativeApp && (
             <Link
               to="/downloads"
               aria-label="Download RainFlix"
               aria-current={state.primary === "downloads" ? "page" : undefined}
               title="Download RainFlix"
-              className={`inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg border border-sky-300/50 bg-sky-400 px-3 py-2 text-center text-xs font-bold leading-tight text-slate-950 shadow-sm transition duration-200 hover:bg-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-black md:px-4 md:text-sm ${state.primary === "downloads" ? "ring-2 ring-sky-200" : ""}`}
+              className={`inline-flex min-h-11 shrink-0 items-center justify-center gap-1 rounded-lg border border-emerald-300/40 bg-emerald-300 px-2 py-2 text-center text-xs font-bold leading-tight text-slate-950 shadow-sm transition duration-200 hover:bg-emerald-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-200 sm:gap-2 sm:px-3 lg:px-4 lg:text-sm ${state.primary === "downloads" ? "ring-2 ring-emerald-200" : ""}`}
             >
-              <span>
-                Download<span className="block md:inline"> RainFlix</span>
-              </span>
+              <span>Download</span>
+              <img
+                src={rainflixLogo}
+                alt=""
+                className="h-6 w-6 object-contain"
+              />
             </Link>
           )}
           <button
             id="mobileNavToggle"
-            className="header-icon-button md:hidden"
+            className="header-icon-button lg:hidden"
             type="button"
             onClick={() => setMobileOpen(true)}
             aria-label="Open navigation"

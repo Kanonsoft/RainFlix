@@ -9,6 +9,9 @@ Open this folder as an Obsidian vault, or open the repository as a vault and nav
 ## Start Here
 
 - [[Windows Desktop Plan]]: Windows Tauri shell in progress, platform boundaries, storage, and development milestones.
+- [[Android Native]]: Android APK builds, native player, torrent transport and install links.
+- [[Settings]]: native app preferences, playback defaults and cache controls.
+- [[Startup Artwork]]: bundled posters and the weekly background artwork cache.
 - [[Title Playback]]: shared title pages, fullscreen playback, source selection, and trailers.
 - [[Add-ons]]: installable directory, installed add-on management, Windows website install links, storage, and supported capabilities.
 
@@ -25,7 +28,7 @@ Open this folder as an Obsidian vault, or open the repository as a vault and nav
 
 ## Current Setup
 
-Update: Yastream and Torrentio are disabled by default. The **Add-ons** header entry is visible in the desktop app (and reserved for future mobile app builds), but hidden on the website. The `/addons` route remains available for private testing. See [[Add-ons]] for current behavior; the provider-specific notes below describe the retained optional adapters.
+Update: Yastream and Torrentio are disabled by default. The **Add-ons** header entry is visible in the Windows and Android apps, but hidden on the website. The `/addons` route remains available for private testing. See [[Add-ons]] and [[Android Native]] for current behavior; the provider-specific notes below describe the retained optional adapters.
 
 Installed catalogs add Home rows and filterable browse pages. Native and add-on cards open the shared title-page UI. IMDb titles use built-in TMDb metadata; custom IDs use compatible add-on metadata internally.
 

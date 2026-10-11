@@ -9,7 +9,7 @@ test("desktop imports cold-launch and running-app links through the native bridg
   await page.route("**/src/platform/index.js", (route) =>
     route.fulfill({
       contentType: "text/javascript",
-      body: "export const isDesktop=true; export const browserTorrentAvailable=false; export function shareBaseUrl(){return location.origin;}",
+      body: "export const isDesktop=true; export const isAndroid=false; export const isNativeApp=true; export const browserTorrentAvailable=false; export function shareBaseUrl(){return location.origin;}",
     }),
   );
   await page.addInitScript(() => {
@@ -49,6 +49,27 @@ test("desktop imports cold-launch and running-app links through the native bridg
   );
   await expect(page.getByLabel("Manifest URL")).toHaveValue(
     "https://warm-addon.example/manifest.json",
+  );
+  await page.evaluate(() => {
+    const link = document.createElement("a");
+    link.href = "stremio://inside-addon.example/settings/manifest.json";
+    link.textContent = "Install internal add-on";
+    document.body.append(link);
+    link.click();
+    link.remove();
+  });
+  await expect(page.getByLabel("Manifest URL")).toHaveValue(
+    "https://inside-addon.example/settings/manifest.json",
+  );
+  await page.evaluate(() => {
+    const link = document.createElement("a");
+    link.href = "rainflix://inside-addon.example/configure";
+    document.body.append(link);
+    link.click();
+    link.remove();
+  });
+  await expect(page.getByLabel("Manifest URL")).toHaveValue(
+    "https://inside-addon.example/settings/manifest.json",
   );
 });
 

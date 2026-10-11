@@ -3,9 +3,16 @@ import { Captions, Check, Play, RefreshCw } from "lucide-react";
 import { parse } from "@plussub/srt-vtt-parser";
 import { addonFetch, groupSubtitlesByLanguage } from "../lib/addon-streams.js";
 import { startBrowserTorrent } from "../lib/browser-torrent.js";
-import { startNativeTorrent } from "../lib/native-torrent.js";
+import {
+  startNativeTorrent,
+  invokeNativePlayer,
+  listenNativePlayer,
+} from "../lib/native-torrent.js";
+import rainflixLogo from "../../assets/rainflix-r.png";
 import { installedSubtitles, useAddons } from "../lib/addons.js";
 import PlaybackLoader from "./PlaybackLoader.jsx";
+import { streamPresentation } from "../lib/stream-presentation.js";
+import { nativeTrackSettings, readAppSettings } from "../lib/app-settings.js";
 
 function bufferedReadiness(video) {
   if (!video.readyState || !Number.isFinite(video.duration)) return null;
@@ -575,8 +582,8 @@ function NativeTorrentPlayer({
   useEffect(() => {
     if (!nativeSessionId) return;
     import("@tauri-apps/api/core")
-      .then(({ invoke }) =>
-        invoke("update_native_player_subtitles", {
+      .then(() =>
+        invokeNativePlayer("update_native_player_subtitles", {
           sessionId: nativeSessionId,
           subtitles: subtitles.map((item) => ({
             id: subtitleKey(item),
@@ -604,8 +611,8 @@ function NativeTorrentPlayer({
     autoSubtitle.current = true;
     const item = subtitles[index];
     import("@tauri-apps/api/core")
-      .then(({ invoke }) =>
-        invoke("load_native_subtitle", {
+      .then(() =>
+        invokeNativePlayer("load_native_subtitle", {
           sessionId: nativeSessionId,
           id: subtitleKey(item),
           url: item.url,
@@ -618,8 +625,8 @@ function NativeTorrentPlayer({
   useEffect(() => {
     if (!nativeSessionId) return;
     import("@tauri-apps/api/core")
-      .then(({ invoke }) =>
-        invoke("update_native_player_episodes", {
+      .then(() =>
+        invokeNativePlayer("update_native_player_episodes", {
           sessionId: nativeSessionId,
           revision: ++episodeRevision.current,
           season: drawerSeason.current,
@@ -687,8 +694,7 @@ function NativeTorrentPlayer({
     let preload;
     const reportPreload = async (current, status, percent = 0) => {
       if (cancelled || current.claimed) return;
-      const { invoke } = await import("@tauri-apps/api/core");
-      await invoke("update_native_preload_status", {
+      await invokeNativePlayer("update_native_preload_status", {
         sessionId,
         preloadId: current.id,
         status,
@@ -784,8 +790,7 @@ function NativeTorrentPlayer({
     );
 
     const start = async () => {
-      const { listen } = await import("@tauri-apps/api/event");
-      unlisten = await listen("rainflix:native-torrent", ({ payload }) => {
+      unlisten = await listenNativePlayer(({ payload }) => {
         if (cancelled || payload?.sessionId !== sessionId) return;
         if (payload.kind === "preload-status") {
           const current = preload;
@@ -822,6 +827,10 @@ function NativeTorrentPlayer({
           if (lastSample) {
             lastSample = { ...lastSample, completed: true };
             callbacks.current.onProgress?.(lastSample, true);
+          }
+          if (!readAppSettings().autoNext) {
+            callbacks.current.onClose?.();
+            return;
           }
           const next = [...(callbacks.current.episodes || [])]
             .filter(
@@ -920,9 +929,9 @@ function NativeTorrentPlayer({
               return;
             drawerSeason.current = requestedSeason;
             import("@tauri-apps/api/core")
-              .then(async ({ invoke }) => {
+              .then(async () => {
                 const update = (items, status) =>
-                  invoke("update_native_player_episodes", {
+                  invokeNativePlayer("update_native_player_episodes", {
                     sessionId,
                     season: requestedSeason,
                     status,
@@ -972,7 +981,7 @@ function NativeTorrentPlayer({
             const signal = choiceController.signal;
             choices = [];
             import("@tauri-apps/api/core")
-              .then(async ({ invoke }) => {
+              .then(async () => {
                 try {
                   const resolved =
                     await callbacks.current.onResolveEpisodeStreams?.(
@@ -981,20 +990,22 @@ function NativeTorrentPlayer({
                     );
                   if (signal.aborted || cancelled) return;
                   choices = resolved || [];
-                  await invoke("update_native_player_streams", {
+                  await invokeNativePlayer("update_native_player_streams", {
                     sessionId,
                     videoId: payload.videoId,
                     requestId: payload.choiceId,
                     streams: choices.map((item, index) => ({
                       id: String(index),
                       label: item.label,
+                      ...streamPresentation(item.label),
                       providerId: item.providerId,
                       providerLabel: item.providerLabel,
+                      providerLogo: item.providerLogo,
                     })),
                   });
                 } catch {
                   if (!signal.aborted && !cancelled)
-                    await invoke("update_native_player_streams", {
+                    await invokeNativePlayer("update_native_player_streams", {
                       sessionId,
                       videoId: payload.videoId,
                       requestId: payload.choiceId,
@@ -1018,8 +1029,8 @@ function NativeTorrentPlayer({
           );
           if (!item || !played) return;
           import("@tauri-apps/api/core")
-            .then(({ invoke }) =>
-              invoke("load_native_subtitle", {
+            .then(() =>
+              invokeNativePlayer("load_native_subtitle", {
                 sessionId,
                 id: payload.subtitleId,
                 url: item.url,
@@ -1046,8 +1057,11 @@ function NativeTorrentPlayer({
         ui: {
           logo: null,
           logoUrl: logo || null,
+          fallbackLogoUrl: new URL(rainflixLogo, window.location.href).href,
           backdropUrl: poster || null,
-          tracks: initialUi.current.preferences?.tracks || null,
+          tracks: nativeTrackSettings(
+            initialUi.current.preferences?.tracks || {},
+          ),
           seasons: initialUi.current.seasons || [],
           title: Number.isInteger(episode)
             ? `${title} - S${season} E${episode}${episodeTitle ? `: ${episodeTitle}` : ""}`

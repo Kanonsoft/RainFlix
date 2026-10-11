@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { Download, ExternalLink, LoaderCircle, RotateCcw } from "lucide-react";
-import rainflixWordmark from "../../assets/rainflix-wordmark.png";
+import { Download, LoaderCircle, RotateCcw } from "lucide-react";
 import windowsLogo from "../../assets/windows.svg";
 import androidLogo from "../../assets/android.svg";
 import { config } from "../lib/api.js";
@@ -12,7 +11,6 @@ const actionClass =
 
 export default function DownloadsPage({ onReady }) {
   const repository = releaseRepository(config);
-  const releasesUrl = `https://github.com/${repository}/releases`;
   const [revision, setRevision] = useState(0);
   const [state, setState] = useState({
     loading: true,
@@ -52,12 +50,6 @@ export default function DownloadsPage({ onReady }) {
       aria-labelledby="downloadsHeading"
       className="mx-auto w-full max-w-5xl px-5 py-10 md:px-10 md:py-16"
     >
-      <img
-        src={rainflixWordmark}
-        alt="RainFlix"
-        draggable={false}
-        className="h-12 max-w-full object-contain object-left md:h-16"
-      />
       <h1 id="downloadsHeading" className="mt-6 text-3xl font-bold text-white">
         Downloads
       </h1>
@@ -129,15 +121,6 @@ export default function DownloadsPage({ onReady }) {
                 )}
               </div>
             )}
-            <a
-              href={releasesUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex min-h-11 items-center gap-2 text-sm text-slate-300 transition hover:text-sky-200"
-            >
-              GitHub Releases{" "}
-              <ExternalLink className="h-4 w-4" aria-hidden="true" />
-            </a>
           </div>
         </section>
         <section

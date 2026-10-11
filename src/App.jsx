@@ -13,7 +13,14 @@ import Header from "./components/Header.jsx";
 import { DetailsProvider } from "./components/details/DetailsProvider.jsx";
 import { LibraryProvider } from "./components/library/LibraryProvider.jsx";
 import useRemoteNavigation from "./hooks/useRemoteNavigation.js";
-import { api, config } from "./lib/api.js";
+import { config } from "./lib/api.js";
+import { isNativeApp } from "./platform/index.js";
+import { useAppSettings } from "./lib/app-settings.js";
+import {
+  seedPosters,
+  startupPosters,
+  refreshStartupArtwork,
+} from "./lib/startup-artwork.js";
 import CatalogPage from "./pages/CatalogPage.jsx";
 
 const LibraryPage = lazy(() => import("./pages/LibraryPage.jsx"));
@@ -24,13 +31,13 @@ const SearchPage = lazy(() => import("./pages/SearchPage.jsx"));
 const WatchPage = lazy(() => import("./pages/WatchPage.jsx"));
 const TitlePage = lazy(() => import("./pages/TitlePage.jsx"));
 const DownloadsPage = lazy(() => import("./pages/DownloadsPage.jsx"));
+const SettingsPage = lazy(() => import("./pages/SettingsPage.jsx"));
 const PrivacyAnalytics = lazy(() =>
   import("./components/PrivacyAnalytics.jsx").catch(() => ({
     default: () => null,
   })),
 );
 
-const LEGACY_LOADER_POSTER_CACHE_KEY = "rainflix:loader-posters:v1";
 const BACKDROP_FADE_DURATION = 960;
 
 function routeIdentity(pathname) {
@@ -84,13 +91,14 @@ function RouteFallback() {
 }
 
 function AppShell() {
+  const settings = useAppSettings();
   const [ambientBackdrop, setAmbientBackdrop] = useState({
     current: "",
     previous: "",
     revision: 0,
   });
   const [dataReady, setDataReady] = useState(false);
-  const [loaderPosters, setLoaderPosters] = useState([]);
+  const [loaderPosters, setLoaderPosters] = useState(seedPosters);
   const [loaderPostersReady, setLoaderPostersReady] = useState(false);
   const bootCompleted = useRef(false);
   const requestedBackdrop = useRef("");
@@ -107,15 +115,16 @@ function AppShell() {
   useEffect(() => {
     let cancelled = false;
 
-    try {
-      window.localStorage.removeItem(LEGACY_LOADER_POSTER_CACHE_KEY);
-    } catch {
-      // Storage cleanup is optional in restricted browsing modes.
-    }
-
-    api
-      .getLoaderPosters(35)
+    let urls = [];
+    startupPosters()
       .then((posters) => {
+        urls = posters;
+        if (cancelled) {
+          urls
+            .filter((url) => url.startsWith("blob:"))
+            .forEach((url) => URL.revokeObjectURL(url));
+          return;
+        }
         if (!cancelled) {
           setLoaderPosters(
             [...new Set((posters || []).filter(Boolean))].slice(0, 35),
@@ -133,46 +142,75 @@ function AppShell() {
 
     return () => {
       cancelled = true;
+      urls
+        .filter((url) => url.startsWith("blob:"))
+        .forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, []);
+  useEffect(() => {
+    document.documentElement.classList.toggle(
+      "reduce-animations",
+      settings.reduceAnimations,
+    );
+    return () => document.documentElement.classList.remove("reduce-animations");
+  }, [settings.reduceAnimations]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void refreshStartupArtwork();
+    }, 5000);
+    const interval = window.setInterval(
+      () => {
+        if (!document.hidden) void refreshStartupArtwork();
+      },
+      6 * 60 * 60 * 1000,
+    );
+    return () => {
+      window.clearTimeout(timer);
+      window.clearInterval(interval);
     };
   }, []);
 
-  const updateBackdrop = useCallback((imageUrl) => {
-    if (!imageUrl || requestedBackdrop.current === imageUrl) {
-      return;
-    }
-
-    requestedBackdrop.current = imageUrl;
-
-    const showBackdrop = () => {
-      if (requestedBackdrop.current !== imageUrl) {
+  const updateBackdrop = useCallback(
+    (imageUrl) => {
+      if (settings.reduceAnimations && requestedBackdrop.current) return;
+      if (!imageUrl || requestedBackdrop.current === imageUrl) {
         return;
       }
 
-      setAmbientBackdrop((backdrop) => {
-        if (backdrop.current === imageUrl) {
-          return backdrop;
+      requestedBackdrop.current = imageUrl;
+
+      const showBackdrop = () => {
+        if (requestedBackdrop.current !== imageUrl) {
+          return;
         }
 
-        return {
-          current: imageUrl,
-          previous: backdrop.current,
-          revision: backdrop.revision + 1,
-        };
-      });
-    };
+        setAmbientBackdrop((backdrop) => {
+          if (backdrop.current === imageUrl) {
+            return backdrop;
+          }
 
-    if (preloadedBackdrops.current.has(imageUrl)) {
-      showBackdrop();
-      return;
-    }
+          return {
+            current: imageUrl,
+            previous: backdrop.current,
+            revision: backdrop.revision + 1,
+          };
+        });
+      };
 
-    const image = new Image();
-    image.onload = () => {
-      preloadedBackdrops.current.add(imageUrl);
-      showBackdrop();
-    };
-    image.src = imageUrl;
-  }, []);
+      if (preloadedBackdrops.current.has(imageUrl)) {
+        showBackdrop();
+        return;
+      }
+
+      const image = new Image();
+      image.onload = () => {
+        preloadedBackdrops.current.add(imageUrl);
+        showBackdrop();
+      };
+      image.src = imageUrl;
+    },
+    [settings.reduceAnimations],
+  );
 
   useEffect(() => {
     if (!ambientBackdrop.previous) {
@@ -208,7 +246,10 @@ function AppShell() {
         dataReady={dataReady && loaderPostersReady}
         posters={loaderPosters}
       />
-      <div className="ambient-backdrop" aria-hidden="true">
+      <div
+        className={`ambient-backdrop${settings.reduceAnimations ? " is-static" : ""}`}
+        aria-hidden="true"
+      >
         {ambientBackdrop.previous ? (
           <div
             className="ambient-backdrop-layer ambient-backdrop-previous"
@@ -246,6 +287,16 @@ function AppShell() {
         <main id="app-view" className="flex-1 outline-none" tabIndex="-1">
           <Suspense fallback={<RouteFallback />}>
             <Routes>
+              <Route
+                path="/settings"
+                element={
+                  isNativeApp ? (
+                    <SettingsPage onReady={completeBoot} />
+                  ) : (
+                    <Navigate replace to="/home" />
+                  )
+                }
+              />
               <Route
                 path="/title/:mediaType/:id"
                 element={

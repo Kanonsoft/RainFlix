@@ -637,33 +637,58 @@ local function render_streams(parts)
             if provider == stream_provider then items[#items+1]=item end
         elseif not providers[provider] then
             providers[provider]=true
-            items[#items+1]={ provider=provider, label=item.providerLabel or "Streams" }
+            items[#items+1]={ provider=provider, label=item.providerLabel or "Streams",image=item.providerImage,count=0 }
+        end
+    end
+    if not stream_provider then
+        for _,item in ipairs(items) do
+            for _,source in ipairs(stream_choices) do if tostring(source.providerId or "default")==item.provider then item.count=item.count+1 end end
         end
     end
     stream_item_count = #items
     local top,bottom=86,height-24
     local total=0
     for _,item in ipairs(items) do
-        local wrap_width=math.max(8,math.floor((pw-84)/12))
+        local wrap_width=math.max(8,math.floor((pw-(item.provider and 148 or 84))/11))
         if item.wrap_width~=wrap_width then
-            item.lines=wrap_lines(item.label or "Stream",wrap_width)
+            item.lines=wrap_lines(item.heading or item.label or "Stream",wrap_width)
+            item.heading_lines=#item.lines
+            if item.provider then item.lines[#item.lines+1]=tostring(item.count).." sources"
+            else
+                if item.badges and #item.badges>0 then item.lines[#item.lines+1]=table.concat(item.badges,"  ·  ") end
+                for _,line in ipairs(wrap_lines(item.details or "",wrap_width)) do if line~="" then item.lines[#item.lines+1]=line end end
+            end
             item.wrap_width=wrap_width
         end
-        item.row_height=math.max(68,#item.lines*27+28)
+        item.row_height=math.max(86,#item.lines*24+28)
         total=total+item.row_height+8
     end
     stream_page=clamp(stream_page,0,math.max(0,total-(bottom-top)))
     local y=top-stream_page
-    for _,item in ipairs(items) do
+    for index,item in ipairs(items) do
         local row_y=y
         y=y+item.row_height+8
         if row_y+item.row_height>top and row_y<bottom then
         local first=math.max(top,row_y)
         local last=math.min(bottom,row_y+item.row_height)
         if hovered(px+18,first,pw-46,last-first) then rounded(parts,px+18,first,pw-46,last-first,C.surface,0x28) end
+        local text_x=px+30
+        if item.provider then
+            text_x=px+94
+            if row_y>=top and row_y+64<=bottom then
+                if item.image and item.image.path then
+                    local art=item.image
+                    bitmap({name="overlay-add",id=60+index,x=math.floor(px+30),y=math.floor(row_y+20),file=art.path,offset=0,fmt="bgra",
+                        w=art.width,h=art.height,stride=art.width*4,dw=art.width,dh=art.height})
+                else
+                    rounded(parts,px+30,row_y+16,46,46,C.row,0x20)
+                    label(parts,px+45,row_y+23,tostring(item.label):sub(1,1):upper(),24,C.purple)
+                end
+            end
+        end
         for line,text in ipairs(item.lines) do
-            local ly=row_y+14+(line-1)*27
-            if ly>=top and ly+25<=bottom then label(parts,px+30,ly,text,17,line==1 and C.white or C.muted) end
+            local ly=row_y+14+(line-1)*24
+            if ly>=top and ly+23<=bottom then label(parts,text_x,ly,text,line<=item.heading_lines and 18 or 15,line<=item.heading_lines and C.white or C.muted) end
         end
         if row_y+item.row_height<bottom then rectangle(parts,px+30,row_y+item.row_height,pw-76,1,C.row,0x70) end
         hit(px+18,first,pw-46,last-first,function()

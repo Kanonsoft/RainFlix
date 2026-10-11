@@ -18,6 +18,7 @@ import {
 import TorrentPlaybackSettings from "./TorrentPlaybackSettings.jsx";
 import PlaybackLoader from "./PlaybackLoader.jsx";
 import { preferredStream } from "../lib/playback-preferences.js";
+import { streamPresentation } from "../lib/stream-presentation.js";
 
 const providers = {
   yastream: {
@@ -170,51 +171,73 @@ export default function AddonSources({
           </button>
         </div>
       ) : (
-        <div className="grid min-w-0 gap-2">
-          {streams.map((stream) => (
-            <div key={stream.id} className="min-w-0">
-              {stream.blockedReason ? (
-                <div className="border-b border-white/10 py-3 text-sm">
-                  <p className="break-words font-bold text-slate-200">
-                    {stream.label}
-                  </p>
-                  <p className="mt-1 break-words text-xs leading-5 text-slate-400">
-                    {stream.blockedReason}
-                  </p>
-                  {stream.externalUrl && (
-                    <a
-                      className="mt-2 inline-flex min-h-10 items-center gap-2 text-sky-300 underline"
-                      href={stream.externalUrl}
-                      rel="noreferrer"
-                      data-stream-id={stream.id}
-                    >
-                      <ExternalLink className="h-4 w-4" aria-hidden="true" />
-                      {stream.externalUrl.startsWith("magnet:")
-                        ? "Open torrent"
-                        : "Open stream"}
-                    </a>
-                  )}
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  data-stream-id={stream.id}
-                  className="flex min-h-12 w-full min-w-0 items-start gap-3 rounded-lg border border-white/15 px-3 py-3 text-left text-sm transition hover:border-sky-400 hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-sky-400"
-                  onClick={() =>
-                    onPlay({ stream, provider, settings, details })
-                  }
-                >
-                  <Play
-                    className="mt-0.5 h-4 w-4 shrink-0 text-sky-300"
-                    aria-hidden="true"
-                  />
-                  <span className="min-w-0 whitespace-pre-line break-words">
-                    {stream.label}
-                  </span>
-                </button>
-              )}
-            </div>
-          ))}
+        <div className="grid min-w-0 divide-y divide-white/10">
+          {streams.map((stream) => {
+            const presentation = streamPresentation(stream.label);
+            return (
+              <div key={stream.id} className="min-w-0">
+                {stream.blockedReason ? (
+                  <div className="border-b border-white/10 py-3 text-sm">
+                    <p className="break-words font-bold text-slate-200">
+                      {stream.label}
+                    </p>
+                    <p className="mt-1 break-words text-xs leading-5 text-slate-400">
+                      {stream.blockedReason}
+                    </p>
+                    {stream.externalUrl && (
+                      <a
+                        className="mt-2 inline-flex min-h-10 items-center gap-2 text-sky-300 underline"
+                        href={stream.externalUrl}
+                        rel="noreferrer"
+                        data-stream-id={stream.id}
+                      >
+                        <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                        {stream.externalUrl.startsWith("magnet:")
+                          ? "Open torrent"
+                          : "Open stream"}
+                      </a>
+                    )}
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    data-stream-id={stream.id}
+                    className="flex min-h-12 w-full min-w-0 items-start gap-3 px-3 py-4 text-left text-sm transition hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-sky-400"
+                    onClick={() =>
+                      onPlay({ stream, provider, settings, details })
+                    }
+                  >
+                    <Play
+                      className="mt-0.5 h-4 w-4 shrink-0 text-sky-300"
+                      aria-hidden="true"
+                    />
+                    <span className="min-w-0 flex-1 break-words">
+                      <span className="block font-semibold text-white">
+                        {presentation.heading}
+                      </span>
+                      {!!presentation.badges.length && (
+                        <span className="my-2 flex flex-wrap gap-2">
+                          {presentation.badges.map((badge) => (
+                            <span
+                              key={badge}
+                              className="rounded bg-sky-400/10 px-2 py-1 text-xs font-semibold text-sky-200"
+                            >
+                              {badge}
+                            </span>
+                          ))}
+                        </span>
+                      )}
+                      {presentation.details && (
+                        <span className="block whitespace-pre-line text-xs leading-5 text-slate-400">
+                          {presentation.details}
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
       {(source.id === "torrentio" ||

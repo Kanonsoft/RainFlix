@@ -996,14 +996,67 @@ pub async fn update_native_player_streams(
     request_id: String,
     streams: Vec<Value>,
 ) -> Result<(), String> {
+    let streams = streams.into_iter().take(250).collect::<Vec<_>>();
+    let mut providers = HashMap::new();
+    for item in &streams {
+        if let (Some(id), Some(url)) = (item["providerId"].as_str(), item["providerLogo"].as_str())
+        {
+            if providers.len() < 12 {
+                providers.entry(id.to_string()).or_insert(url.to_string());
+            }
+        }
+    }
     let inner = state.inner.lock().await;
     let path = player_ui_path(&inner, &session_id).ok_or("Playback closed")?;
     let mut metadata: Value =
         serde_json::from_slice(&std::fs::read(&path).map_err(|e| e.to_string())?)
             .map_err(|e| e.to_string())?;
-    metadata["streamChoices"] = json!({ "videoId":video_id, "requestId":request_id, "items":streams.into_iter().take(250).collect::<Vec<_>>() });
+    metadata["streamChoices"] =
+        json!({ "videoId":video_id, "requestId":request_id, "items":streams });
     std::fs::write(
-        path,
+        &path,
+        serde_json::to_vec(&metadata).map_err(|e| e.to_string())?,
+    )
+    .map_err(|e| e.to_string())?;
+    drop(inner);
+    let tasks = providers
+        .into_iter()
+        .map(|(id, url)| tokio::spawn(async move { (id, artwork(Some(&url), 48, 48).await) }))
+        .collect::<Vec<_>>();
+    let mut images = HashMap::new();
+    for task in tasks {
+        if let Ok((id, Some(image))) = task.await {
+            images.insert(id, image);
+        }
+    }
+    let inner = state.inner.lock().await;
+    if player_ui_path(&inner, &session_id).as_ref() != Some(&path) {
+        return Ok(());
+    }
+    let mut metadata: Value =
+        serde_json::from_slice(&std::fs::read(&path).map_err(|e| e.to_string())?)
+            .map_err(|e| e.to_string())?;
+    if metadata["streamChoices"]["requestId"].as_str() != Some(&request_id)
+        || metadata["streamChoices"]["videoId"].as_str() != Some(&video_id)
+    {
+        return Ok(());
+    }
+    let mut prepared = HashMap::new();
+    for (id, image) in images {
+        let image_path = path.with_file_name(format!("provider-{}.bgra", Uuid::new_v4()));
+        if let Some(value) = write_artwork(&image, &image_path, false) {
+            prepared.insert(id, value);
+        }
+    }
+    if let Some(items) = metadata["streamChoices"]["items"].as_array_mut() {
+        for item in items {
+            if let Some(image) = item["providerId"].as_str().and_then(|id| prepared.get(id)) {
+                item["providerImage"] = image.clone();
+            }
+        }
+    }
+    std::fs::write(
+        &path,
         serde_json::to_vec(&metadata).map_err(|e| e.to_string())?,
     )
     .map_err(|e| e.to_string())

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { LoaderCircle, Search, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Search, X } from "lucide-react";
 import { useSearchParams } from "react-router";
 import { MediaGrid } from "../components/MediaCard.jsx";
 import { api, trackEvent } from "../lib/api.js";
@@ -84,6 +84,9 @@ export default function SearchPage({ onBackdrop, onReady }) {
     totalPages: 1,
   });
   const requestId = useRef(0);
+  const sentinel = useRef(null);
+  const pendingPage = useRef(null);
+  const [moreError, setMoreError] = useState(false);
   const currentYear = new Date().getFullYear();
   const years = useMemo(
     () =>
@@ -112,6 +115,8 @@ export default function SearchPage({ onBackdrop, onReady }) {
 
   useEffect(() => {
     const id = ++requestId.current;
+    pendingPage.current = null;
+    setMoreError(false);
 
     if (!relationshipId && query.length === 1) {
       setState({
@@ -142,7 +147,7 @@ export default function SearchPage({ onBackdrop, onReady }) {
         ? api.getPersonTitles(personId)
         : companyId
           ? api.getCompanyTitles(companyId)
-          : api.search(query, SEARCH_LIMIT);
+          : api.searchPage(query, 1, SEARCH_LIMIT);
 
     searchRequest
       .then((response) => {
@@ -150,14 +155,15 @@ export default function SearchPage({ onBackdrop, onReady }) {
           return;
         }
 
-        const results = browseMode ? feedItems(response) : response;
+        const paginated = browseMode || !relationshipId;
+        const results = paginated ? feedItems(response) : response;
         setState({
           error: false,
           loading: false,
           loadingMore: false,
-          page: browseMode ? response?.page || 1 : 1,
+          page: paginated ? response?.page || 1 : 1,
           results,
-          totalPages: browseMode ? response?.totalPages || 1 : 1,
+          totalPages: paginated ? response?.totalPages || 1 : 1,
         });
         onReady?.(
           results
@@ -266,9 +272,10 @@ export default function SearchPage({ onBackdrop, onReady }) {
     setSearchParams(next);
   };
 
-  const loadMore = async () => {
+  const loadMore = useCallback(async () => {
     if (
-      !browseMode ||
+      relationshipId ||
+      pendingPage.current === requestId.current ||
       state.loading ||
       state.loadingMore ||
       state.page >= state.totalPages
@@ -277,16 +284,20 @@ export default function SearchPage({ onBackdrop, onReady }) {
     }
 
     const id = requestId.current;
+    pendingPage.current = id;
+    setMoreError(false);
     const nextPage = state.page + 1;
     setState((current) => ({ ...current, loadingMore: true }));
 
     try {
-      const feed = await getBrowsePage({
-        filter: type,
-        genre,
-        page: nextPage,
-        year,
-      });
+      const feed = await (browseMode
+        ? getBrowsePage({
+            filter: type,
+            genre,
+            page: nextPage,
+            year,
+          })
+        : api.searchPage(query, nextPage, SEARCH_LIMIT));
 
       if (id !== requestId.current) {
         return;
@@ -302,10 +313,52 @@ export default function SearchPage({ onBackdrop, onReady }) {
     } catch (error) {
       console.warn("RainFlix could not load more browse results:", error);
       if (id === requestId.current) {
+        setMoreError(true);
         setState((current) => ({ ...current, loadingMore: false }));
       }
+    } finally {
+      if (pendingPage.current === id) pendingPage.current = null;
     }
-  };
+  }, [
+    browseMode,
+    relationshipId,
+    state.loading,
+    state.loadingMore,
+    state.page,
+    state.totalPages,
+    type,
+    genre,
+    year,
+    query,
+  ]);
+
+  useEffect(() => {
+    if (
+      !sentinel.current ||
+      moreError ||
+      state.loading ||
+      state.loadingMore ||
+      state.error ||
+      state.page >= state.totalPages
+    )
+      return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) loadMore();
+      },
+      { rootMargin: "600px 0px" },
+    );
+    observer.observe(sentinel.current);
+    return () => observer.disconnect();
+  }, [
+    loadMore,
+    moreError,
+    state.loading,
+    state.loadingMore,
+    state.error,
+    state.page,
+    state.totalPages,
+  ]);
 
   const browseMediaLabel =
     type === "movie"
@@ -499,26 +552,21 @@ export default function SearchPage({ onBackdrop, onReady }) {
           />
         )}
 
-        {browseMode &&
+        {!relationshipId &&
         !state.error &&
         !state.loading &&
-        filteredResults.length > 0 &&
         state.page < state.totalPages ? (
-          <div className="mt-8 flex justify-center">
-            <button
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-sky-500/70 bg-slate-950/80 px-5 text-sm font-black text-sky-200 transition hover:border-sky-300 hover:bg-sky-400/10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-400/20 disabled:cursor-wait disabled:opacity-70"
-              type="button"
-              onClick={loadMore}
-              disabled={state.loadingMore}
-            >
-              {state.loadingMore ? (
-                <LoaderCircle
-                  className="h-4 w-4 animate-spin"
-                  aria-hidden="true"
-                />
-              ) : null}
-              {state.loadingMore ? "Loading more" : "Load more"}
-            </button>
+          <div ref={sentinel} className="mt-6 flex min-h-1 justify-center">
+            {moreError && (
+              <button
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-sky-500/70 bg-slate-950/80 px-5 text-sm font-black text-sky-200 transition hover:border-sky-300 hover:bg-sky-400/10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-400/20 disabled:cursor-wait disabled:opacity-70"
+                type="button"
+                onClick={loadMore}
+                disabled={state.loadingMore}
+              >
+                Retry
+              </button>
+            )}
           </div>
         ) : null}
       </section>

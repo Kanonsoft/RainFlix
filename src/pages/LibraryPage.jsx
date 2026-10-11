@@ -4,6 +4,7 @@ import { MediaGrid } from "../components/MediaCard.jsx";
 import { useLibrary } from "../components/library/LibraryProvider.jsx";
 import { watchPath } from "../lib/api.js";
 import { usePageMetadata } from "../lib/metadata.js";
+import { isNativeApp } from "../platform/index.js";
 
 export default function LibraryPage({ onBackdrop, onReady }) {
   const { clearRecentlyViewed, myList, recentlyViewed, watched } = useLibrary();
@@ -84,56 +85,60 @@ export default function LibraryPage({ onBackdrop, onReady }) {
         />
       </section>
 
-      <section className="mt-12" aria-labelledby="continueWatchingHeading">
-        <div className="mb-5 flex flex-wrap items-center gap-3">
-          <Clock3 className="h-5 w-5 text-sky-300" aria-hidden="true" />
-          <h2
-            id="continueWatchingHeading"
-            className="text-2xl font-black text-slate-50 md:text-3xl"
-          >
-            Continue watching
-          </h2>
-          {resumable.length ? (
-            <button
-              className="ml-auto inline-flex items-center gap-2 rounded-lg border border-blue-900/80 px-3 py-2 text-xs font-black text-slate-300 transition hover:border-sky-500 hover:text-sky-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-400/20"
-              type="button"
-              onClick={clearRecentlyViewed}
-            >
-              <Trash2 className="h-4 w-4" aria-hidden="true" />
-              Clear history
-            </button>
-          ) : null}
-        </div>
-        <MediaGrid
-          items={resumable}
-          browse
-          emptyText="No unfinished playback."
-        />
-      </section>
-      <section className="mt-12" aria-labelledby="watchedHeading">
-        <div className="mb-5 flex items-center gap-3">
-          <Check className="h-5 w-5 text-emerald-400" aria-hidden="true" />
-          <h2
-            id="watchedHeading"
-            className="text-2xl font-black text-slate-50 md:text-3xl"
-          >
-            Watched
-          </h2>
-          <span className="text-sm font-bold text-slate-500">
-            {watched.length}
-          </span>
-        </div>
-        <MediaGrid
-          browse
-          items={watched.map((item) => ({
-            ...item,
-            historyKind: "watched",
-            detailPath: item.detailPath ? item.detailPath : watchPath(item),
-            resumeLabel: "Watched",
-          }))}
-          emptyText="No watched titles yet."
-        />
-      </section>
+      {isNativeApp && (
+        <>
+          <section className="mt-12" aria-labelledby="continueWatchingHeading">
+            <div className="mb-5 flex flex-wrap items-center gap-3">
+              <Clock3 className="h-5 w-5 text-sky-300" aria-hidden="true" />
+              <h2
+                id="continueWatchingHeading"
+                className="text-2xl font-black text-slate-50 md:text-3xl"
+              >
+                Continue watching
+              </h2>
+              {resumable.length ? (
+                <button
+                  className="ml-auto inline-flex items-center gap-2 rounded-lg border border-blue-900/80 px-3 py-2 text-xs font-black text-slate-300 transition hover:border-sky-500 hover:text-sky-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-400/20"
+                  type="button"
+                  onClick={clearRecentlyViewed}
+                >
+                  <Trash2 className="h-4 w-4" aria-hidden="true" />
+                  Clear history
+                </button>
+              ) : null}
+            </div>
+            <MediaGrid
+              items={resumable}
+              browse
+              emptyText="No unfinished playback."
+            />
+          </section>
+          <section className="mt-12" aria-labelledby="watchedHeading">
+            <div className="mb-5 flex items-center gap-3">
+              <Check className="h-5 w-5 text-emerald-400" aria-hidden="true" />
+              <h2
+                id="watchedHeading"
+                className="text-2xl font-black text-slate-50 md:text-3xl"
+              >
+                Watched
+              </h2>
+              <span className="text-sm font-bold text-slate-500">
+                {watched.length}
+              </span>
+            </div>
+            <MediaGrid
+              browse
+              items={watched.map((item) => ({
+                ...item,
+                historyKind: "watched",
+                detailPath: item.detailPath ? item.detailPath : watchPath(item),
+                resumeLabel: "Watched",
+              }))}
+              emptyText="No watched titles yet."
+            />
+          </section>
+        </>
+      )}
     </section>
   );
 }

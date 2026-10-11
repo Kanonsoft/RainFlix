@@ -104,9 +104,9 @@ test("unpublished and failed release lookups never offer a broken installer", as
   await expect(
     page.getByRole("link", { name: "Download for Windows" }),
   ).toHaveCount(0);
-  await expect(
-    page.getByRole("link", { name: "GitHub Releases" }),
-  ).toHaveAttribute("href", "https://github.com/Kanonsoft/RainFlix/releases");
+  await expect(page.getByRole("link", { name: "GitHub Releases" })).toHaveCount(
+    0,
+  );
   status = 404;
   await page.getByRole("button", { name: "Retry release lookup" }).click();
   await expect(
@@ -123,7 +123,7 @@ test("desktop header has no download entries", async ({ page, baseURL }) => {
   await page.route("**/src/platform/index.js", (route) =>
     route.fulfill({
       contentType: "text/javascript",
-      body: "export const isDesktop=true; export const browserTorrentAvailable=false; export function shareBaseUrl(){return location.origin;}",
+      body: "export const isDesktop=true; export const isAndroid=false; export const isNativeApp=true; export const browserTorrentAvailable=false; export function shareBaseUrl(){return location.origin;}",
     }),
   );
   await page.goto("/#/home");

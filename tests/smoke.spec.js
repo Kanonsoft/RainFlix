@@ -85,7 +85,9 @@ test("browses with combined filters without horizontal overflow", async ({
     page.getByRole("heading", { name: "Browse 2024 Drama movies" }),
   ).toBeVisible();
   await expect(
-    page.getByText("Filtered Movie", { exact: true }).first(),
+    page
+      .locator(".catalog-card-details h3")
+      .filter({ hasText: "Filtered Movie" }),
   ).toBeVisible();
   await expect(page.getByRole("combobox", { name: "Type" })).toHaveValue(
     "movie",

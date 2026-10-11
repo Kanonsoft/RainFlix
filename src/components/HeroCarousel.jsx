@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import { api, imageFallback, watchPath } from "../lib/api.js";
 import { backdropImageProps } from "../lib/images.js";
 import TitleArtwork from "./TitleArtwork.jsx";
+import { useAppSettings } from "../lib/app-settings.js";
 
 const SLIDE_DURATION = 8000;
 const PEEL_DURATION = 960;
@@ -13,8 +14,24 @@ function clamp(value, minimum = 0, maximum = 1) {
   return Math.min(maximum, Math.max(minimum, value));
 }
 
-function interactivePeelStyles(direction, rawProgress, duration = 0) {
+function interactivePeelStyles(
+  direction,
+  rawProgress,
+  duration = 0,
+  reduced = false,
+) {
   const progress = clamp(rawProgress);
+  if (reduced)
+    return {
+      incoming: { opacity: progress, transition: `opacity ${duration}ms ease` },
+      outgoing: {
+        opacity: 1 - progress,
+        transition: `opacity ${duration}ms ease`,
+      },
+      incomingContent: {},
+      outgoingContent: {},
+      edge: { display: "none" },
+    };
   const incomingBrightness = 0.72 + progress * 0.28;
   const incomingScale = 1.035 - progress * 0.035;
   const outgoingBrightness = 1 - progress * 0.48;
@@ -170,6 +187,7 @@ function HeroSlide({ articleStyle, contentStyle, item, mode, direction }) {
 }
 
 export default function HeroCarousel({ items, onBackdrop }) {
+  const { reduceAnimations } = useAppSettings();
   const [activeIndex, setActiveIndex] = useState(0);
   const [previousIndex, setPreviousIndex] = useState(null);
   const [direction, setDirection] = useState("left");
@@ -461,6 +479,7 @@ export default function HeroCarousel({ items, onBackdrop }) {
         dragPreview.direction,
         dragPreview.progress,
         dragPreview.phase === "dragging" ? 0 : dragPreview.duration,
+        reduceAnimations,
       )
     : null;
 

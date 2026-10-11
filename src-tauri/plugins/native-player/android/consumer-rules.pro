@@ -1,0 +1,2 @@
+-keep class com.rainflix.nativeplayer.NativePlayerPlugin { *; }
+-keep class com.rainflix.nativeplayer.PlayerActivity { *; }

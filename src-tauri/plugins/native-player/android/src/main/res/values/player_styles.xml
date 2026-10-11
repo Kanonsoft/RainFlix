@@ -1,0 +1,10 @@
+<resources>
+    <style name="RainFlixPlayerButton">
+        <item name="android:layout_width">48dp</item>
+        <item name="android:layout_height">48dp</item>
+        <item name="android:padding">12dp</item>
+        <item name="android:background">?android:attr/selectableItemBackgroundBorderless</item>
+        <item name="android:tint">#FFFFFF</item>
+        <item name="android:scaleType">fitCenter</item>
+    </style>
+</resources>

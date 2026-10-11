@@ -1,0 +1,7 @@
+{
+  "identifier": "android-player",
+  "description": "In-app Android playback and add-on install links",
+  "platforms": ["android"],
+  "windows": ["main"],
+  "permissions": ["native-player:default"]
+}

@@ -135,7 +135,7 @@ for (const width of [390, 1440]) {
     await page.route("**/src/platform/index.js", (route) =>
       route.fulfill({
         contentType: "text/javascript",
-        body: "export const isDesktop=true; export const browserTorrentAvailable=false; export function shareBaseUrl(){return location.origin;}",
+        body: "export const isDesktop=true; export const isAndroid=false; export const isNativeApp=true; export const browserTorrentAvailable=false; export function shareBaseUrl(){return location.origin;}",
       }),
     );
     await page.goto("/#/home");
@@ -156,6 +156,7 @@ for (const width of [390, 1440]) {
       "Genres",
       "Year",
       "My List",
+      "Settings",
       "Add-ons",
     ]);
   });

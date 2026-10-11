@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-take-install-link"
+description = "Enables the take_install_link command without any pre-configured scope."
+commands.allow = ["take_install_link"]
+
+[[permission]]
+identifier = "deny-take-install-link"
+description = "Denies the take_install_link command without any pre-configured scope."
+commands.deny = ["take_install_link"]

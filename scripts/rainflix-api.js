@@ -1451,7 +1451,7 @@
     }
   }
 
-  async function search(query, limit = 12) {
+  async function search(query, limit = 12, page = 1, paginated = false) {
     const cleanQuery = String(query || "").trim();
 
     if (cleanQuery.length < 2) {
@@ -1459,17 +1459,18 @@
     }
 
     let tmdbResults = [];
+    let totalPages = 1;
 
     try {
       const [data, companyData] = await Promise.all([
         tmdbFetch("search/multi", {
           query: cleanQuery,
-          page: 1,
+          page,
           include_adult: "false",
         }),
         tmdbFetch("search/company", {
           query: cleanQuery,
-          page: 1,
+          page,
         }).catch(() => ({ results: [] })),
       ]);
 
@@ -1481,6 +1482,7 @@
             .includes(loweredQuery),
         );
       } else {
+        totalPages = Math.min(500, data.total_pages || 1);
         const directTitles = (data.results || [])
           .filter(
             (item) => item.media_type === "movie" || item.media_type === "tv",
@@ -1509,11 +1511,11 @@
           .filter((item) => item.poster || item.backdrop);
         const relatedRequests = [];
 
-        if (relationshipScore(people[0], cleanQuery) > 0) {
+        if (page === 1 && relationshipScore(people[0], cleanQuery) > 0) {
           relatedRequests.push(getPersonTitles(people[0].id, limit));
         }
 
-        if (relationshipScore(companies[0], cleanQuery) > 0) {
+        if (page === 1 && relationshipScore(companies[0], cleanQuery) > 0) {
           relatedRequests.push(getCompanyTitles(companies[0].id, limit));
         }
 
@@ -1527,7 +1529,9 @@
       console.warn(error);
     }
 
-    return tmdbResults.slice(0, limit);
+    return paginated
+      ? { items: tmdbResults.slice(0, limit), page, totalPages }
+      : tmdbResults.slice(0, limit);
   }
 
   async function getDetailsByImdb(mediaType, imdbId) {
@@ -1749,5 +1753,7 @@
     mediaLabel,
     normalizeMediaType,
     search,
+    searchPage: (query, page = 1, limit = 20) =>
+      search(query, limit, page, true),
   };
 })();

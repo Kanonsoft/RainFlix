@@ -1,5 +1,9 @@
 # Title Playback
 
+Native global defaults now come from [[Settings]]: preferred track languages, automatic intro/outro skipping, next-episode prefetch, preview and automatic next. Explicit remembered per-title track choices remain supported. Android warmup and marker/timing limits are documented in [[Android Native]].
+
+In-player provider/source lists now share add-on logo metadata and compact stream headings, quality badges and full release details. Android uses the HTTP(S) logo with an R fallback; Windows decodes bounded provider artwork into session-owned BGRA overlays, with a letter fallback if unavailable. Logo fetching is optional, capped at twelve providers and does not delay the initial source list. Source dividers and smaller detail text keep long torrent descriptions readable without truncating them. The Android-only gesture, language picker and subtitle appearance changes are documented in [[Android Native]].
+
 Automatic TMDb season-group discovery applies to every series through the shared metadata loader, including native and IMDb add-on title pages, season navigation, the native episode drawer, and next/previous/preload selection. Only validated season-type groups that split the default seasons and preserve every original regular episode in order are chosen; no title is hardcoded. Group episode order becomes local SxxEyy stream IDs. Original TMDb season/episode coordinates remain separate metadata aliases and progress keys. Specials remain excluded as in ordinary TMDb metadata. Unsupported, incomplete or unavailable groups fall back to the original season list. The chosen group and original season counts travel with loaded metadata so later season requests use the same ordering. See [[Configuration]] for optional overrides and the automatic-grouping switch.
 
 ## Automatic Episode Continuation

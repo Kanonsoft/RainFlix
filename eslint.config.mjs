@@ -8,6 +8,11 @@ export default [
     ignores: [
       "dist/**",
       "dist-desktop/**",
+      "dist-mobile/**",
+      "src-tauri/gen/**",
+      "src-tauri/plugins/**/target/**",
+      "src-tauri/plugins/**/android/.tauri/**",
+      "src-tauri/plugins/**/android/build/**",
       "node_modules/**",
       "assets/**",
       "src-tauri/target/**",

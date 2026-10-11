@@ -1,4 +1,4 @@
-import { isDesktop } from "../platform/index.js";
+import { isNativeApp } from "../platform/index.js";
 
 let registrationPromise;
 
@@ -38,7 +38,7 @@ function waitForActivation(registration) {
 }
 
 export function registerRainFlixServiceWorker() {
-  if (isDesktop) {
+  if (isNativeApp) {
     return Promise.reject(
       new Error("RainFlix service-worker playback is unavailable on desktop."),
     );

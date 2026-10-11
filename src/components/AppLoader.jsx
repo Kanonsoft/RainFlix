@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import rainflixLogo from "../../assets/rainflix-r.png";
 import { config } from "../lib/api.js";
 import { posterImageProps } from "../lib/images.js";
+import { useAppSettings } from "../lib/app-settings.js";
 
 const COLUMN_COUNT = 7;
 const CARDS_PER_COLUMN = 5;
@@ -27,6 +28,7 @@ function LoaderCard({ poster, onSettled }) {
 }
 
 export default function AppLoader({ dataReady, posters }) {
+  const { reduceAnimations } = useAppSettings();
   const shownAt = useRef(performance.now());
   const [visible, setVisible] = useState(true);
   const [wallReady, setWallReady] = useState(false);
@@ -123,36 +125,40 @@ export default function AppLoader({ dataReady, posters }) {
       aria-live="polite"
       aria-hidden={!visible}
     >
-      <div className="app-loader-scene" aria-hidden="true">
-        <div className={`app-loader-wall${wallReady ? " is-ready" : ""}`}>
-          {columns.map((column, columnIndex) => (
-            <div
-              className={`app-loader-column app-loader-column-${
-                columnIndex % 2 === 0 ? "up" : "down"
-              }`}
-              key={`loader-column-${columnIndex}`}
-            >
-              <div className="app-loader-column-track">
-                {[false, true].map((duplicate) => (
-                  <div
-                    className="app-loader-sequence"
-                    aria-hidden={duplicate || undefined}
-                    key={duplicate ? "duplicate" : "primary"}
-                  >
-                    {column.map((poster, cardIndex) => (
-                      <LoaderCard
-                        poster={poster}
-                        key={`${duplicate ? "d" : "p"}-${cardIndex}-${poster}`}
-                        onSettled={() => setSettledImages((count) => count + 1)}
-                      />
-                    ))}
-                  </div>
-                ))}
+      {!reduceAnimations && (
+        <div className="app-loader-scene" aria-hidden="true">
+          <div className={`app-loader-wall${wallReady ? " is-ready" : ""}`}>
+            {columns.map((column, columnIndex) => (
+              <div
+                className={`app-loader-column app-loader-column-${
+                  columnIndex % 2 === 0 ? "up" : "down"
+                }`}
+                key={`loader-column-${columnIndex}`}
+              >
+                <div className="app-loader-column-track">
+                  {[false, true].map((duplicate) => (
+                    <div
+                      className="app-loader-sequence"
+                      aria-hidden={duplicate || undefined}
+                      key={duplicate ? "duplicate" : "primary"}
+                    >
+                      {column.map((poster, cardIndex) => (
+                        <LoaderCard
+                          poster={poster}
+                          key={`${duplicate ? "d" : "p"}-${cardIndex}-${poster}`}
+                          onSettled={() =>
+                            setSettledImages((count) => count + 1)
+                          }
+                        />
+                      ))}
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
       <div className="app-loader-vignette" aria-hidden="true" />
       <div className="app-loader-content">
         <div className="app-loader-emblem">

@@ -1,6 +1,6 @@
 import { config } from "./api.js";
 import { registerRainFlixServiceWorker } from "./service-worker.js";
-import { browserTorrentAvailable, isDesktop } from "../platform/index.js";
+import { browserTorrentAvailable, isNativeApp } from "../platform/index.js";
 
 const PLAYBACK_MODE_KEY = "rainflix:torrent-playback:v1";
 const PLAYBACK_MODES = new Set(["native", "browser", "stremio", "external"]);
@@ -97,7 +97,7 @@ function formatSpeed(bytesPerSecond) {
 }
 
 export function readTorrentPlaybackMode() {
-  const fallback = isDesktop
+  const fallback = isNativeApp
     ? "native"
     : config.webTorrent?.enabled && browserTorrentAvailable
       ? "browser"
@@ -109,7 +109,7 @@ export function readTorrentPlaybackMode() {
     if (
       (stored === "browser" &&
         (config.webTorrent?.enabled === false || !browserTorrentAvailable)) ||
-      (stored === "native" && !isDesktop)
+      (stored === "native" && !isNativeApp)
     ) {
       return fallback;
     }
@@ -123,7 +123,7 @@ export function saveTorrentPlaybackMode(mode) {
   if (
     !PLAYBACK_MODES.has(mode) ||
     (mode === "browser" && !browserTorrentAvailable) ||
-    (mode === "native" && !isDesktop)
+    (mode === "native" && !isNativeApp)
   )
     return;
   try {

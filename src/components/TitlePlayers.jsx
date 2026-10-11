@@ -31,6 +31,7 @@ import {
 import PlaybackLoader from "./PlaybackLoader.jsx";
 import OfficialProviders from "./OfficialProviders.jsx";
 import { withNativeMedia, withNativeTorrent } from "../lib/native-torrent.js";
+import { isAndroid } from "../platform/index.js";
 import {
   readPlaybackHandoff,
   takePlaybackHandoff,
@@ -171,6 +172,30 @@ function Playback({
   const closeButton = useRef(null);
   const [controlsVisible, setControlsVisible] = useState(true);
   const controlsTimer = useRef(null);
+  useEffect(() => {
+    if (!isAndroid || nativePlayback) return;
+    let disposed = false;
+    let invoke;
+    import("@tauri-apps/api/core")
+      .then(async (core) => {
+        invoke = core.invoke;
+        if (disposed) return;
+        await invoke("plugin:native-player|set_orientation", {
+          landscape: true,
+        });
+        if (disposed)
+          await invoke("plugin:native-player|set_orientation", {
+            landscape: false,
+          });
+      })
+      .catch(() => {});
+    return () => {
+      disposed = true;
+      invoke?.("plugin:native-player|set_orientation", {
+        landscape: false,
+      }).catch(() => {});
+    };
+  }, [nativePlayback]);
   const revealControls = () => {
     setControlsVisible(true);
     window.clearTimeout(controlsTimer.current);
@@ -599,6 +624,9 @@ export default function TitlePlayers({
               .map((stream) => ({
                 providerId: source.id,
                 providerLabel: source.label,
+                providerLogo: httpUrl(
+                  source.addon?.manifest.logo || source.logo,
+                ),
                 label: stream.label,
                 stream,
               }));
@@ -732,12 +760,13 @@ export default function TitlePlayers({
         {!episodeChosen ? (
           episodePicker
         ) : lookupPending ? (
-          <div className="relative min-h-56" aria-busy="true">
-            <PlaybackLoader
-              active
-              title={details.title}
-              logo={details.logo}
-              message={`Finding ${chosenProvider.label} streams`}
+          <div className="min-h-24" aria-busy="true" role="status">
+            <span className="sr-only">
+              Finding {chosenProvider.label} streams
+            </span>
+            <div
+              className="h-16 animate-pulse rounded-lg bg-white/5"
+              aria-hidden="true"
             />
           </div>
         ) : showSources ? null : !canPlay ? (

@@ -12,7 +12,7 @@ export default function RelatedCarousel({ items }) {
       </h2>
       <div
         id="similarCarousel"
-        className="grid snap-x snap-mandatory auto-cols-[calc((100%-0.75rem)/2)] grid-flow-col gap-3 overflow-x-auto overscroll-x-contain py-2 sm:auto-cols-[calc((100%-2.25rem)/4)] lg:auto-cols-[calc((100%-5rem)/6)] lg:gap-4"
+        className="grid snap-x snap-mandatory auto-cols-[calc((100%-1rem)/3)] grid-flow-col gap-2 overflow-x-auto overscroll-x-contain py-2 sm:auto-cols-[calc((100%-2.25rem)/4)] sm:gap-3 lg:auto-cols-[calc((100%-5rem)/6)] lg:gap-4"
       >
         {items.map((item) => (
           <div

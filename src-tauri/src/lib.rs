@@ -1,7 +1,13 @@
+#[cfg(not(target_os = "android"))]
+mod native_torrent;
+#[cfg(target_os = "android")]
+#[path = "android_torrent.rs"]
 mod native_torrent;
 
 use std::sync::Mutex;
-use tauri::{Emitter, Manager};
+#[cfg(not(target_os = "android"))]
+use tauri::Emitter;
+use tauri::Manager;
 
 #[derive(Default)]
 struct AddonInstallLink(Mutex<Option<String>>);
@@ -51,40 +57,55 @@ mod install_link_tests {
     }
 }
 
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let app = tauri::Builder::default()
-        .manage(AddonInstallLink(Mutex::new(install_link(
-            std::env::args().skip(1),
-        ))))
-        .plugin(tauri_plugin_single_instance::init(|app, args, _| {
-            if let Some(link) = install_link(args.into_iter().skip(1)) {
-                if let Ok(mut pending) = app.state::<AddonInstallLink>().0.lock() {
-                    *pending = Some(link);
-                }
-                let _ = app.emit("rainflix:addon-link", ());
+    let builder = tauri::Builder::default().manage(AddonInstallLink(Mutex::new(install_link(
+        std::env::args().skip(1),
+    ))));
+    #[cfg(not(target_os = "android"))]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, _| {
+        if let Some(link) = install_link(args.into_iter().skip(1)) {
+            if let Ok(mut pending) = app.state::<AddonInstallLink>().0.lock() {
+                *pending = Some(link);
             }
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.unminimize();
-                let _ = window.show();
-                let _ = window.set_focus();
-            }
-        }))
+            let _ = app.emit("rainflix:addon-link", ());
+        }
+        if let Some(window) = app.get_webview_window("main") {
+            let _ = window.unminimize();
+            let _ = window.show();
+            let _ = window.set_focus();
+        }
+    }));
+    #[cfg(target_os = "android")]
+    let builder = builder.plugin(tauri_plugin_native_player::init());
+    let builder = builder
         .plugin(tauri_plugin_opener::init())
-        .manage(native_torrent::NativeTorrentState::default())
-        .invoke_handler(tauri::generate_handler![
-            take_addon_install_link,
-            native_torrent::start_native_torrent,
-            native_torrent::start_native_media,
-            native_torrent::preload_native_torrent,
-            native_torrent::update_native_preload_status,
-            native_torrent::control_native_preload,
-            native_torrent::play_native_torrent,
-            native_torrent::update_native_player_episodes,
-            native_torrent::update_native_player_streams,
-            native_torrent::update_native_player_subtitles,
-            native_torrent::load_native_subtitle,
-            native_torrent::stop_native_torrent
-        ])
+        .manage(native_torrent::NativeTorrentState::default());
+    #[cfg(not(target_os = "android"))]
+    let builder = builder.invoke_handler(tauri::generate_handler![
+        take_addon_install_link,
+        native_torrent::start_native_torrent,
+        native_torrent::start_native_media,
+        native_torrent::preload_native_torrent,
+        native_torrent::update_native_preload_status,
+        native_torrent::control_native_preload,
+        native_torrent::play_native_torrent,
+        native_torrent::update_native_player_episodes,
+        native_torrent::update_native_player_streams,
+        native_torrent::update_native_player_subtitles,
+        native_torrent::load_native_subtitle,
+        native_torrent::stop_native_torrent
+    ]);
+    #[cfg(target_os = "android")]
+    let builder = builder.invoke_handler(tauri::generate_handler![
+        take_addon_install_link,
+        native_torrent::start_native_torrent,
+        native_torrent::start_native_media,
+        native_torrent::preload_native_torrent,
+        native_torrent::control_native_preload,
+        native_torrent::stop_native_torrent
+    ]);
+    let app = builder
         .setup(|app| {
             #[cfg(feature = "native-player-smoke")]
             if let Some(media) = std::env::var_os("RAINFLIX_NATIVE_SMOKE_MEDIA") {

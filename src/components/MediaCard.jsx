@@ -56,7 +56,7 @@ export function MediaCard({ item }) {
         </div>
       </div>
 
-      <div className="space-y-2 p-3">
+      <div className="catalog-card-details space-y-2 p-3">
         <h3 className="truncate text-sm font-black text-slate-50">
           {item.title}
         </h3>
@@ -148,8 +148,8 @@ export function MediaGrid({
   ghostCount = 0,
 }) {
   const classes = browse
-    ? "grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-6 md:gap-4"
-    : "grid auto-cols-[9.5rem] grid-flow-col gap-3 overflow-x-auto pb-2 md:grid-flow-row md:grid-cols-6 md:gap-4 md:overflow-visible md:pb-0";
+    ? "catalog-grid grid grid-cols-3 gap-2 sm:grid-cols-3 md:grid-cols-6 md:gap-4"
+    : "catalog-row grid auto-cols-[calc((100%-1rem)/3)] grid-flow-col gap-2 overflow-x-auto pb-2 md:grid-flow-row md:grid-cols-6 md:gap-4 md:overflow-visible md:pb-0";
 
   if (loading && !items.length) {
     return (

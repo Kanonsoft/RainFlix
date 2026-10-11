@@ -44,7 +44,7 @@ for (const mediaType of ["movie", "tv"]) {
     await page.route("**/src/platform/index.js", (route) =>
       route.fulfill({
         contentType: "text/javascript",
-        body: "export const isDesktop=true; export const browserTorrentAvailable=false; export function shareBaseUrl(){return location.origin;}",
+        body: "export const isDesktop=true; export const isAndroid=false; export const isNativeApp=true; export const browserTorrentAvailable=false; export function shareBaseUrl(){return location.origin;}",
       }),
     );
     await page.addInitScript(() => {

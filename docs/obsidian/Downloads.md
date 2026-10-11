@@ -1,5 +1,7 @@
 # Downloads
 
+The web header uses a green Download button with the RainFlix R. The download page keeps platform logos and direct installer actions, without a RainFlix wordmark or a separate GitHub Releases link. Installer discovery still uses the trusted repository release API.
+
 Related: [[Windows Desktop Plan]], [[Configuration]], [[Architecture]].
 
 The website header has a sky-blue Download RainFlix text button linking to `#/downloads`, with a matching mobile-drawer link. Both header entries are hidden in the desktop build. The page uses bundled Windows and Android brand marks rather than generic device icons; the Android mark comes from Simple Icons (CC0). Android is upcoming and has no download link.

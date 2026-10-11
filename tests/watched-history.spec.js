@@ -6,6 +6,22 @@ import {
   closePlayer,
 } from "./helpers/playback.js";
 
+// The full history library is native-only; retain browser video fixtures here.
+test.beforeEach(async ({ page }) => {
+  await page.route("**/src/platform/index.js", (route) =>
+    route.fulfill({
+      contentType: "text/javascript",
+      body: "export const isNativeApp=true,isAndroid=false,isDesktop=false,browserTorrentAvailable=true; export function shareBaseUrl(){return location.origin;}",
+    }),
+  );
+  await page.route("**/src/lib/native-torrent.js", (route) =>
+    route.fulfill({
+      contentType: "text/javascript",
+      body: "export const withNativeMedia=s=>s,withNativeTorrent=s=>s; export async function prepareNativePlayerLogo(){return null;} export async function startNativeTorrent(){throw Error('Native transport is outside this history fixture');} export async function invokeNativePlayer(){} export async function listenNativePlayer(){return ()=>{};}",
+    }),
+  );
+});
+
 test("manual watched marks remove the whole series and preserve unrelated history", async ({
   page,
   baseURL,

@@ -1,6 +1,15 @@
 node_modules/
 dist/
 dist-desktop/
+dist-mobile/
+src-tauri/gen/android/.gradle/
+src-tauri/gen/android/.idea/
+src-tauri/gen/android/build/
+src-tauri/gen/android/app/build/
+src-tauri/gen/android/local.properties
+src-tauri/gen/android/keystore.properties
+*.jks
+*.keystore
 src-tauri/target/
 src-tauri/binaries/mpv.exe
 src-tauri/binaries/LICENSE.GPL

@@ -24,7 +24,7 @@ function useBrowseColumns() {
       return 3;
     }
 
-    return 2;
+    return 3;
   };
   const [columns, setColumns] = useState(getColumns);
 
