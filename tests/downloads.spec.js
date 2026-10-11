@@ -22,7 +22,7 @@ const release = {
 };
 
 for (const width of [320, 390, 1440]) {
-  test(`landing opens downloads with Windows and upcoming Android at ${width}px`, async ({
+  test(`landing opens downloads in a new tab with both installers at ${width}px`, async ({
     page,
     baseURL,
   }) => {
@@ -40,9 +40,23 @@ for (const width of [320, 390, 1440]) {
       page.getByRole("link", { name: "Downloads", exact: true }),
     ).toHaveCount(width < 1024 ? 0 : 1);
     await page.goto("/");
+    await expect(
+      page
+        .getByRole("navigation", { name: "RainFlix introduction" })
+        .getByRole("link", { name: "Downloads", exact: true }),
+    ).toHaveCount(0);
+    const popupPromise = page.waitForEvent("popup");
     await page
       .getByRole("link", { name: "Download RainFlix", exact: true })
       .click();
+    const popup = await popupPromise;
+    await expect(popup).toHaveURL(/#\/downloads$/);
+    await expect(page).not.toHaveURL(/#\/downloads$/);
+    await popup.close();
+    await page.goto("/#/downloads");
+    await expect(page.locator("#appLoader")).toHaveClass(/is-hidden/, {
+      timeout: 15000,
+    });
     await expect(page).toHaveURL(/#\/downloads$/);
     await expect(
       page.getByRole("heading", { name: "Downloads", exact: true }),
@@ -50,11 +64,15 @@ for (const width of [320, 390, 1440]) {
     await expect(
       page.getByRole("link", { name: "Download for Windows", exact: true }),
     ).toHaveAttribute("href", installer);
-    await expect(page.getByText("v1.0.0", { exact: false })).toContainText(
-      "50.0 MB",
-    );
+    await expect(
+      page
+        .getByRole("region", { name: "Windows", exact: true })
+        .getByText("v1.0.0", { exact: false }),
+    ).toContainText("50.0 MB");
     const android = page.getByRole("region", { name: "Android", exact: true });
-    await expect(android).toContainText("Coming soon");
+    await expect(
+      android.getByRole("link", { name: "Download for Android" }),
+    ).toHaveAttribute("href", release.assets[1].browser_download_url);
     for (const platform of ["Windows", "Android"]) {
       const logo = page.getByRole("img", { name: `${platform} logo` });
       await expect(logo).toBeVisible();
@@ -64,7 +82,27 @@ for (const width of [320, 390, 1440]) {
         )
         .toBe(true);
     }
-    await expect(android.getByRole("link")).toHaveCount(0);
+    for (const platform of ["Windows", "Android"]) {
+      const region = page.getByRole("region", { name: platform, exact: true });
+      const button = region.getByRole("link", {
+        name: `Download for ${platform}`,
+      });
+      if (width >= 768) {
+        const rowBox = await region.boundingBox();
+        const buttonBox = await button.boundingBox();
+        expect(
+          Math.abs(
+            buttonBox.y + buttonBox.height / 2 - rowBox.y - rowBox.height / 2,
+          ),
+        ).toBeLessThan(3);
+        expect(
+          Math.abs(buttonBox.x + buttonBox.width - rowBox.x - rowBox.width),
+        ).toBeLessThan(3);
+      }
+    }
+    await page.screenshot({
+      path: test.info().outputPath(`downloads-${width}.png`),
+    });
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
@@ -79,6 +117,9 @@ for (const width of [320, 390, 1440]) {
       await expect(
         drawer.getByRole("link", { name: "Downloads", exact: true }),
       ).toBeVisible();
+      await expect(
+        drawer.getByRole("link", { name: "Downloads", exact: true }),
+      ).toHaveAttribute("target", "_blank");
       await drawer.getByRole("button", { name: "Close navigation" }).click();
       await expect(drawer).toBeHidden();
     }
@@ -98,7 +139,7 @@ test("unpublished and failed release lookups never offer a broken installer", as
   await page.route(endpoint, (route) => route.fulfill({ status, json: {} }));
   await page.goto("/#/downloads");
   await expect(
-    page.getByText("Couldn't check the latest installer."),
+    page.getByText("Couldn't check the Windows installer."),
   ).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Download for Windows" }),
@@ -107,13 +148,18 @@ test("unpublished and failed release lookups never offer a broken installer", as
     0,
   );
   status = 404;
-  await page.getByRole("button", { name: "Retry release lookup" }).click();
+  await page
+    .getByRole("button", { name: "Retry Windows release lookup" })
+    .click();
   await expect(
     page.getByText("Windows installer not published yet."),
   ).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Download for Windows" }),
   ).toHaveCount(0);
+  await expect(
+    page.getByText("Android installer not published yet."),
+  ).toBeVisible();
 });
 
 test("desktop header has no download entries", async ({ page, baseURL }) => {
@@ -145,7 +191,7 @@ test("desktop header has no download entries", async ({ page, baseURL }) => {
   ).toHaveCount(0);
 });
 
-test("release assets must be trusted Windows installers", async ({
+test("release assets must be trusted platform installers", async ({
   page,
   baseURL,
 }) => {
@@ -164,6 +210,14 @@ test("release assets must be trusted Windows installers", async ({
               "https://github.com/other/project/releases/download/v1/setup.exe",
           },
           { name: "RainFlix_arm64.exe", browser_download_url: installer },
+          {
+            name: "bad.apk",
+            browser_download_url: "https://evil.example/app.apk",
+          },
+          {
+            name: "app-arm64-debug.apk",
+            browser_download_url: release.assets[1].browser_download_url,
+          },
           release.assets[0],
         ],
       },
@@ -173,4 +227,7 @@ test("release assets must be trusted Windows installers", async ({
   await expect(
     page.getByRole("link", { name: "Download for Windows" }),
   ).toHaveAttribute("href", installer);
+  await expect(
+    page.getByRole("link", { name: "Download for Android" }),
+  ).toHaveCount(0);
 });

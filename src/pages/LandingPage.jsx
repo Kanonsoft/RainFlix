@@ -1,125 +1,67 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { Layers, MonitorPlay, Bookmark } from "lucide-react";
-import * as THREE from "three";
 import wordmark from "../../assets/rainflix-wordmark.png";
 import { usePageMetadata } from "../lib/metadata.js";
-import { api } from "../lib/api.js";
+import { api, watchPath } from "../lib/api.js";
 import "./landing.css";
 
-const desktop = `${import.meta.env.BASE_URL}screenshots/home-desktop.png`;
-const mobile = `${import.meta.env.BASE_URL}screenshots/browse-mobile.png`;
-
-function Showcase() {
-  const host = useRef(null);
-  useEffect(() => {
-    const element = host.current;
-    let renderer;
-    try {
-      renderer = new THREE.WebGLRenderer({
-        alpha: true,
-        antialias: true,
-        preserveDrawingBuffer: true,
-      });
-    } catch {
-      return;
-    }
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    element.appendChild(renderer.domElement);
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
-    camera.position.z = 12;
-    const group = new THREE.Group();
-    scene.add(group);
-    const textures = [];
-    const meshes = [];
-    let disposed = false;
-    function screen(url, w, h, x, y, z, angle) {
-      const geometry = new THREE.BoxGeometry(w + 0.14, h + 0.14, 0.16);
-      const frame = new THREE.Mesh(
-        geometry,
-        new THREE.MeshBasicMaterial({ color: 0x24303a }),
-      );
-      frame.position.set(x, y, z);
-      frame.rotation.set(-0.06, angle, -0.055);
-      group.add(frame);
-      meshes.push(frame);
-      new THREE.TextureLoader().load(url, (texture) => {
-        if (disposed) {
-          texture.dispose();
-          return;
-        }
-        texture.colorSpace = THREE.SRGBColorSpace;
-        textures.push(texture);
-        const panel = new THREE.Mesh(
-          new THREE.PlaneGeometry(w, h),
-          new THREE.MeshBasicMaterial({ map: texture }),
-        );
-        panel.position.z = 0.09;
-        frame.add(panel);
-        meshes.push(panel);
-      });
-    }
-    screen(desktop, 7.2, 4.5, 2, -0.25, 0, -0.22);
-    screen(mobile, 1.65, 3.57, 4.7, -1.2, 1, -0.12);
-    const resize = () => {
-      const { width, height } = element.getBoundingClientRect();
-      renderer.setSize(width, height);
-      camera.aspect = width / height;
-      camera.updateProjectionMatrix();
-      const compact = width < 768;
-      group.scale.setScalar(compact ? 0.7 : 1);
-      group.position.set(compact ? -1.45 : 0, compact ? -1.8 : 0, 0);
-    };
-    const observer = new ResizeObserver(resize);
-    observer.observe(element);
-    resize();
-    const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
-    let pointer = 0;
-    const move = (event) => {
-      pointer = (event.clientX / window.innerWidth - 0.5) * 0.08;
-    };
-    window.addEventListener("pointermove", move);
-    let frame;
-    const draw = (time) => {
-      if (!motion.matches) {
-        group.rotation.y += (pointer - group.rotation.y) * 0.04;
-        group.rotation.z = Math.sin(time / 5000) * 0.008;
-      }
-      renderer.render(scene, camera);
-      frame = requestAnimationFrame(draw);
-    };
-    frame = requestAnimationFrame(draw);
-    return () => {
-      disposed = true;
-      cancelAnimationFrame(frame);
-      observer.disconnect();
-      window.removeEventListener("pointermove", move);
-      meshes.forEach((mesh) => {
-        mesh.geometry.dispose();
-        mesh.material.dispose();
-      });
-      textures.forEach((texture) => texture.dispose());
-      renderer.dispose();
-      renderer.domElement.remove();
-    };
-  }, []);
+function TrendingStrip({ items }) {
+  if (!items.length) return null;
+  const tiles = Array.from(
+    { length: Math.ceil(12 / items.length) },
+    () => items,
+  ).flat();
   return (
-    <div className="landing-scene" ref={host} aria-hidden="true">
-      <img className="landing-fallback" src={desktop} alt="" />
-    </div>
+    <section className="landing-trending" aria-label="Trending this week">
+      <div
+        className="landing-trending-track"
+        style={{ "--strip-duration": `${Math.max(60, items.length * 8)}s` }}
+      >
+        {[false, true].map((duplicate) => (
+          <div
+            className="landing-trending-group"
+            key={String(duplicate)}
+            aria-hidden={duplicate || undefined}
+          >
+            {tiles.map((item, index) => (
+              <Link
+                className="landing-title"
+                key={`${item.mediaType}:${item.id}:${index}`}
+                to={watchPath(item)}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-hidden={index >= items.length || undefined}
+                tabIndex={duplicate || index >= items.length ? -1 : undefined}
+              >
+                <img
+                  src={item.backdrop || item.poster}
+                  alt=""
+                  draggable={false}
+                  decoding="async"
+                />
+                <span>{item.title}</span>
+              </Link>
+            ))}
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
 export default function LandingPage() {
   const [backdrop, setBackdrop] = useState("");
+  const [trending, setTrending] = useState([]);
   useEffect(() => {
     let cancelled = false;
     api
-      .getTrendingMovies(1)
+      .getTrendingThisWeek(12)
       .then(async (feed) => {
-        const url = feed.items?.[0]?.backdrop || feed.items?.[0]?.poster;
+        const items = feed.items.filter((item) => item.backdrop || item.poster);
+        if (cancelled) return;
+        setTrending(items);
+        const url = items[0]?.backdrop || items[0]?.poster;
         if (!url) return;
         const image = new Image();
         image.src = url;
@@ -142,13 +84,11 @@ export default function LandingPage() {
         <Link to="/" aria-label="RainFlix">
           <img src={wordmark} alt="RainFlix" />
         </Link>
-        <Link to="/downloads">Downloads</Link>
       </nav>
       <section className="landing-hero">
         {backdrop && (
           <img className="landing-movie-backdrop" src={backdrop} alt="" />
         )}
-        <Showcase />
         <div className="landing-copy">
           <p className="landing-eyebrow">YOUR NEXT WATCH STARTS HERE</p>
           <h1>RainFlix</h1>
@@ -157,10 +97,20 @@ export default function LandingPage() {
             next.
           </p>
           <div className="landing-actions">
-            <Link className="landing-download" to="/downloads">
+            <Link
+              className="landing-download"
+              to="/downloads"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               Download RainFlix
             </Link>
-            <Link className="landing-open" to="/home">
+            <Link
+              className="landing-open"
+              to="/home"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               Open RainFlix on web
             </Link>
           </div>
@@ -169,6 +119,7 @@ export default function LandingPage() {
           </p>
         </div>
       </section>
+      <TrendingStrip items={trending} />
       <section className="landing-features">
         <div>
           <span className="landing-eyebrow">ONE PLACE. YOUR WAY.</span>
@@ -207,7 +158,12 @@ export default function LandingPage() {
           A little less scrolling.
           <br />A little more watching.
         </h2>
-        <Link className="landing-download" to="/downloads">
+        <Link
+          className="landing-download"
+          to="/downloads"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
           Get RainFlix
         </Link>
         <p>

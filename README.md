@@ -19,8 +19,9 @@ RainFlix brings movie and series discovery, a personal library, and add-on
 playback together in one interface. The React website runs on static hosting;
 the Windows and Android apps add native playback and app-owned torrent support.
 
-The website opens with a cinematic introduction and real RainFlix screenshots
-in a tilted 3D scene. Open RainFlix on web takes you straight to the catalog.
+The website opens with a cinematic introduction and a slow, infinite strip of
+movie and series thumbnails from Trending this week, above One place. Your way.
+Open RainFlix on web takes you straight to the catalog.
 Native apps start at Home.
 
 ## Features
@@ -55,8 +56,9 @@ Includes immersive landscape playback, center and bottom touch controls,
 double-tap seeking, and hardware volume control. Codec support depends on the
 device and is not identical to Windows mpv. Casting is not implemented.
 
-Available APKs can be attached to GitHub Releases. The current website download
-page still labels Android as Coming soon; it discovers only Windows installers.
+The website Downloads page detects Windows EXE and Android APK assets from the
+latest public, non-prerelease GitHub Release. Landing actions and the web catalog
+Downloads link open in new tabs; the landing header contains only the wordmark.
 
 ## Development
 

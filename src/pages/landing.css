@@ -26,14 +26,10 @@
 }
 .landing-hero {
   position: relative;
-  min-height: 620px;
-  height: 82svh;
-  max-height: 850px;
+  min-height: 460px;
+  height: 62svh;
+  max-height: 620px;
   overflow: hidden;
-}
-.landing-scene {
-  position: absolute;
-  inset: 0;
 }
 .landing-movie-backdrop {
   position: absolute;
@@ -52,29 +48,12 @@
     opacity: 0.18;
   }
 }
-.landing-scene canvas {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-.landing-fallback {
-  position: absolute;
-  width: 55%;
-  right: -4%;
-  top: 25%;
-  transform: perspective(1000px) rotateY(-16deg) rotateZ(-4deg);
-  border: 5px solid #24303a;
-}
-.landing-scene:has(canvas) .landing-fallback {
-  visibility: hidden;
-}
 .landing-copy {
   position: relative;
   z-index: 2;
-  width: 44%;
+  width: 100%;
   max-width: 650px;
-  padding: 185px 0 60px 5%;
+  padding: 145px 5% 40px;
   pointer-events: none;
 }
 .landing-copy a {
@@ -143,6 +122,54 @@
   color: #94a3ae;
   margin-top: 20px;
 }
+.landing-trending {
+  overflow: hidden;
+  padding: 24px 0 38px;
+}
+.landing-trending-track {
+  display: flex;
+  width: max-content;
+  animation: landing-title-scroll var(--strip-duration) linear infinite;
+  will-change: transform;
+}
+.landing-trending-group {
+  display: flex;
+  gap: 20px;
+  padding-right: 20px;
+  min-width: 100vw;
+}
+.landing-title {
+  flex: 0 0 280px;
+  width: 280px;
+  min-width: 0;
+}
+.landing-title img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 6px;
+  background: #20282d;
+}
+.landing-title span {
+  display: block;
+  margin-top: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.landing-trending:focus-within .landing-trending-track {
+  animation-play-state: paused;
+}
+@keyframes landing-title-scroll {
+  to {
+    transform: translateX(-50%);
+  }
+}
 .landing-features {
   border-top: 1px solid #293138;
   padding: 58px 5% 72px;
@@ -187,7 +214,6 @@
 }
 @media (max-width: 1000px) {
   .landing-copy {
-    width: 52%;
     padding-top: 150px;
   }
   .landing h1 {
@@ -205,13 +231,13 @@
     width: 122px;
   }
   .landing-hero {
-    height: 84svh;
-    min-height: 680px;
-    max-height: 820px;
+    height: auto;
+    min-height: 430px;
+    max-height: none;
   }
   .landing-copy {
     width: 100%;
-    padding: 108px 6% 0;
+    padding: 108px 6% 36px;
   }
   .landing h1 {
     font-size: 48px;
@@ -232,10 +258,13 @@
   .landing-platforms {
     margin-top: 14px;
   }
-  .landing-fallback {
-    width: 88%;
-    top: 60%;
-    right: -4%;
+  .landing-title {
+    flex-basis: 210px;
+    width: 210px;
+  }
+  .landing-trending-group {
+    gap: 14px;
+    padding-right: 14px;
   }
   .landing-features {
     grid-template-columns: 1fr;
@@ -250,6 +279,10 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
+  .landing .landing-trending-track {
+    animation-duration: var(--strip-duration) !important;
+    animation-iteration-count: infinite !important;
+  }
   .landing a {
     transition: none;
   }

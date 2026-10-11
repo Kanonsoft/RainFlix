@@ -315,7 +315,12 @@ export default function Header() {
             Browse
           </Link>
           {!isNativeApp && (
-            <Link className={mobilePrimaryClass("downloads")} to="/downloads">
+            <Link
+              className={mobilePrimaryClass("downloads")}
+              to="/downloads"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               Downloads
             </Link>
           )}
@@ -366,7 +371,12 @@ export default function Header() {
               Browse
             </Link>
             {!isNativeApp && (
-              <Link className={primaryClass("downloads")} to="/downloads">
+              <Link
+                className={primaryClass("downloads")}
+                to="/downloads"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 Downloads
               </Link>
             )}

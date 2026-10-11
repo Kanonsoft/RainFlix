@@ -81,13 +81,15 @@ public distribution repository instead.
 
 `RAINFLIX_CONFIG.downloads.githubRepository` currently points to
 `Kanonsoft/RainFlix`. The website selects an EXE from the latest public,
-non-prerelease GitHub Release. Draft/private/prerelease assets are not discovered
+non-prerelease GitHub Release, along with an Android APK from that same release. Draft/private/prerelease assets are not discovered
 through that flow. If you use a separate distribution repository, change this
 configuration and rebuild/deploy the website explicitly.
 
-Android still says **Coming soon** on the website; attaching an APK does not
-automatically add an Android download button. Share the release asset directly
-until Android asset discovery is implemented.
+Attach the signed Android APK alongside the EXE to enable both download buttons.
+Android selection prefers universal, then ARM64 names; debug, unsigned, x86, and
+ARMv7 assets are excluded. An absent installer shows a platform-specific
+not-published message. Both assets must be on the latest eligible release;
+the page does not search older releases for missing platforms.
 
 Only attach distributable binaries and any required license/source materials.
 Do not upload configured manifest secrets, local signing material, or private

@@ -5,7 +5,7 @@ export function releaseRepository(config) {
     : "Kanonsoft/RainFlix";
 }
 
-export async function windowsRelease(repository, signal) {
+export async function platformReleases(repository, signal) {
   const response = await fetch(
     `https://api.github.com/repos/${repository}/releases/latest`,
     {
@@ -15,11 +15,13 @@ export async function windowsRelease(repository, signal) {
       credentials: "omit",
     },
   );
-  if (response.status === 404) return null;
+  if (response.status === 404) return { windows: null, android: null };
   if (!response.ok) throw new Error("Release lookup unavailable.");
   const release = await response.json();
-  if (release.draft || release.prerelease) return null;
-  const assets = (Array.isArray(release.assets) ? release.assets : [])
+  if (release.draft || release.prerelease)
+    return { windows: null, android: null };
+  const assets = Array.isArray(release.assets) ? release.assets : [];
+  const windows = assets
     .filter(
       (asset) =>
         /\.exe$/i.test(asset?.name || "") &&
@@ -29,29 +31,44 @@ export async function windowsRelease(repository, signal) {
       (a, b) =>
         Number(/x64|x86_64/i.test(b.name)) - Number(/x64|x86_64/i.test(a.name)),
     );
-  for (const asset of assets) {
-    try {
-      const url = new URL(asset.browser_download_url);
-      if (
-        url.protocol !== "https:" ||
-        url.hostname !== "github.com" ||
-        !url.pathname
-          .toLowerCase()
-          .startsWith(`/${repository.toLowerCase()}/releases/download/`)
-      )
-        continue;
-      return {
-        url: url.href,
-        name: asset.name,
-        version: release.tag_name || release.name || "",
-        size:
-          Number.isFinite(asset.size) && asset.size > 0
-            ? `${(asset.size / 1024 / 1024).toFixed(1)} MB`
-            : "",
-      };
-    } catch {
-      /* Skip invalid asset URLs instead of displaying a broken download. */
+  const android = assets
+    .filter(
+      (asset) =>
+        /\.apk$/i.test(asset?.name || "") &&
+        !/debug|unsigned|x86|armeabi|armv7/i.test(asset.name),
+    )
+    .sort(
+      (a, b) =>
+        Number(/universal/i.test(b.name)) - Number(/universal/i.test(a.name)) ||
+        Number(/arm64|aarch64/i.test(b.name)) -
+          Number(/arm64|aarch64/i.test(a.name)),
+    );
+  function selectAsset(candidates) {
+    for (const asset of candidates) {
+      try {
+        const url = new URL(asset.browser_download_url);
+        if (
+          url.protocol !== "https:" ||
+          url.hostname !== "github.com" ||
+          !url.pathname
+            .toLowerCase()
+            .startsWith(`/${repository.toLowerCase()}/releases/download/`)
+        )
+          continue;
+        return {
+          url: url.href,
+          name: asset.name,
+          version: release.tag_name || release.name || "",
+          size:
+            Number.isFinite(asset.size) && asset.size > 0
+              ? `${(asset.size / 1024 / 1024).toFixed(1)} MB`
+              : "",
+        };
+      } catch {
+        /* Skip invalid asset URLs instead of displaying a broken download. */
+      }
     }
+    return null;
   }
-  return null;
+  return { windows: selectAsset(windows), android: selectAsset(android) };
 }
