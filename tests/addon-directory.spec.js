@@ -139,7 +139,7 @@ test("directory failures retry without removing installed management or manual i
 });
 
 for (const width of [390, 1440]) {
-  test(`desktop navigation places My List after Browse and Add-ons last at ${width}px`, async ({
+  test(`desktop navigation places Anime after Home, My List after Browse and Add-ons last at ${width}px`, async ({
     page,
     baseURL,
   }) => {
@@ -164,6 +164,7 @@ for (const width of [390, 1440]) {
       .allTextContents();
     expect(labels.map((label) => label.trim())).toEqual([
       "Home",
+      "Anime",
       "Browse",
       "My List",
       "Settings",
