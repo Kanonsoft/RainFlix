@@ -130,6 +130,13 @@ for (const width of [320, 390, 1440]) {
         expect(
           Math.abs(buttonBox.x + buttonBox.width - rowBox.x - rowBox.width),
         ).toBeLessThan(3);
+      } else {
+        const rowBox = await region.boundingBox();
+        const buttonBox = await button.boundingBox();
+        expect(Math.abs(buttonBox.x - rowBox.x)).toBeLessThan(1);
+        expect(Math.abs(buttonBox.width - rowBox.width)).toBeLessThan(1);
+        const headingBox = await region.getByRole("heading").boundingBox();
+        expect(buttonBox.y).toBeGreaterThan(headingBox.y + headingBox.height);
       }
     }
     await page.screenshot({

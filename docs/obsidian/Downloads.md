@@ -4,6 +4,8 @@ The website opens an introduction page at `#/` with a decoded trending-title bac
 
 Related: [[Windows Desktop Plan]], [[Configuration]], [[Architecture]].
 
+Mobile download rows use a compact stacked layout with full-width installer actions beneath platform details; desktop keeps the right-aligned actions. The GitHub Pages smoke test follows the current Browse header route rather than the retired Movies navigation.
+
 Navigation update: the web header and mobile drawer Downloads links now stay in the current tab. Only the landing-page download actions open a new tab. The landing page omits the platform tagline and availability disclaimer. Direct visits to Downloads initialize the shared fixed backdrop from the first Trending Movies hero item, matching Home; navigation from an existing catalog keeps its current backdrop. Reduced-animation settings still use the solid background.
 
 Landing update: the complete four-column One place. Your way. section remains intact, including the heading and three feature descriptions. The looping thumbnail strip sits below that entire section. Cards use centered TMDb title logos (RainFlix R fallback) over slightly darkened thumbnails, without text captions or a colored strip background. Focus/click no longer pauses the strip. The decoded movie backdrop is fixed to the viewport throughout page scrolling.

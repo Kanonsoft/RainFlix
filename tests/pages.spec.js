@@ -24,8 +24,8 @@ test("the built app and lazy title routes load under the GitHub Pages subfolder"
     timeout: 15000,
   });
   await expect(page.locator("#startupFallback")).toHaveCount(0);
-  await page.getByRole("link", { name: "Movies", exact: true }).click();
-  await expect(page).toHaveURL(/\/RainFlix\/#\/movies$/);
+  await page.getByRole("link", { name: "Browse", exact: true }).click();
+  await expect(page).toHaveURL(/\/RainFlix\/#\/browse$/);
   await page.evaluate(() => {
     window.location.hash = "/title/movie/505";
   });

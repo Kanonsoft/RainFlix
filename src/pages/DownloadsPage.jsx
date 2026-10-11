@@ -74,19 +74,22 @@ export default function DownloadsPage({ onReady, onBackdrop }) {
   return (
     <section
       aria-labelledby="downloadsHeading"
-      className="mx-auto w-full max-w-5xl px-5 py-10 md:px-10 md:py-16"
+      className="mx-auto w-full max-w-5xl px-5 py-6 md:px-10 md:py-16"
     >
-      <h1 id="downloadsHeading" className="mt-6 text-3xl font-bold text-white">
+      <h1
+        id="downloadsHeading"
+        className="mt-2 text-3xl font-bold text-white md:mt-6"
+      >
         Downloads
       </h1>
-      <div className="mt-8 divide-y divide-white/10 border-y border-white/10">
+      <div className="mt-6 divide-y divide-white/10 border-y border-white/10 md:mt-8">
         {platforms.map((platform) => {
           const release = state.releases[platform.id];
           return (
             <section
               key={platform.id}
               aria-labelledby={`${platform.id}Heading`}
-              className="flex min-h-40 flex-wrap items-center justify-between gap-5 py-8"
+              className="grid grid-cols-1 items-center gap-5 py-6 md:min-h-40 md:grid-cols-[minmax(0,1fr)_auto] md:py-8"
             >
               <div className="flex min-w-0 items-center gap-4">
                 <img
@@ -114,7 +117,7 @@ export default function DownloadsPage({ onReady, onBackdrop }) {
                   )}
                 </div>
               </div>
-              <div className="ml-auto flex min-w-0 max-w-full items-center justify-end sm:max-w-80">
+              <div className="flex w-full min-w-0 items-center justify-center md:ml-auto md:w-auto md:max-w-80 md:justify-end">
                 {state.loading ? (
                   <p
                     role="status"
@@ -129,7 +132,7 @@ export default function DownloadsPage({ onReady, onBackdrop }) {
                 ) : release ? (
                   <a
                     href={release.url}
-                    className="inline-flex min-h-12 items-center justify-center rounded-lg bg-sky-400 px-5 text-sm font-bold text-slate-950 transition hover:bg-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
+                    className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-sky-400 px-5 text-sm font-bold text-slate-950 transition hover:bg-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 md:w-auto"
                   >
                     Download for {platform.name}
                   </a>
@@ -137,7 +140,7 @@ export default function DownloadsPage({ onReady, onBackdrop }) {
                   <div className="flex items-center gap-2">
                     <p
                       role="status"
-                      className="text-right text-sm text-slate-400"
+                      className="text-center text-sm text-slate-400 md:text-right"
                     >
                       {state.error
                         ? `Couldn't check the ${platform.name} installer.`
