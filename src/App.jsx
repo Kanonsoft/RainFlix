@@ -337,7 +337,14 @@ function AppShell() {
               />
               <Route
                 path="/downloads"
-                element={<DownloadsPage onReady={completeBoot} />}
+                element={
+                  <DownloadsPage
+                    onReady={completeBoot}
+                    onBackdrop={
+                      ambientBackdrop.current ? undefined : updateBackdrop
+                    }
+                  />
+                }
               />
               <Route
                 path="/"

@@ -28,6 +28,20 @@ for (const width of [320, 390, 1440]) {
   }) => {
     await page.setViewportSize({ width, height: 900 });
     await mockPlayback({ page, baseURL }, false);
+    await page.route("**/trending/movie/week?**", (route) =>
+      route.fulfill({
+        json: {
+          results: [
+            {
+              id: 505,
+              title: "Playback Test",
+              backdrop_path: "/backdrop.jpg",
+              poster_path: "/poster.jpg",
+            },
+          ],
+        },
+      }),
+    );
     await page.route(endpoint, (route) => route.fulfill({ json: release }));
     await page.goto("/#/home");
     await expect(page.locator("#appLoader")).toHaveClass(/is-hidden/, {
@@ -39,6 +53,20 @@ for (const width of [320, 390, 1440]) {
     await expect(
       page.getByRole("link", { name: "Downloads", exact: true }),
     ).toHaveCount(width < 1024 ? 0 : 1);
+    if (width < 1024) {
+      await page.getByRole("button", { name: "Open navigation" }).click();
+    }
+    const navigation = page.getByRole("navigation", {
+      name: width < 1024 ? "Mobile primary navigation" : "Primary navigation",
+      exact: true,
+    });
+    await expect(
+      navigation.getByRole("link", { name: "Downloads", exact: true }),
+    ).not.toHaveAttribute("target", "_blank");
+    await navigation
+      .getByRole("link", { name: "Downloads", exact: true })
+      .click();
+    await expect(page).toHaveURL(/#\/downloads$/);
     await page.goto("/");
     await expect(
       page
@@ -54,6 +82,10 @@ for (const width of [320, 390, 1440]) {
     await expect(page).not.toHaveURL(/#\/downloads$/);
     await popup.close();
     await page.goto("/#/downloads");
+    await expect(page.locator(".ambient-backdrop-current")).toHaveCSS(
+      "background-image",
+      /backdrop\.jpg/,
+    );
     await expect(page.locator("#appLoader")).toHaveClass(/is-hidden/, {
       timeout: 15000,
     });
@@ -119,11 +151,15 @@ for (const width of [320, 390, 1440]) {
       ).toBeVisible();
       await expect(
         drawer.getByRole("link", { name: "Downloads", exact: true }),
-      ).toHaveAttribute("target", "_blank");
+      ).not.toHaveAttribute("target", "_blank");
       await drawer.getByRole("button", { name: "Close navigation" }).click();
       await expect(drawer).toBeHidden();
     }
     await page.reload();
+    await expect(page.locator(".ambient-backdrop-current")).toHaveCSS(
+      "background-image",
+      /backdrop\.jpg/,
+    );
     await expect(
       page.getByRole("link", { name: "Download for Windows", exact: true }),
     ).toBeVisible();

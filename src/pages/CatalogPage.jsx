@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router";
 import HeroCarousel from "../components/HeroCarousel.jsx";
 import AddonCatalogRows from "../components/AddonCatalogRows.jsx";
+import ViewportCatalog from "../components/ViewportCatalog.jsx";
 import { MediaGrid } from "../components/MediaCard.jsx";
 import { useLibrary } from "../components/library/LibraryProvider.jsx";
 import { api, delay, preloadImage, watchPath } from "../lib/api.js";
@@ -395,7 +396,7 @@ export default function CatalogPage({ mode = "home", onBackdrop, onReady }) {
         logosPromise,
         delay(TITLE_LOGO_WAIT_MS).then(() => null),
       ]);
-      const [preparedLogos] = await Promise.all([logoRace, loadMoreBrowse()]);
+      const preparedLogos = await logoRace;
 
       if (cancelled || requestId !== requestIdRef.current) {
         return;
@@ -540,71 +541,82 @@ export default function CatalogPage({ mode = "home", onBackdrop, onReady }) {
       <HeroCarousel items={heroItems} onBackdrop={onBackdrop} />
 
       {mode === "home" && continueWatching.length ? (
-        <section className="mt-10" aria-labelledby="continueWatchingTitle">
-          <div className="mb-5 flex items-end justify-between gap-6">
-            <h2
-              id="continueWatchingTitle"
-              className="text-3xl font-black text-slate-50"
-            >
-              Continue watching
-            </h2>
-          </div>
-          <MediaGrid items={continueWatching} />
-        </section>
+        <ViewportCatalog key={`history:${routeKey}`}>
+          <section className="mt-10" aria-labelledby="continueWatchingTitle">
+            <div className="mb-5 flex items-end justify-between gap-6">
+              <h2
+                id="continueWatchingTitle"
+                className="text-3xl font-black text-slate-50"
+              >
+                Continue watching
+              </h2>
+            </div>
+            <MediaGrid items={continueWatching} />
+          </section>
+        </ViewportCatalog>
       ) : null}
 
-      <section
-        className={
-          mode === "home" && continueWatching.length ? "mt-12" : "mt-10"
-        }
-        aria-labelledby="trendingTitle"
-      >
-        <div className="mb-5 flex items-end justify-between gap-6">
-          <h1 id="trendingTitle" className="text-3xl font-black text-slate-50">
-            {config.trendingTitle}
-          </h1>
-        </div>
-        <MediaGrid
-          items={trending}
-          loading={loading}
-          emptyText="No trending titles found."
-        />
-      </section>
-
-      {config.showMovies ? (
-        <section className="mt-12" aria-labelledby="newestMoviesTitle">
-          <div className="mb-5">
-            <h2
-              id="newestMoviesTitle"
+      <ViewportCatalog key={`trending:${routeKey}`}>
+        <section
+          className={
+            mode === "home" && continueWatching.length ? "mt-12" : "mt-10"
+          }
+          aria-labelledby="trendingTitle"
+        >
+          <div className="mb-5 flex items-end justify-between gap-6">
+            <h1
+              id="trendingTitle"
               className="text-3xl font-black text-slate-50"
             >
-              {config.newestMoviesTitle}
-            </h2>
+              {config.trendingTitle}
+            </h1>
           </div>
           <MediaGrid
-            items={newestMovies}
+            items={trending}
             loading={loading}
-            emptyText="No movies found."
+            emptyText="No trending titles found."
           />
         </section>
+      </ViewportCatalog>
+
+      {config.showMovies ? (
+        <ViewportCatalog key={`movies:${routeKey}`}>
+          <section className="mt-12" aria-labelledby="newestMoviesTitle">
+            <div className="mb-5">
+              <h2
+                id="newestMoviesTitle"
+                className="text-3xl font-black text-slate-50"
+              >
+                {config.newestMoviesTitle}
+              </h2>
+            </div>
+            <MediaGrid
+              items={newestMovies}
+              loading={loading}
+              emptyText="No movies found."
+            />
+          </section>
+        </ViewportCatalog>
       ) : null}
 
       {config.showSeries ? (
-        <section className="mt-12" aria-labelledby="newestSeriesTitle">
-          <div className="mb-5">
-            <h2
-              id="newestSeriesTitle"
-              className="text-3xl font-black text-slate-50"
-            >
-              {config.newestSeriesTitle}
-            </h2>
-          </div>
-          <MediaGrid
-            items={newestSeries}
-            loading={loading}
-            emptyText="No series found."
-          />
-        </section>
+        <ViewportCatalog key={`series:${routeKey}`}>
+          <section className="mt-12" aria-labelledby="newestSeriesTitle">
+            <div className="mb-5">
+              <h2
+                id="newestSeriesTitle"
+                className="text-3xl font-black text-slate-50"
+              >
+                {config.newestSeriesTitle}
+              </h2>
+            </div>
+            <MediaGrid
+              items={newestSeries}
+              loading={loading}
+              emptyText="No series found."
+            />
+          </section>
+        </ViewportCatalog>
       ) : null}
 
       {mode === "home" ? <AddonCatalogRows /> : null}
@@ -615,12 +627,14 @@ export default function CatalogPage({ mode = "home", onBackdrop, onReady }) {
             {config.browseTitle}
           </h2>
         </div>
-        <MediaGrid
-          items={browseItems}
-          browse
-          ghostCount={ghostCount}
-          emptyText="No browse titles found."
-        />
+        <ViewportCatalog key={`browse:${routeKey}`}>
+          <MediaGrid
+            items={browseItems}
+            browse
+            ghostCount={ghostCount}
+            emptyText="No browse titles found."
+          />
+        </ViewportCatalog>
         <div
           className={`h-12${browseHasMore ? "" : " hidden"}`}
           ref={sentinelRef}

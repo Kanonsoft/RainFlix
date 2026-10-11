@@ -41,6 +41,14 @@ for (const width of [320, 390, 1440]) {
       page.getByRole("heading", { name: "RainFlix", exact: true }),
     ).toBeVisible();
     await expect(page.locator("#appLoader")).toHaveCount(0);
+    await expect(
+      page.getByText("Windows & Android apps. A catalog on the web."),
+    ).toHaveCount(0);
+    await expect(
+      page.getByText(
+        "Availability depends on your region and the services or add-ons you use.",
+      ),
+    ).toHaveCount(0);
     await expect(page.locator(".landing-scene, .landing-fallback")).toHaveCount(
       0,
     );
@@ -65,6 +73,16 @@ for (const width of [320, 390, 1440]) {
       )
       .toBe(true);
     const track = page.locator(".landing-trending-track");
+    await expect(strip.locator(".landing-title span")).toHaveCount(0);
+    await expect(strip.locator(".landing-title-logo").first()).toBeVisible();
+    await strip
+      .getByRole("link", { name: "Trending Movie", exact: true })
+      .focus();
+    expect(
+      await track.evaluate(
+        (element) => getComputedStyle(element).animationPlayState,
+      ),
+    ).toBe("running");
     for (const reducedMotion of ["no-preference", "reduce"]) {
       await page.emulateMedia({ reducedMotion });
       const before = await track.evaluate(
@@ -78,9 +96,26 @@ for (const width of [320, 390, 1440]) {
     }
     const stripBox = await strip.boundingBox();
     const featuresBox = await page.locator(".landing-features").boundingBox();
-    expect(stripBox.y + stripBox.height).toBeLessThanOrEqual(featuresBox.y + 1);
+    expect(featuresBox.y + featuresBox.height).toBeLessThanOrEqual(
+      stripBox.y + 1,
+    );
+    await expect(
+      page.locator(".landing-features .landing-feature"),
+    ).toHaveCount(3);
+    await expect(page.locator(".landing-movie-backdrop")).toBeVisible();
+    const backdropTop = await page
+      .locator(".landing-movie-backdrop")
+      .evaluate((element) => element.getBoundingClientRect().top);
+    await page.evaluate(() => window.scrollTo(0, 200));
+    expect(
+      await page
+        .locator(".landing-movie-backdrop")
+        .evaluate((element) => element.getBoundingClientRect().top),
+    ).toBe(backdropTop);
+    await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({
       path: test.info().outputPath(`landing-${width}.png`),
+      fullPage: true,
     });
     expect(
       await page.evaluate(

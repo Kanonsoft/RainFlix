@@ -498,6 +498,11 @@ test("records Continue Watching only after add-on video plays", async ({
     name: "Trending this week",
   });
   await expect(continueHeading).toBeVisible({ timeout: 15000 });
+  const pendingCatalog = page
+    .locator('[data-viewport-catalog="pending"]')
+    .first();
+  if (await pendingCatalog.count())
+    await pendingCatalog.scrollIntoViewIfNeeded();
   await expect(trendingHeading).toBeVisible();
   const continueSection = continueHeading.locator("xpath=ancestor::section[1]");
   await expect(

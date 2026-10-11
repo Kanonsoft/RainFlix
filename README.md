@@ -20,7 +20,8 @@ playback together in one interface. The React website runs on static hosting;
 the Windows and Android apps add native playback and app-owned torrent support.
 
 The website opens with a cinematic introduction and a slow, infinite strip of
-movie and series thumbnails from Trending this week, above One place. Your way.
+movie and series thumbnails with centered title logos from Trending this week,
+below One place. Your way. The page backdrop remains fixed while scrolling.
 Open RainFlix on web takes you straight to the catalog.
 Native apps start at Home.
 

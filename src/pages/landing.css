@@ -1,4 +1,6 @@
 .landing {
+  position: relative;
+  isolation: isolate;
   background: #080b0e;
   color: #f5f7f9;
 }
@@ -32,7 +34,8 @@
   overflow: hidden;
 }
 .landing-movie-backdrop {
-  position: absolute;
+  position: fixed;
+  z-index: -1;
   inset: 0;
   width: 100%;
   height: 100%;
@@ -139,31 +142,30 @@
   min-width: 100vw;
 }
 .landing-title {
+  position: relative;
   flex: 0 0 280px;
   width: 280px;
   min-width: 0;
 }
-.landing-title img {
+.landing-title-thumbnail {
   display: block;
   width: 100%;
   aspect-ratio: 16 / 9;
   object-fit: cover;
   border-radius: 6px;
-  background: #20282d;
+  filter: brightness(0.58);
+  box-shadow: 0 14px 28px rgb(0 0 0 / 28%);
 }
-.landing-title span {
-  display: block;
-  margin-top: 12px;
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 1.4;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-}
-.landing-trending:focus-within .landing-trending-track {
-  animation-play-state: paused;
+.landing-title-logo {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 76%;
+  height: 58%;
+  object-fit: contain;
+  filter: drop-shadow(0 3px 9px rgb(0 0 0 / 60%));
+  pointer-events: none;
 }
 @keyframes landing-title-scroll {
   to {

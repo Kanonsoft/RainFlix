@@ -64,6 +64,18 @@ const preview = {
   name: "Catalog Show",
   poster: "https://image.tmdb.org/t/p/w500/poster.jpg",
 };
+
+async function revealHomeCatalogs(page) {
+  for (let index = 0; index < 20; index++) {
+    const pending = page.locator('[data-viewport-catalog="pending"]').first();
+    if (!(await pending.count())) break;
+    const slot = await pending.elementHandle();
+    await slot.scrollIntoViewIfNeeded();
+    await expect
+      .poll(() => slot.getAttribute("data-viewport-catalog"))
+      .toBe("loaded");
+  }
+}
 const metadata = {
   ...preview,
   description: "Details supplied by a separate metadata add-on.",
@@ -284,6 +296,8 @@ test("home hides empty, invalid, failed and input-only catalog rows", async ({
   await expect(page.locator("#appLoader")).toHaveClass(/is-hidden/, {
     timeout: 15000,
   });
+  expect(requests).toHaveLength(0);
+  await revealHomeCatalogs(page);
   await expect.poll(() => new Set(requests).size).toBe(4);
   await expect(
     page.getByRole("region", { name: /^Test Catalog:/ }),
@@ -315,6 +329,11 @@ test("home adds catalogs and disabling the owner removes them", async ({
   await expect(page.locator("#appLoader")).toHaveClass(/is-hidden/, {
     timeout: 15000,
   });
+  expect(requests).toHaveLength(0);
+  await expect(
+    page.getByRole("heading", { name: "Newest series", exact: true }),
+  ).toHaveCount(0);
+  await revealHomeCatalogs(page);
   await expect(
     page.getByRole("heading", { name: "Featured shows - Series", exact: true }),
   ).toBeVisible();

@@ -9,15 +9,18 @@ import {
   getAddonCatalog,
 } from "../lib/addon-catalogs.js";
 import { MediaGrid } from "./MediaCard.jsx";
+import ViewportCatalog from "./ViewportCatalog.jsx";
 
 function CatalogRow({ addon, catalog }) {
   const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
   const requiresInput = catalogExtras(catalog).some(
     (extra) => extra.isRequired && extra.name !== "skip",
   );
   useEffect(() => {
     if (requiresInput) return;
     const controller = new AbortController();
+    setLoading(true);
     setItems([]);
     getAddonCatalog(addon, catalog, { skip: 0 }, controller.signal)
       .then(({ items }) => {
@@ -25,10 +28,20 @@ function CatalogRow({ addon, catalog }) {
       })
       .catch(() => {
         if (!controller.signal.aborted) setItems([]);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
   }, [addon, catalog, requiresInput]);
-  if (requiresInput || !items.length) return null;
+  if (requiresInput) return null;
+  if (loading)
+    return (
+      <div className="h-[420px] md:h-[480px]" aria-busy="true">
+        <MediaGrid items={[]} loading />
+      </div>
+    );
+  if (!items.length) return null;
   return (
     <section
       className="mt-12"
@@ -56,11 +69,9 @@ export default function AddonCatalogRows() {
   const installed = useAddons();
   return installed.flatMap((addon) =>
     addonCatalogs(addon).map((catalog) => (
-      <CatalogRow
-        key={`${addon.id}:${catalog.type}:${catalog.id}`}
-        addon={addon}
-        catalog={catalog}
-      />
+      <ViewportCatalog key={`${addon.id}:${catalog.type}:${catalog.id}`}>
+        <CatalogRow addon={addon} catalog={catalog} />
+      </ViewportCatalog>
     )),
   );
 }

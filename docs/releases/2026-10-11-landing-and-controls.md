@@ -19,14 +19,15 @@ download the APK directly from the release assets.
 - RainFlix App and Yastream free-stream labels, and one consolidated add-on empty-state message.
 - Browse heading and filters align with the results' left edge.
 
-- Introduction page with real RainFlix screenshots in a tilted 3D scene.
+- Introduction page with a fixed featured-title backdrop and a continuously scrolling Trending this week strip below One place. Your way. Cards use centered title logos over darkened thumbnails, without captions or a colored strip background.
 - Cyan download actions beside Open RainFlix; catalog navigation stays focused on browsing.
 - Blank and whitespace-only searches no longer navigate away.
 - Browse heading above filters, right-side mobile navigation, and a back-to-top action.
 
 ## Windows and Android
 
-- Transparent R launcher/startup artwork instead of a brief plain-text launch view.
+- R startup artwork instead of a brief plain-text launch view; Android's launcher icon uses a centered R on a dark background matching the loader.
+- Catalog grids render on scroll instead of mounting every row at startup. Add-on catalog requests wait until their rows enter view.
 - More like this stays hidden while selecting mobile streams.
 - Reduced animations uses a fixed cool charcoal background inspired by the supplied palette, without movie artwork or movement.
 

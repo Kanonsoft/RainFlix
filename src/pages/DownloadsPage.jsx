@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { LoaderCircle, RotateCcw } from "lucide-react";
 import windowsLogo from "../../assets/windows.svg";
 import androidLogo from "../../assets/android.svg";
-import { config } from "../lib/api.js";
+import { api, config } from "../lib/api.js";
 import { releaseRepository, platformReleases } from "../lib/downloads.js";
 import { usePageMetadata } from "../lib/metadata.js";
 
@@ -21,7 +21,7 @@ const platforms = [
   },
 ];
 
-export default function DownloadsPage({ onReady }) {
+export default function DownloadsPage({ onReady, onBackdrop }) {
   const repository = releaseRepository(config);
   const [revision, setRevision] = useState(0);
   const [state, setState] = useState({
@@ -36,6 +36,20 @@ export default function DownloadsPage({ onReady }) {
   useEffect(() => {
     onReady?.();
   }, [onReady]);
+  useEffect(() => {
+    if (!onBackdrop) return;
+    let active = true;
+    api
+      .getTrendingMovies(api.PAGE_SIZE)
+      .then((feed) => {
+        const title = feed.items[0];
+        if (active) onBackdrop(title?.backdrop || title?.poster);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [onBackdrop]);
   useEffect(() => {
     const controller = new AbortController();
     let active = true;

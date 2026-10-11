@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { Layers, MonitorPlay, Bookmark } from "lucide-react";
 import wordmark from "../../assets/rainflix-wordmark.png";
+import brandLogo from "../../assets/rainflix-r.png";
 import { usePageMetadata } from "../lib/metadata.js";
 import { api, watchPath } from "../lib/api.js";
 import "./landing.css";
@@ -31,16 +32,29 @@ function TrendingStrip({ items }) {
                 to={watchPath(item)}
                 target="_blank"
                 rel="noopener noreferrer"
+                aria-label={item.title}
                 aria-hidden={index >= items.length || undefined}
                 tabIndex={duplicate || index >= items.length ? -1 : undefined}
               >
                 <img
+                  className="landing-title-thumbnail"
                   src={item.backdrop || item.poster}
                   alt=""
                   draggable={false}
                   decoding="async"
                 />
-                <span>{item.title}</span>
+                <img
+                  className="landing-title-logo"
+                  src={item.logo || brandLogo}
+                  alt=""
+                  draggable={false}
+                  decoding="async"
+                  onError={(event) => {
+                    if (event.currentTarget.dataset.fallback) return;
+                    event.currentTarget.dataset.fallback = "true";
+                    event.currentTarget.src = brandLogo;
+                  }}
+                />
               </Link>
             ))}
           </div>
@@ -61,6 +75,12 @@ export default function LandingPage() {
         const items = feed.items.filter((item) => item.backdrop || item.poster);
         if (cancelled) return;
         setTrending(items);
+        api
+          .getTitleLogos(items)
+          .then((withLogos) => {
+            if (!cancelled) setTrending(withLogos);
+          })
+          .catch(() => {});
         const url = items[0]?.backdrop || items[0]?.poster;
         if (!url) return;
         const image = new Image();
@@ -80,15 +100,15 @@ export default function LandingPage() {
   });
   return (
     <div className="landing">
+      {backdrop && (
+        <img className="landing-movie-backdrop" src={backdrop} alt="" />
+      )}
       <nav className="landing-nav" aria-label="RainFlix introduction">
         <Link to="/" aria-label="RainFlix">
           <img src={wordmark} alt="RainFlix" />
         </Link>
       </nav>
       <section className="landing-hero">
-        {backdrop && (
-          <img className="landing-movie-backdrop" src={backdrop} alt="" />
-        )}
         <div className="landing-copy">
           <p className="landing-eyebrow">YOUR NEXT WATCH STARTS HERE</p>
           <h1>RainFlix</h1>
@@ -114,12 +134,8 @@ export default function LandingPage() {
               Open RainFlix on web
             </Link>
           </div>
-          <p className="landing-platforms">
-            Windows & Android apps. A catalog on the web.
-          </p>
         </div>
       </section>
-      <TrendingStrip items={trending} />
       <section className="landing-features">
         <div>
           <span className="landing-eyebrow">ONE PLACE. YOUR WAY.</span>
@@ -153,6 +169,7 @@ export default function LandingPage() {
           </p>
         </div>
       </section>
+      <TrendingStrip items={trending} />
       <section className="landing-bottom">
         <h2>
           A little less scrolling.
@@ -166,10 +183,6 @@ export default function LandingPage() {
         >
           Get RainFlix
         </Link>
-        <p>
-          Availability depends on your region and the services or add-ons you
-          use.
-        </p>
       </section>
     </div>
   );

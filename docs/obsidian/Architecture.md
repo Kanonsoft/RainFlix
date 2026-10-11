@@ -4,6 +4,10 @@ tags: [rainflix, development]
 
 # Architecture
 
+## Viewport Catalogs
+
+`ViewportCatalog` mounts a catalog's card grid only when its reserved slot enters the viewport, keeping it mounted afterward so scrolling back does not refetch or reset the row. Home and legacy category pages defer Continue Watching, trending, newest rows, and Browse grids. Built-in feed metadata is still prepared with the hero, but lower card DOM/artwork is not rendered at startup; Browse's first batch is no longer part of startup readiness. Its existing sentinel loads batches during scrolling. Add-on Home rows are individually deferred, including their catalog requests, and keep loading space until lookup completes. Empty, failed, and input-required rows disappear after activation. Routes reset deferred slots, and add-on requests abort on removal/unmount. Browsers without IntersectionObserver fall back to eager rendering.
+
 Registration persistence lives in `src/lib/addon-storage.js` (IndexedDB), while fresh manifests stay in the runtime registry. `src/lib/playback-preferences.js` stores only provider IDs, quality and track preferences, separate from timestamps and expiring stream URLs. Title pages perform cancellable availability lookups before listing Streams. See [[Title Playback#Remembered Playback]].
 
 Related: [[README|RainFlix Notes]], [[Configuration]], [[Yastream]], [[Torrentio]], [[Browser WebTorrent]], [[Native Torrent Desktop]].

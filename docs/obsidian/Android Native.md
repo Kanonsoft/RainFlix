@@ -4,7 +4,7 @@ tags: [rainflix, android, playback, torrent]
 
 # Android Native
 
-Launcher and Android 12+ launch screens reference the transparent bundled R drawable, not a text title. The HTML pre-module fallback also shows R with an animated progress bar; failure messages and Reload remain available if startup fails. Android launchers may still impose their own icon mask/background. The catalog uses its dark launch theme to prevent a light flash before the React loader mounts.
+Launcher and Android 12+ launch screens use the bundled R centered on an opaque dark tile (`#08111F`), matching the startup loader. The foreground artwork stays transparent; the launcher background no longer is. Android 8+ uses an adaptive icon with explicit dark background and centered R, while older launchers use the dark layer-list fallback. The HTML pre-module fallback also shows R with an animated progress bar; failure messages and Reload remain available if startup fails. Android launchers may still impose their own icon mask. The catalog uses its dark launch theme to prevent a light flash before the React loader mounts.
 
 Related: [[Title Playback]], [[Native Torrent Desktop]], [[Add-ons]], [[Downloads]].
 
