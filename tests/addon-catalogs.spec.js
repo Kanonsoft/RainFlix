@@ -334,6 +334,7 @@ test("home adds catalogs and disabling the owner removes them", async ({
   await page.evaluate(() => {
     location.hash = "/addons";
   });
+  await page.getByRole("tab", { name: /^Installed/ }).click();
   await page
     .getByRole("article")
     .filter({

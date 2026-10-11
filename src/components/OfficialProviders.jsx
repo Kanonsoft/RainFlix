@@ -134,19 +134,6 @@ export default function OfficialProviders({ details }) {
           No official availability listed in {countryName(region)}.
         </p>
       )}
-      <p className="px-3 py-2 text-xs text-slate-500">
-        {region && `${countryName(region)} \u00b7 `}
-        Availability by{" "}
-        <a
-          href="https://www.justwatch.com/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-slate-400 underline hover:text-white"
-        >
-          JustWatch
-        </a>{" "}
-        via TMDb
-      </p>
     </>
   );
 }

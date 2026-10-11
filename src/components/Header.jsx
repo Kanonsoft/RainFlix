@@ -1,12 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  ArrowRight,
-  Download,
-  Menu,
-  Search,
-  SlidersHorizontal,
-  X,
-} from "lucide-react";
+import { ArrowRight, Menu, Search, SlidersHorizontal, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router";
 import rainflixWordmark from "../../assets/rainflix-wordmark.png";
@@ -412,12 +405,11 @@ export default function Header() {
           </Link>
           {!isDesktop && (
             <Link
-              className={mobilePrimaryClass("downloads")}
+              className={`${mobilePrimaryClass("downloads")} border border-sky-400/40 bg-sky-400/10 text-sky-200`}
               to="/downloads"
               onClick={() => setMobileOpen(false)}
             >
-              <Download className="mr-2 inline h-4 w-4" aria-hidden="true" />
-              Download
+              Download RainFlix
             </Link>
           )}
 
@@ -510,12 +502,12 @@ export default function Header() {
       <header className="relative bg-transparent">
         <div className="mx-auto flex h-[4.5rem] w-full max-w-[1536px] items-center gap-2 px-4 md:gap-6 md:px-10 lg:px-12">
           <Link
-            className="inline-flex min-w-max items-center text-slate-50 no-underline"
+            className="inline-flex min-w-0 shrink-0 items-center text-slate-50 no-underline"
             to="/home"
             aria-label="RainFlix home"
           >
             <img
-              className="h-7 w-auto object-contain md:h-8"
+              className="h-7 w-auto max-w-[90px] object-contain sm:max-w-none md:h-8"
               src={rainflixWordmark}
               alt="RainFlix"
               draggable="false"
@@ -750,9 +742,11 @@ export default function Header() {
               aria-label="Download RainFlix"
               aria-current={state.primary === "downloads" ? "page" : undefined}
               title="Download RainFlix"
-              className={`header-icon-button shrink-0${state.primary === "downloads" ? " text-sky-300" : ""}`}
+              className={`inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg border border-sky-300/50 bg-sky-400 px-3 py-2 text-center text-xs font-bold leading-tight text-slate-950 shadow-sm transition duration-200 hover:bg-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-black md:px-4 md:text-sm ${state.primary === "downloads" ? "ring-2 ring-sky-200" : ""}`}
             >
-              <Download className="h-5 w-5" aria-hidden="true" />
+              <span>
+                Download<span className="block md:inline"> RainFlix</span>
+              </span>
             </Link>
           )}
           <button

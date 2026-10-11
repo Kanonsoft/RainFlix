@@ -1,13 +1,8 @@
 import { useEffect, useState } from "react";
-import {
-  Download,
-  ExternalLink,
-  LoaderCircle,
-  Monitor,
-  RotateCcw,
-  Smartphone,
-} from "lucide-react";
+import { Download, ExternalLink, LoaderCircle, RotateCcw } from "lucide-react";
 import rainflixWordmark from "../../assets/rainflix-wordmark.png";
+import windowsLogo from "../../assets/windows.svg";
+import androidLogo from "../../assets/android.svg";
 import { config } from "../lib/api.js";
 import { releaseRepository, windowsRelease } from "../lib/downloads.js";
 import { usePageMetadata } from "../lib/metadata.js";
@@ -72,9 +67,11 @@ export default function DownloadsPage({ onReady }) {
           className="flex flex-col gap-6 py-8 sm:flex-row sm:items-start sm:justify-between"
         >
           <div className="flex min-w-0 items-start gap-4">
-            <Monitor
-              className="mt-1 h-8 w-8 shrink-0 text-sky-300"
-              aria-hidden="true"
+            <img
+              src={windowsLogo}
+              alt="Windows logo"
+              draggable={false}
+              className="mt-1 h-9 w-9 shrink-0 object-contain"
             />
             <div className="min-w-0">
               <h2 id="windowsHeading" className="text-xl font-bold">
@@ -148,9 +145,11 @@ export default function DownloadsPage({ onReady }) {
           className="flex flex-wrap items-center justify-between gap-5 py-8"
         >
           <div className="flex min-w-0 items-start gap-4">
-            <Smartphone
-              className="mt-1 h-8 w-8 shrink-0 text-emerald-300"
-              aria-hidden="true"
+            <img
+              src={androidLogo}
+              alt="Android logo"
+              draggable={false}
+              className="mt-1 h-9 w-9 shrink-0 object-contain"
             />
             <div>
               <h2 id="androidHeading" className="text-xl font-bold">

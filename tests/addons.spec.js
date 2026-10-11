@@ -86,6 +86,7 @@ test("installs a manifest, gates media behind Play, and removes the provider", a
   await expect(page.locator("#appLoader")).toHaveClass(/is-hidden/, {
     timeout: 15000,
   });
+  await page.getByRole("tab", { name: /^Installed/ }).click();
   await page.getByRole("button", { name: "Remove Test Streams" }).click();
   await expect(page.getByText("No add-ons installed.")).toBeVisible();
   await expect

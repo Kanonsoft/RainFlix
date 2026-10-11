@@ -68,6 +68,13 @@ test("directory browsing, filters, pagination and installation remain without a 
     page.getByRole("button", { name: "Remove Browse Provider" }),
   ).toBeVisible();
   expect(requests).toBe(1);
+  await expect(
+    page.getByRole("tab", { name: "Installed (1)" }),
+  ).toHaveAttribute("aria-selected", "true");
+  await expect(directory).toBeHidden();
+  await page.getByRole("tab", { name: "Browse", exact: true }).click();
+  await expect(directory.getByLabel("Search add-ons")).toHaveValue("Provider");
+  await expect(directory.getByText("Page 2", { exact: true })).toBeVisible();
   await expect(directory.getByText("Installed", { exact: true })).toBeVisible();
   await expect(
     page.getByText("Directory-only description", { exact: true }),
@@ -98,10 +105,21 @@ test("directory failures retry without removing installed management or manual i
     exact: true,
   });
   await expect(directory.getByRole("alert")).toBeVisible();
+  await expect(page.locator("#appLoader")).toHaveClass(/is-hidden/, {
+    timeout: 15000,
+  });
   await expect(page.getByLabel("Manifest URL")).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Installed (0)" })).toBeVisible();
+  await page.getByRole("tab", { name: "Browse", exact: true }).focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByRole("tab", { name: "Installed (0)" })).toBeFocused();
+  await expect(page.getByText("No add-ons installed.")).toBeVisible();
+  await expect(directory).toBeHidden();
+  await expect(page.getByLabel("Manifest URL")).toBeVisible();
+  await page.keyboard.press("Home");
   await expect(
-    page.getByRole("heading", { name: "Installed (0)" }),
-  ).toBeVisible();
+    page.getByRole("tab", { name: "Browse", exact: true }),
+  ).toBeFocused();
   fail = false;
   await directory.getByRole("button", { name: "Retry directory" }).click();
   await expect(directory.getByText("No matching add-ons.")).toBeVisible();

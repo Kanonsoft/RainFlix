@@ -10,6 +10,7 @@ import { createPortal, flushSync } from "react-dom";
 import { ArrowLeft, Maximize, Play, X } from "lucide-react";
 import { useLocation, useNavigate } from "react-router";
 import { config, trackEvent } from "../lib/api.js";
+import { httpUrl } from "../lib/addon-streams.js";
 import { supports, useAddons, useAddonRestoring } from "../lib/addons.js";
 import {
   framePlaybackEvent,
@@ -36,6 +37,24 @@ import {
 } from "../lib/playback-handoff.js";
 
 const ignorePlayback = () => {};
+
+function StreamProviderLogo({ url }) {
+  const [failed, setFailed] = useState(false);
+  return url && !failed ? (
+    <img
+      src={url}
+      alt=""
+      draggable={false}
+      referrerPolicy="no-referrer"
+      className="h-10 w-10 shrink-0 rounded-lg object-contain"
+      onError={() => setFailed(true)}
+    />
+  ) : (
+    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-white/5">
+      <Play className="h-5 w-5 text-sky-300" aria-hidden="true" />
+    </span>
+  );
+}
 
 function requestFullscreen() {
   try {
@@ -727,18 +746,14 @@ export default function TitlePlayers({
           </p>
         ) : !availableSources.length && !checkingSources ? (
           <div className="text-sm text-slate-400">
-            {sources.length ? (
-              sources.map((source) => (
-                <p key={source.id} role="status">
-                  {availability[source.id]?.error ||
-                    `No streams found for this title on ${source.label}.`}
-                </p>
-              ))
-            ) : (
-              <p role="status">
-                No add-on streams are available for this title.
-              </p>
-            )}
+            {sources.length
+              ? sources.map((source) => (
+                  <p key={source.id} role="status">
+                    {availability[source.id]?.error ||
+                      `No streams found for this title on ${source.label}.`}
+                  </p>
+                ))
+              : null}
             {!!sources.length && (
               <button
                 className="mt-3 min-h-11 text-sky-300"
@@ -767,7 +782,7 @@ export default function TitlePlayers({
                   else providerButtons.current.delete(source.id);
                 }}
                 type="button"
-                className="flex min-h-12 w-full min-w-0 items-center gap-3 rounded-lg px-3 text-left text-sm font-bold transition hover:bg-white/10 hover:text-sky-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
+                className="flex min-h-16 w-full min-w-0 items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-bold transition hover:bg-white/10 hover:text-sky-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
                 onClick={() => {
                   if (source.url) {
                     setProviderChoice("");
@@ -780,9 +795,12 @@ export default function TitlePlayers({
                 }}
                 aria-label={`Play with ${source.label}`}
               >
-                <Play
-                  className="h-4 w-4 shrink-0 text-sky-300"
-                  aria-hidden="true"
+                <StreamProviderLogo
+                  key={
+                    httpUrl(source.addon?.manifest.logo || source.logo) ||
+                    "fallback"
+                  }
+                  url={httpUrl(source.addon?.manifest.logo || source.logo)}
                 />
                 <span className="min-w-0 break-words">{source.label}</span>
               </button>

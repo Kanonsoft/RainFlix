@@ -20,6 +20,7 @@ export default function AddonsPage({ onReady }) {
   const [address, setAddress] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [tab, setTab] = useState("browse");
   const installController = useRef(null);
   useEffect(() => {
     onReady?.();
@@ -46,6 +47,7 @@ export default function AddonsPage({ onReady }) {
       const addon = await installAddon(requestedAddress, controller.signal);
       if (!controller.signal.aborted) {
         setMessage(`${addon.manifest.name} installed.`);
+        setTab("installed");
         setAddress((current) => (current === requestedAddress ? "" : current));
       }
     } catch (error) {
@@ -83,78 +85,127 @@ export default function AddonsPage({ onReady }) {
           {message}
         </p>
       )}
-      <h2 className="border-b border-white/15 pb-3 text-lg font-semibold">
-        Installed ({installed.length})
-      </h2>
-      {!installed.length && (
-        <p className="text-slate-400">No add-ons installed.</p>
-      )}
-      <div className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {installed.map((entry) => {
-          const manifest = entry.manifest;
-          const configureUrl =
-            httpUrl(entry.configureUrl) ||
-            (manifest.behaviorHints?.configurable &&
-              httpUrl(entry.manifestUrl)?.replace(
-                /manifest\.json(?:\?.*)?$/,
-                "configure",
-              ));
-          return (
-            <article
-              className="flex min-w-0 flex-col gap-4 rounded-lg border border-white/15 bg-black/35 p-4"
-              key={entry.id}
-            >
-              <div className="flex min-w-0 items-center gap-3">
-                {httpUrl(manifest.logo) ? (
-                  <img
-                    src={httpUrl(manifest.logo)}
-                    alt=""
-                    referrerPolicy="no-referrer"
-                    loading="lazy"
-                    draggable={false}
-                    className="h-12 w-12 shrink-0 rounded-lg object-contain"
-                  />
-                ) : (
-                  <Package className="h-12 w-12 shrink-0 text-sky-300" />
-                )}
-                <h3 className="min-w-0 break-words text-base font-bold">
-                  {manifest.name}
-                </h3>
-              </div>
-              <div className="mt-auto flex flex-wrap items-center gap-2">
-                <label className="flex min-h-11 items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={entry.enabled}
-                    onChange={() => toggleAddon(entry.id)}
-                  />
-                  Enabled
-                </label>
-                <button
-                  className={buttonClass}
-                  type="button"
-                  aria-label={`Remove ${manifest.name}`}
-                  title="Remove add-on"
-                  onClick={() => removeAddon(entry.id)}
-                >
-                  <Trash2 size={16} />
-                </button>
-                {configureUrl && (
-                  <a
-                    className={buttonClass}
-                    href={configureUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Configure <ExternalLink size={14} />
-                  </a>
-                )}
-              </div>
-            </article>
-          );
-        })}
+      <div
+        role="tablist"
+        aria-label="Add-ons"
+        className="flex gap-6 border-b border-white/15"
+      >
+        {["browse", "installed"].map((value) => (
+          <button
+            key={value}
+            id={`addons-tab-${value}`}
+            role="tab"
+            type="button"
+            aria-selected={tab === value}
+            aria-controls={`addons-panel-${value}`}
+            tabIndex={tab === value ? 0 : -1}
+            className={`min-h-12 border-b-2 px-1 text-base font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 ${tab === value ? "border-sky-400 text-white" : "border-transparent text-slate-400 hover:text-white"}`}
+            onClick={() => setTab(value)}
+            onKeyDown={(event) => {
+              if (
+                !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)
+              )
+                return;
+              event.preventDefault();
+              const next =
+                event.key === "Home"
+                  ? "browse"
+                  : event.key === "End"
+                    ? "installed"
+                    : value === "browse"
+                      ? "installed"
+                      : "browse";
+              setTab(next);
+              document.getElementById(`addons-tab-${next}`)?.focus();
+            }}
+          >
+            {value === "browse" ? "Browse" : `Installed (${installed.length})`}
+          </button>
+        ))}
       </div>
-      <AddonDirectory installed={installed} onInstall={install} busy={busy} />
+      <div
+        id="addons-panel-installed"
+        role="tabpanel"
+        aria-labelledby="addons-tab-installed"
+        hidden={tab !== "installed"}
+      >
+        {!installed.length && (
+          <p className="text-slate-400">No add-ons installed.</p>
+        )}
+        <div className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {installed.map((entry) => {
+            const manifest = entry.manifest;
+            const configureUrl =
+              httpUrl(entry.configureUrl) ||
+              (manifest.behaviorHints?.configurable &&
+                httpUrl(entry.manifestUrl)?.replace(
+                  /manifest\.json(?:\?.*)?$/,
+                  "configure",
+                ));
+            return (
+              <article
+                className="flex min-w-0 flex-col gap-4 rounded-lg border border-white/15 bg-black/35 p-4"
+                key={entry.id}
+              >
+                <div className="flex min-w-0 items-center gap-3">
+                  {httpUrl(manifest.logo) ? (
+                    <img
+                      src={httpUrl(manifest.logo)}
+                      alt=""
+                      referrerPolicy="no-referrer"
+                      loading="lazy"
+                      draggable={false}
+                      className="h-12 w-12 shrink-0 rounded-lg object-contain"
+                    />
+                  ) : (
+                    <Package className="h-12 w-12 shrink-0 text-sky-300" />
+                  )}
+                  <h3 className="min-w-0 break-words text-base font-bold">
+                    {manifest.name}
+                  </h3>
+                </div>
+                <div className="mt-auto flex flex-wrap items-center gap-2">
+                  <label className="flex min-h-11 items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={entry.enabled}
+                      onChange={() => toggleAddon(entry.id)}
+                    />
+                    Enabled
+                  </label>
+                  <button
+                    className={buttonClass}
+                    type="button"
+                    aria-label={`Remove ${manifest.name}`}
+                    title="Remove add-on"
+                    onClick={() => removeAddon(entry.id)}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                  {configureUrl && (
+                    <a
+                      className={buttonClass}
+                      href={configureUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Configure <ExternalLink size={14} />
+                    </a>
+                  )}
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </div>
+      <div
+        id="addons-panel-browse"
+        role="tabpanel"
+        aria-labelledby="addons-tab-browse"
+        hidden={tab !== "browse"}
+      >
+        <AddonDirectory installed={installed} onInstall={install} busy={busy} />
+      </div>
     </div>
   );
 }

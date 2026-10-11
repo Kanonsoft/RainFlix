@@ -221,6 +221,7 @@ test("add-on registrations survive loss of tab session storage without storing m
   await page.evaluate(() => {
     location.hash = "/addons";
   });
+  await page.getByRole("tab", { name: /^Installed/ }).click();
   await expect(
     page.getByRole("button", { name: "Remove Persistent" }),
   ).toBeVisible();

@@ -2,7 +2,7 @@
 
 Related: [[Windows Desktop Plan]], [[Configuration]], [[Architecture]].
 
-The website header has a Download icon linking to `#/downloads`, with a matching mobile-drawer link. Both header entries are hidden in the desktop build. The page shows Windows and Android; Android is upcoming and has no download link.
+The website header has a sky-blue Download RainFlix text button linking to `#/downloads`, with a matching mobile-drawer link. Both header entries are hidden in the desktop build. The page uses bundled Windows and Android brand marks rather than generic device icons; the Android mark comes from Simple Icons (CC0). Android is upcoming and has no download link.
 
 Windows downloads resolve the latest public, non-prerelease GitHub Release for `RAINFLIX_CONFIG.downloads.githubRepository` (default `Kanonsoft/RainFlix`). The page picks an `.exe` installer, preferring x64 and excluding ARM/32-bit named assets, and displays its tag and file size. Only GitHub HTTPS asset URLs from that repository are accepted. No GitHub token or backend is needed. Lookups are cancellable, time out after eight seconds, and can be retried. Missing releases/assets and API errors show an honest status plus a link to the Releases page; no fake installer URL is constructed.
 

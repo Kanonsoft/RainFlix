@@ -21,7 +21,7 @@ const release = {
   ],
 };
 
-for (const width of [390, 1440]) {
+for (const width of [320, 390, 1440]) {
   test(`web header opens downloads with Windows and upcoming Android at ${width}px`, async ({
     page,
     baseURL,
@@ -54,22 +54,33 @@ for (const width of [390, 1440]) {
     );
     const android = page.getByRole("region", { name: "Android", exact: true });
     await expect(android).toContainText("Coming soon");
+    for (const platform of ["Windows", "Android"]) {
+      const logo = page.getByRole("img", { name: `${platform} logo` });
+      await expect(logo).toBeVisible();
+      await expect
+        .poll(() =>
+          logo.evaluate((image) => image.complete && image.naturalWidth > 0),
+        )
+        .toBe(true);
+    }
     await expect(android.getByRole("link")).toHaveCount(0);
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
       ),
     ).toBe(true);
-    if (width === 390) {
+    if (width < 768) {
       await page.getByRole("button", { name: "Open navigation" }).click();
       const drawer = page.getByRole("dialog", { name: "Mobile navigation" });
       await expect(
         drawer.getByRole("link", { name: "Add-ons", exact: true }),
       ).toHaveCount(0);
       await expect(
-        drawer.getByRole("link", { name: "Download", exact: true }),
+        drawer.getByRole("link", { name: "Download RainFlix", exact: true }),
       ).toBeVisible();
-      await drawer.getByRole("link", { name: "Download", exact: true }).click();
+      await drawer
+        .getByRole("link", { name: "Download RainFlix", exact: true })
+        .click();
       await expect(drawer).toBeHidden();
     }
     await page.reload();

@@ -66,9 +66,12 @@ for (const type of ["movie", "tv"]) {
     await expect(provider).toHaveAttribute("target", "_blank");
     await expect(provider).toContainText("Subscription");
     await expect(provider).toContainText("Buy");
+    await expect(services).not.toContainText(
+      "No add-on streams are available for this title.",
+    );
     await expect(
       services.getByRole("link", { name: "JustWatch", exact: true }),
-    ).toBeVisible();
+    ).toHaveCount(0);
     await expect(page.locator("#fullscreenPlayback")).toHaveCount(0);
     expect(
       await page.evaluate(() =>
@@ -79,7 +82,7 @@ for (const type of ["movie", "tv"]) {
     await page.reload();
     if (type === "tv")
       await page.locator('[data-video-id][aria-pressed="true"]').click();
-    await expect(services).toContainText("Philippines");
+    await expect(services).not.toContainText("Availability by");
     await expect(provider).toHaveCount(0);
     await expect(services.getByRole("combobox")).toHaveCount(0);
     await expect(
@@ -114,7 +117,6 @@ test("blocked country detection falls back to the device locale, not a fixed cou
     name: "Streams",
     exact: true,
   });
-  await expect(services).toContainText("United Kingdom");
   await expect(services.getByRole("link", { name: /^Netflix:/ })).toBeVisible();
   await expect(services.getByRole("combobox")).toHaveCount(0);
 });
@@ -193,6 +195,50 @@ test("official services precede add-ons in the same scrolling Streams list", asy
       );
     }),
   ).toBe(true);
+});
+
+test("installed stream providers use manifest logos with a broken-image fallback", async ({
+  page,
+  baseURL,
+}) => {
+  await mockPlayback({ page, baseURL }, false);
+  const logo = `${baseURL}/assets/windows.svg`;
+  await page.route("https://logos.example/manifest.json", (route) =>
+    route.fulfill({
+      json: {
+        id: "logos.test",
+        name: "Logo Streams",
+        logo,
+        types: ["movie"],
+        resources: ["stream"],
+      },
+    }),
+  );
+  await page.route("https://logos.example/stream/**", (route) =>
+    route.fulfill({
+      json: {
+        streams: [{ url: `${baseURL}/__media__/player-sample.mp4` }],
+      },
+    }),
+  );
+  await page.goto("/#/home");
+  await page.evaluate(async () => {
+    const { installAddon } = await import("/src/lib/addons.js");
+    await installAddon("https://logos.example/manifest.json");
+  });
+  await openPlayer(page);
+  const provider = page.getByRole("button", { name: "Play with Logo Streams" });
+  const image = provider.locator("img");
+  await expect(image).toHaveAttribute("src", logo);
+  await expect
+    .poll(() =>
+      image.evaluate((node) => node.complete && node.naturalWidth > 0),
+    )
+    .toBe(true);
+  await expect(image).toHaveAttribute("draggable", "false");
+  await image.evaluate((node) => node.dispatchEvent(new Event("error")));
+  await expect(provider.locator("img")).toHaveCount(0);
+  await expect(provider.locator("svg")).toBeVisible();
 });
 
 test("official offers merge per provider and reject untrusted destinations", async ({
