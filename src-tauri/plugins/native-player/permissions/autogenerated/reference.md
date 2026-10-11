@@ -16,6 +16,7 @@ RainFlix Android playback and player event subscriptions.
 - `allow-take-install-link`
 - `allow-set-orientation`
 - `allow-update-preload`
+- `allow-update-navigation`
 
 ## Permission Table
 
@@ -256,6 +257,32 @@ Enables the update_episodes command without any pre-configured scope.
 <td>
 
 Denies the update_episodes command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`native-player:allow-update-navigation`
+
+</td>
+<td>
+
+Enables the update_navigation command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`native-player:deny-update-navigation`
+
+</td>
+<td>
+
+Denies the update_navigation command without any pre-configured scope.
 
 </td>
 </tr>

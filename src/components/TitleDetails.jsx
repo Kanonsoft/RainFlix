@@ -420,10 +420,19 @@ function Content({
               const video = playerEpisodes.find(
                 (item) => String(item.id) === id,
               );
-              if (video && video.id !== selectedVideo?.id) {
-                setEpisodeChosen(video.id);
-                onVideoChange(video.id, autoplay, playback);
+              // Freshly resolved season metadata may precede React's episode-list update.
+              const canonical =
+                tmdb &&
+                playback &&
+                /^tt\d+:\d+:\d+$/.test(id) &&
+                id.startsWith(`${meta.imdbId || meta.id}:`) &&
+                seasons.includes(Number(id.split(":")[1]));
+              if ((video || canonical) && id !== selectedVideo?.id) {
+                setEpisodeChosen(id);
+                onVideoChange(id, autoplay, playback);
+                return true;
               }
+              return false;
             }}
             trailerKey={trailerKey}
             episodeChosen={

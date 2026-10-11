@@ -316,11 +316,11 @@ local function language_name(track)
 end
 
 local function track_row(parts, x, y, w, name, description, action, selected)
-    rounded(parts,x,y,w,54,selected and C.purple or C.surface,selected and 0xBC or 0x30)
-    label(parts,x+14,y+9,shorten(name,math.floor((w-48)/9)),17)
-    label(parts,x+14,y+32,shorten(description,math.floor((w-40)/7)),12,C.muted)
-    if selected then rectangle(parts,x+w-23,y+23,6,6,C.purple) end
-    hit(x,y,w,54,action)
+    rounded(parts,x,y,w,44,selected and C.purple or C.surface,selected and 0xBC or 0x30)
+    label(parts,x+12,y+6,shorten(name,math.floor((w-44)/8)),15)
+    label(parts,x+12,y+26,shorten(description,math.floor((w-36)/7)),11,C.muted)
+    if selected then rectangle(parts,x+w-23,y+19,6,6,C.purple) end
+    hit(x,y,w,44,action)
 end
 
 local function subtitle_languages(tracks)
@@ -366,25 +366,25 @@ local function render_subtitles(parts)
     if language and #variants==0 then language=nil end
     local entries=language and variants or groups
     local total=#entries+(language and 0 or 1)
-    local page_size = math.max(1, math.min(6, math.floor((height-260)/60)))
+    local page_size = math.max(1, math.min(5, math.floor((height-230)/50)))
     local max_page = math.max(0, math.ceil(total/page_size)-1)
     local page=clamp(language and variant_page or language_page,0,max_page)
     if language then variant_page=page else language_page=page end
     local count = math.min(page_size,total-page*page_size)
-    local pw = math.min(420,width-48)
-    local ph = 106+count*60+(language and 28 or 0)+(max_page > 0 and 38 or 0)
+    local pw = math.min(360,width-48)
+    local ph = 70+count*50+(language and 28 or 0)+(max_page > 0 and 38 or 0)
     local px,py = width-pw-30,height-ph-106
     hit(0,0,width,height,function() panel=nil end)
     rounded(parts,px,py,pw,ph,C.background,0x08)
-    label(parts,px+22,py+20,ui.subtitleStatus and ui.subtitleStatus ~= "" and shorten(ui.subtitleStatus,30)
-        or ui.subtitleLookupFailed and "Some add-ons unavailable" or language and shorten(language,24) or "Subtitle languages",18)
-    button(parts,px+pw-108,py+12,90,32,"Settings",function() panel="subtitle-settings" end)
-    if language then button(parts,px+14,py+48,pw-28,30,"<  Languages",function() language=nil; variant_page=0 end) end
-    local top=language and 86 or 58
+    label(parts,px+18,py+18,language and shorten(language,18) or "Subtitles",16)
+    label(parts,px+pw-16,py+18,"Subtitle settings",14,C.purple,9)
+    hit(px+pw-144,py+8,132,36,function() panel="subtitle-settings" end)
+    if language then button(parts,px+14,py+42,pw-28,28,"<  Languages",function() language=nil; variant_page=0 end) end
+    local top=language and 76 or 48
     for row=1,count do
         local index=page*page_size+row-(language and 0 or 1)
         local track = language and variants[index] or nil
-        local y = py+top+(row-1)*60
+        local y = py+top+(row-1)*50
         if not language and index == 0 then
             track_row(parts,px+14,y,pw-28,"Off","",function() mp.set_property("sid","no"); panel=nil end,mp.get_property("sid") == "no")
         elseif not language then
@@ -421,10 +421,10 @@ local function render_subtitles(parts)
 end
 
 local function render_subtitle_settings(parts)
-    local pw = math.min(360,width-48)
-    local px,py = width-pw-30,height-420
+    local pw = math.min(300,width-48)
+    local px,py = width-pw-30,math.max(16,height-370)
     hit(0,0,width,height,function() panel=nil end)
-    rounded(parts,px,py,pw,314,C.background,0x08)
+    rounded(parts,px,py,pw,264,C.background,0x08)
     button(parts,px+14,py+14,pw-28,36,"<  Subtitle settings",function() panel="subtitles" end)
     local settings = {
         { title="Delay",property="sub-delay",step=0.25,min=-30,max=30,display=function(v) return string.format("%+.2f s",v) end },
@@ -432,7 +432,7 @@ local function render_subtitle_settings(parts)
         { title="Vertical position",property="sub-pos",step=5,min=0,max=100,display=function(v) return string.format("%.0f%%",100-v) end },
     }
     for index,item in ipairs(settings) do
-        local y = py+66+(index-1)*78
+        local y = py+58+(index-1)*64
         local current = mp.get_property_number(item.property,item.property == "sub-scale" and 1 or (item.property == "sub-pos" and 100 or 0))
         label(parts,px+22,y,item.title,15,C.muted)
         button(parts,px+16,y+24,44,36,"-",function() mp.set_property_number(item.property,clamp(current-item.step,item.min,item.max)) end)
@@ -443,7 +443,7 @@ end
 
 local function render_audio(parts)
     local tracks = tracks_of("audio")
-    local pw = math.min(360, width - 32)
+    local pw = math.min(300, width - 32)
     local page_size = math.max(1, math.min(7, math.floor((height - 228) / 48)))
     local max_page = math.max(0, math.ceil(#tracks / page_size) - 1)
     audio_page = clamp(audio_page, 0, max_page)
@@ -453,7 +453,7 @@ local function render_audio(parts)
     local py = height - ph - 106
     hit(0, 0, width, height, function() panel = nil end)
     rounded(parts, px, py, pw, ph, C.background, 0x08)
-    label(parts, px + 24, py + 20, "Audio tracks", 18)
+    label(parts, px + 20, py + 18, "Audio tracks", 16)
     if #tracks == 0 then label(parts, px + 24, py + 76, "No audio tracks", 17, C.muted) end
     for index = audio_page * page_size + 1,
         math.min(#tracks, (audio_page + 1) * page_size) do
@@ -461,7 +461,7 @@ local function render_audio(parts)
         local id = track.id
         local name = language_name(track)
         button(parts, px + 16, py + 56 + (index - audio_page * page_size - 1) * 48, pw - 32, 42,
-            shorten(name .. (track.title and (" / " .. track.title) or ""), 37), function() mp.set_property_number("aid", id) end,
+            shorten(name .. (track.title and (" / " .. track.title) or ""), math.floor((pw-40)/9)), function() mp.set_property_number("aid", id) end,
             mp.get_property_number("aid", -1) == id)
     end
     if max_page > 0 then
@@ -478,13 +478,14 @@ end
 
 local function render_speed(parts)
     local values = { 0.5, 0.75, 1, 1.25, 1.5, 2 }
-    local px = width - 248
-    local py = height - 410
+    local pw=math.min(240,width-48)
+    local px = width-pw-30
+    local py = math.max(16,height-300)
     hit(0, 0, width, height, function() panel = nil end)
-    rounded(parts, px, py, 218, 306, C.background, 0x08)
-    label(parts, px + 18, py + 18, "Playback speed", 18)
+    rounded(parts, px, py, pw, 194, C.background, 0x08)
+    label(parts, px + 18, py + 18, "Playback speed", 16)
     for index, speed in ipairs(values) do
-        button(parts, px + 12, py + 52 + (index - 1) * 40, 194, 36,
+        button(parts, px + 12 + ((index-1)%2)*(pw/2-6), py + 48 + math.floor((index - 1)/2) * 44, pw/2-18, 38,
             string.format("%gx", speed), function() mp.set_property_number("speed", speed) end,
             math.abs(mp.get_property_number("speed", 1) - speed) < 0.01)
     end
@@ -753,27 +754,27 @@ local function preload_label()
 end
 
 local function render_settings(parts)
-    local pw=math.min(420,width-48)
-    local ph=384
+    local pw=math.min(340,width-48)
+    local ph=302
     local px,py=width-pw-24,math.max(20,height-ph-110)
     hit(0,0,width,height,function() panel=nil end)
     rounded(parts,px,py,pw,ph,C.background,0x12)
-    label(parts,px+22,py+20,"Playback settings",20)
+    label(parts,px+20,py+18,"Playback settings",16)
     local rows={{key="intro",title="Auto-skip intro"},{key="outro",title="Auto-skip outro"},{key="preview",title="Next episode preview"},{key="preload",title="Preload next episode"}}
     for index,item in ipairs(rows) do
-        local y=py+66+(index-1)*62
+        local y=py+52+(index-1)*50
         local active=skip_options[item.key]
-        if hovered(px+12,y,pw-24,56) then rounded(parts,px+12,y,pw-24,56,C.surface,0x20) end
-        label(parts,px+22,y+16,item.title,17)
+        if hovered(px+12,y,pw-24,46) then rounded(parts,px+12,y,pw-24,46,C.surface,0x20) end
+        label(parts,px+20,y+14,item.title,15)
         rounded(parts,px+pw-78,y+14,52,28,active and C.purple or C.row,0)
         circle(parts,px+pw-78+(active and 38 or 14),y+28,11,C.white)
-        hit(px+12,y,pw-24,56,function()
+        hit(px+12,y,pw-24,46,function()
             skip_options[item.key]=not skip_options[item.key]
             if item.key=="preload" and skip_options.preload then preload_retry_at=0 end
             save_preferences(true)
         end)
     end
-    label(parts,px+22,py+330,preload_label(),16,C.muted)
+    label(parts,px+20,py+274,preload_label(),13,C.muted)
 end
 
 local function render_next_episode(parts,item,remaining)
@@ -1006,7 +1007,7 @@ local function render()
     if skip and not panel and not buffering then
         local y=show_next and height-430 or height-184
         rounded(parts,width-252,y,226,50,C.background,0x50)
-        button(parts,width-252,y,226,50,skip.title .. "  >",function()
+        button(parts,width-252,y,226,50,skip.title,function()
             mp.commandv("seek",skip.time,"absolute+exact")
         end)
     end

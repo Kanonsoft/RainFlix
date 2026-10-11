@@ -46,7 +46,11 @@ function Title({ mediaType, id, onReady, onBackdrop }) {
   )?.id;
   return (
     <TitleDetails
-      feed={feed}
+      feed={
+        mediaType === "tv" && feed.meta && feed.meta.selectedSeason !== season
+          ? { loading: true }
+          : feed
+      }
       onRetry={() => setRevision((value) => value + 1)}
       onBackdrop={onBackdrop}
       requestedVideo={requestedVideo}

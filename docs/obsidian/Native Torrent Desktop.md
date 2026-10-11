@@ -4,6 +4,8 @@ tags: [rainflix, desktop, playback, torrent]
 
 # Native Torrent Desktop
 
+Player subtitle, audio, speed and playback-settings popups use compact unframed layouts. Subtitle settings stays on the subtitle panel's heading row; speed choices use a two-column grid. Shared size, position and delay defaults are configurable from RainFlix Settings with a bundled-image subtitle preview. Remembered per-title appearance choices retain precedence. See [[Settings]].
+
 ## Episode Transition Safety
 
 Native teardown remains registered after the active session is removed. Replacement playback waits for both pending startup and retiring player sessions before creating another embedded mpv surface. This prevents the old surface's WebView2 restoration from covering the new video during Next, automatic EOF, manual episode/source selection, or retry. Cancelling the replacement interrupts that wait; teardown has a bounded wait and failure returns to retry rather than opening a competing surface.
@@ -99,3 +101,5 @@ Verification on 2026-10-05: the embedded-player smoke test uses a local video in
 Run `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-native-player.ps1` to build the developer-only `native-player-smoke` Cargo feature and exercise the embedded surface. This feature requires the prepared mpv resources and existing desktop frontend output. Normal `npm run desktop:build` does not enable it and rebuilds the production executable; use that command after the smoke test before distributing an installer.
 
 `-RenderOnly` exercises native rendering, compact track popups, episode thumbnails/seasons, measured logo fill and closure using IPC, without claiming real mouse-input coverage. Use it when another foreground app prevents the actual-input harness from owning the pointer. Screenshots use local synthetic fixtures, not live torrent peers.
+
+`scripts/verify-subtitle-decoder.lua` checks the bundled mpv decoder against the generated `android/build/compressed-subtitles.mks` regression fixture (run Android's `MatroskaSubtitleTest` first). With a six-second synthetic background and the fixture as `--sub-file`, all three zlib-compressed ASS dialogue lines must appear in `sub-text`. mpv already preserves/decompresses these packets; the Android extractor patch is not needed in the desktop decoder.

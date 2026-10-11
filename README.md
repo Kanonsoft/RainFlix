@@ -58,8 +58,8 @@ trailers exit through Back or Escape without extra fullscreen/close overlays.
 mpv playback with RainFlix controls. Starts maximized; fullscreen is optional.
 
 **Android ARM64:** Tauri 2 with Media3 playback and native torrent transport.
-Includes immersive landscape playback, center and bottom touch controls,
-double-tap seeking, and hardware volume control. Codec support depends on the
+Includes immersive landscape playback, bottom touch controls,
+tap-to-toggle controls, and hardware volume control. Codec support depends on the
 device and is not identical to Windows mpv. Casting is not implemented.
 
 The website Downloads page detects Windows EXE and Android APK assets from the

@@ -6,6 +6,7 @@ const androidPlayerCommands = {
   update_native_player_subtitles: "update_subtitles",
   load_native_subtitle: "load_subtitle",
   update_native_preload_status: "update_preload",
+  update_native_navigation_status: "update_navigation",
 };
 
 export async function invokeNativePlayer(command, args) {

@@ -11,11 +11,14 @@ import app.tauri.plugin.Invoke
 import app.tauri.plugin.JSObject
 import app.tauri.plugin.Plugin
 import org.json.JSONObject
+import java.lang.ref.WeakReference
 
 internal object PlayerBridge {
     var session: JSONObject? = null
     var activity: PlayerActivity? = null
     var emit: ((JSObject) -> Unit)? = null
+    var webView: WeakReference<WebView>? = null
+    var restoreOrientation: (() -> Unit)? = null
     fun event(kind: String, values: JSONObject = JSONObject()) {
         val id = session?.optString("sessionId") ?: return
         values.put("sessionId", id).put("kind", kind)
@@ -26,7 +29,7 @@ internal object PlayerBridge {
 @TauriPlugin
 class NativePlayerPlugin(private val host: Activity) : Plugin(host) {
     private var pendingLink: String? = null
-    override fun load(webView: WebView) { receiveLink(host.intent) }
+    override fun load(webView: WebView) { PlayerBridge.webView = WeakReference(webView); receiveLink(host.intent) }
     override fun onNewIntent(intent: Intent) { receiveLink(intent) }
     private fun receiveLink(intent: Intent) {
         val value = intent.dataString ?: return
@@ -76,6 +79,10 @@ class NativePlayerPlugin(private val host: Activity) : Plugin(host) {
             PlayerBridge.activity?.close(false)
             PlayerBridge.session = args
             PlayerBridge.emit = { trigger("rainflix:native-torrent", it) }
+            val orientation = host.requestedOrientation
+            PlayerBridge.restoreOrientation = { host.requestedOrientation = orientation }
+            // A translucent player must inherit orientation (Android 8 compatibility).
+            host.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
             host.startActivity(Intent(host, PlayerActivity::class.java))
             invoke.resolve()
         }
@@ -87,6 +94,7 @@ class NativePlayerPlugin(private val host: Activity) : Plugin(host) {
     @Command fun updateSubtitles(invoke: Invoke) = update(invoke) { it.updateSubtitles(invoke.getArgs()) }
     @Command fun loadSubtitle(invoke: Invoke) = update(invoke) { it.loadSubtitle(invoke.getArgs()) }
     @Command fun updatePreload(invoke: Invoke) = update(invoke) { it.updatePreload(invoke.getArgs()) }
+    @Command fun updateNavigation(invoke: Invoke) = update(invoke) { it.updateNavigation(invoke.getArgs()) }
     private fun update(invoke: Invoke, action: (PlayerActivity) -> Unit) {
         val args = invoke.getArgs()
         host.runOnUiThread {

@@ -45,6 +45,7 @@ export default function AddonSources({
   revision = 0,
   initialStreams,
   resumePreference,
+  autoPlayAllowed = true,
 }) {
   const provider = useMemo(() => streamProvider(source), [source]);
   const settings = config[source.id] || defaultSettings;
@@ -95,6 +96,10 @@ export default function AddonSources({
     [feed.streams, mode, connection],
   );
   useEffect(() => {
+    if (!autoPlayAllowed) {
+      autoHandled.current = true;
+      return;
+    }
     if (loading || autoHandled.current) return;
     const automatic = resumePreference
       ? preferredStream(streams, resumePreference.quality)
@@ -121,6 +126,7 @@ export default function AddonSources({
     onPlay,
     onReady,
     resumePreference,
+    autoPlayAllowed,
   ]);
 
   if (

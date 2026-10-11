@@ -6,7 +6,7 @@
             android:exported="false"
             android:launchMode="singleTop"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize|uiMode"
-            android:screenOrientation="sensorLandscape"
+            android:screenOrientation="behind"
             android:theme="@style/RainFlixNativePlayerTheme" />
     </application>
 </manifest>

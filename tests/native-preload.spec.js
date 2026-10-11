@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { mockPlayback, openPlayer, selectPlayer } from "./helpers/playback.js";
 
-async function setup({ page, baseURL }, future = false) {
+async function setup({ page, baseURL }, future = false, android = false) {
   await mockPlayback({ page, baseURL });
   if (future)
     await page.route(
@@ -24,15 +24,20 @@ async function setup({ page, baseURL }, future = false) {
   await page.route("**/src/platform/index.js", (route) =>
     route.fulfill({
       contentType: "text/javascript",
-      body: "export const isDesktop=true; export const isAndroid=false; export const isNativeApp=true; export const browserTorrentAvailable=false; export function shareBaseUrl(){return location.origin;}",
+      body: `export const isDesktop=${!android}; export const isAndroid=${android}; export const isNativeApp=true; export const browserTorrentAvailable=false; export function shareBaseUrl(){return location.origin;}`,
     }),
   );
   await page.addInitScript(() => {
     const callbacks = new Map();
     let callbackId = 0;
     let listener;
+    let channel = false;
+    let messageIndex = 0;
     window.nativeCalls = [];
-    window.nativeEmit = (payload) => callbacks.get(listener)?.({ payload });
+    window.nativeEmit = (payload) =>
+      callbacks.get(listener)?.(
+        channel ? { message: payload, index: messageIndex++ } : { payload },
+      );
     window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener() {} };
     window.__TAURI_INTERNALS__ = {
       transformCallback(callback) {
@@ -43,6 +48,12 @@ async function setup({ page, baseURL }, future = false) {
         window.nativeCalls.push({ command, args });
         if (command === "plugin:event|listen") {
           listener = args.handler;
+          return 1;
+        }
+        if (command === "plugin:native-player|register_listener") {
+          listener = args.handler.id;
+          channel = true;
+          messageIndex = 0;
           return 1;
         }
         if (command === "start_native_torrent") {
@@ -114,6 +125,148 @@ async function emit(page, mode, kind = "episode") {
     { mode, kind },
   );
 }
+
+for (const action of ["next", "complete"])
+  test(`Android ${action} advances and previous returns using the same provider`, async ({
+    page,
+    baseURL,
+  }) => {
+    await setup({ page, baseURL }, false, true);
+    await emit(page, "next", action === "complete" ? "complete" : "episode");
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            window.nativeCalls.filter(
+              (call) => call.command === "start_native_torrent",
+            ).length,
+        ),
+      )
+      .toBe(2);
+    await page.evaluate(() => {
+      const current = window.nativeCalls.findLast(
+        (call) => call.command === "start_native_torrent",
+      );
+      window.nativeEmit({
+        sessionId: current.args.sessionId,
+        kind: "episode",
+        mode: "prev",
+        videoId: "tt0505000:1:1",
+      });
+    });
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            window.nativeCalls.filter(
+              (call) => call.command === "start_native_torrent",
+            ).length,
+        ),
+      )
+      .toBe(3);
+    const calls = await page.evaluate(() =>
+      window.nativeCalls.filter(
+        (call) => call.command === "start_native_torrent",
+      ),
+    );
+    expect(calls[1].args).toMatchObject({
+      infoHash: "b".repeat(40),
+      fileIdx: 4,
+    });
+    expect(calls[2].args).toMatchObject({
+      infoHash: "a".repeat(40),
+      fileIdx: 2,
+    });
+  });
+
+test("Android episode drawer resolves streams and a failed Next can be retried", async ({
+  page,
+  baseURL,
+}) => {
+  await setup({ page, baseURL }, false, true);
+  await page.evaluate(() => {
+    const current = window.nativeCalls.findLast(
+      (call) => call.command === "start_native_torrent",
+    );
+    window.nativeEmit({
+      sessionId: current.args.sessionId,
+      kind: "episode",
+      mode: "choose",
+      videoId: "tt0505000:1:2",
+      choiceId: "drawer-test",
+      providerId: "torrentio",
+    });
+  });
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        window.nativeCalls.some(
+          (call) =>
+            call.command === "plugin:native-player|update_streams" &&
+            call.args.requestId === "drawer-test" &&
+            call.args.streams.length === 2,
+        ),
+      ),
+    )
+    .toBe(true);
+  const providerUi = await page.evaluate(
+    () =>
+      window.nativeCalls.find(
+        (call) => call.command === "plugin:native-player|start",
+      )?.args.payload.ui.providers,
+  );
+  expect(providerUi).toEqual(
+    expect.arrayContaining([expect.objectContaining({ id: "torrentio" })]),
+  );
+  await page.route("https://torrentio.strem.fun/**", (route) =>
+    route.fulfill({ json: { streams: [] } }),
+  );
+  await emit(page, "next");
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        window.nativeCalls.some(
+          (call) =>
+            call.command === "plugin:native-player|update_navigation" &&
+            call.args.status === "error",
+        ),
+      ),
+    )
+    .toBe(true);
+  await page.unroute("https://torrentio.strem.fun/**");
+  expect(
+    await page.evaluate(() =>
+      window.nativeCalls
+        .filter((call) => call.command === "start_native_torrent")
+        .map((call) => call.args.infoHash),
+    ),
+  ).toEqual(["a".repeat(40)]);
+  await page.route("https://torrentio.strem.fun/**", (route) =>
+    route.fulfill({
+      json: {
+        streams: [
+          {
+            name: "Torrentio 1080p",
+            title: "Episode 2 WEB-DL x265",
+            infoHash: "b".repeat(40),
+            fileIdx: 4,
+          },
+        ],
+      },
+    }),
+  );
+  await emit(page, "next");
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          window.nativeCalls.filter(
+            (call) => call.command === "start_native_torrent",
+          ).length,
+      ),
+    )
+    .toBe(2);
+});
 
 for (const action of ["next", "complete"]) {
   test(`desktop ${action} without a preload still uses matching provider quality`, async ({

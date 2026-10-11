@@ -23,11 +23,13 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.DefaultLoadControl
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
 import androidx.media3.ui.SubtitleView
 import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.extractor.metadata.id3.ChapterFrame
 import androidx.media3.extractor.metadata.id3.TextInformationFrame
+import androidx.media3.extractor.metadata.Chapter
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -55,18 +57,19 @@ class PlayerActivity : Activity() {
     private var streams = JSONArray()
     private var browsedSeason = 1
     private var chosenVideo = ""
+    private var chosenProvider = ""
     private var requestId = ""
     private var ready = false
     private var closed = false
     private var complete = false
     private var sourceUrl: String? = null
     private var externalSub: MediaItem.SubtitleConfiguration? = null
+    private var selectedExternalId = ""
+    private var subtitleRevision = 0L
     private var savedTracks = JSONObject()
-    private var tracksRestored = false
+    private val restoredTrackTypes = mutableSetOf<Int>()
     private var logoPulse: ObjectAnimator? = null
     private var episodeRevision = 0L
-    private var lastTapAt = 0L
-    private var lastTapSide = 0
     private var seekTotal = 0
     private lateinit var seekFeedback: TextView
     private lateinit var skipButton: TextView
@@ -132,7 +135,9 @@ class PlayerActivity : Activity() {
             hide(WindowInsetsCompat.Type.systemBars())
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
+        val subtitleParsers = DelayedSubtitleParserFactory { (savedTracks.optDouble("delay", 0.0) * 1000000).toLong() }
         player = ExoPlayer.Builder(this, DefaultRenderersFactory(this).setEnableDecoderFallback(true))
+            .setMediaSourceFactory(DefaultMediaSourceFactory(this, RainFlixExtractorsFactory(subtitleParsers)).setSubtitleParserFactory(subtitleParsers))
             .setLoadControl(DefaultLoadControl.Builder().setBufferDurationsMs(15000, 50000, 2500, 5000).build())
             .setSeekBackIncrementMs(10000).setSeekForwardIncrementMs(10000).build()
         player.setAudioAttributes(AudioAttributes.DEFAULT, true)
@@ -175,13 +180,7 @@ class PlayerActivity : Activity() {
                 MotionEvent.ACTION_UP -> {
                     val now = SystemClock.uptimeMillis()
                     if (now - downAt < 300 && kotlin.math.abs(event.x - downX) < dp(24) && kotlin.math.abs(event.y - downY) < dp(24)) {
-                        val side = if (event.x < touch.width * .35f) -1 else if (event.x > touch.width * .65f) 1 else 0
-                        if (side != 0 && side == lastTapSide && now - lastTapAt < 700) seekBy(side * 5000L)
-                        else {
-                            seekTotal = 0
-                            if (surface.isControllerFullyVisible) surface.hideController() else surface.showController()
-                        }
-                        lastTapAt = now; lastTapSide = side
+                        if (surface.isControllerFullyVisible) surface.hideController() else surface.showController()
                         touch.performClick()
                     }
                 }
@@ -217,8 +216,7 @@ class PlayerActivity : Activity() {
         surface.findViewById<View>(com.rainflix.nativeplayer.R.id.rainflix_speed).setOnClickListener { speedMenu() }
         surface.findViewById<View>(com.rainflix.nativeplayer.R.id.rainflix_audio).setOnClickListener { tracksMenu(C.TRACK_TYPE_AUDIO) }
         surface.findViewById<View>(com.rainflix.nativeplayer.R.id.rainflix_subtitles).setOnClickListener { tracksMenu(C.TRACK_TYPE_TEXT) }
-        surface.findViewById<View>(com.rainflix.nativeplayer.R.id.rainflix_rewind).setOnClickListener { seekBy(-5000) }
-        surface.findViewById<View>(com.rainflix.nativeplayer.R.id.rainflix_forward).setOnClickListener { seekBy(5000) }
+        surface.findViewById<View>(com.rainflix.nativeplayer.R.id.rainflix_settings).setOnClickListener { playbackSettings() }
         surface.findViewById<View>(com.rainflix.nativeplayer.R.id.rainflix_bottom_rewind).setOnClickListener { seekBy(-5000) }
         surface.findViewById<View>(com.rainflix.nativeplayer.R.id.rainflix_bottom_forward).setOnClickListener { seekBy(5000) }
         val bottomPlay = surface.findViewById<ImageButton>(com.rainflix.nativeplayer.R.id.rainflix_bottom_play_pause)
@@ -236,6 +234,7 @@ class PlayerActivity : Activity() {
         nextCard = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(8), dp(8), dp(8), dp(8))
             background = background(0xdd151b24.toInt()); visibility = View.GONE; setOnClickListener { adjacent(true) }
+            isFocusable = true; contentDescription = "Play next episode"
         }
         nextImage = ImageView(this).apply { scaleType = ImageView.ScaleType.CENTER_CROP }
         nextLabel = text("Up next", 16f)
@@ -255,24 +254,22 @@ class PlayerActivity : Activity() {
                     if (logoPulse?.isStarted != true) logoPulse?.start()
                     if (ready) backdrop?.visibility = View.GONE
                 } else if (state == Player.STATE_READY) {
-                    if (ready) { loading.visibility = View.GONE; logoPulse?.cancel() }
+                    updateReadyOverlay()
                 } else if (state == Player.STATE_ENDED && !complete) {
                     complete = true
-                    PlayerBridge.event("complete")
+                    PlayerBridge.event("complete", JSONObject().put("nextVideoId", nextEpisode()?.optString("id"))
+                        .put("position", player.currentPosition / 1000.0).put("duration", player.duration / 1000.0))
                 }
             }
-            override fun onRenderedFirstFrame() { ready = true; loading.visibility = View.GONE; logoPulse?.cancel() }
+            override fun onRenderedFirstFrame() { ready = true; updateReadyOverlay() }
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 bottomPlay.setImageResource(if (isPlaying) androidx.media3.ui.R.drawable.exo_icon_pause else androidx.media3.ui.R.drawable.exo_icon_play)
                 bottomPlay.contentDescription = if (isPlaying) "Pause" else "Play"
                 if (isPlaying) {
-                    if (ready) { loading.visibility = View.GONE; logoPulse?.cancel() }
+                    updateReadyOverlay()
                     PlayerBridge.event("playing")
                 } else if (ready && player.playbackState == Player.STATE_READY && !complete) {
-                    backdrop?.visibility = View.GONE
-                    progress.visibility = View.GONE
-                    logo.imageAlpha = 255; logo.alpha = 1f
-                    loading.visibility = View.VISIBLE
+                    updateReadyOverlay()
                     surface.showController()
                 }
             }
@@ -280,29 +277,64 @@ class PlayerActivity : Activity() {
                 PlayerBridge.event("error", JSONObject().put("message", "This source could not play: ${error.errorCodeName}"))
                 close(false)
             }
-            override fun onTracksChanged(tracks: Tracks) { restoreTracks(tracks) }
+            override fun onTracksChanged(tracks: Tracks) {
+                for (group in tracks.groups) for (index in 0 until group.length) group.getTrackFormat(index).metadata?.let { collectChapters(it) }
+                restoreTracks(tracks)
+            }
             override fun onMetadata(metadata: Metadata) {
-                for (index in 0 until metadata.length()) {
-                    val frame = metadata[index] as? ChapterFrame ?: continue
-                    var name = frame.chapterId
-                    for (sub in 0 until frame.subFrameCount) {
-                        val text = frame.getSubFrame(sub) as? TextInformationFrame
-                        if (text?.id == "TIT2") name = text.values.firstOrNull() ?: name
-                    }
-                    if (frame.endTimeMs > frame.startTimeMs) chapters.add(Triple(name, frame.startTimeMs.toLong(), frame.endTimeMs.toLong()))
-                }
+                collectChapters(metadata)
             }
         })
         PlayerBridge.event("opened")
         handler.post(pulse)
         session.optString("url").takeIf { it.isNotBlank() }?.let { setSource(session) }
     }
+    private fun updateReadyOverlay() {
+        if (!ready || player.playbackState != Player.STATE_READY) return
+        logoPulse?.cancel()
+        if (player.playWhenReady) {
+            loading.visibility = View.GONE
+        } else {
+            backdrop?.visibility = View.GONE
+            progress.visibility = View.GONE
+            logo.imageAlpha = 255; logo.alpha = 1f
+            loading.visibility = View.VISIBLE
+        }
+    }
     private fun nextEpisode(): JSONObject? {
         return adjacentEpisode(true)
     }
+    private fun collectChapters(metadata: Metadata) {
+        val offset = if (player.currentTimeline.isEmpty) 0L else player.currentTimeline.getWindow(player.currentMediaItemIndex, Timeline.Window()).positionInFirstPeriodUs / 1000
+        for (index in 0 until metadata.length()) {
+            val entry = metadata[index]
+            val chapter = when (entry) {
+                is Chapter -> {
+                    if (entry.isHidden || entry.startTimeMs == C.TIME_UNSET) continue
+                    Triple(entry.title?.value ?: "", entry.startTimeMs - offset, if (entry.endTimeMs == C.TIME_UNSET) C.TIME_UNSET else entry.endTimeMs - offset)
+                }
+                is ChapterFrame -> {
+                    var name = entry.chapterId
+                    for (sub in 0 until entry.subFrameCount) {
+                        val text = entry.getSubFrame(sub) as? TextInformationFrame
+                        if (text?.id == "TIT2") name = text.values.firstOrNull() ?: name
+                    }
+                    Triple(name, entry.startTimeMs.toLong(), entry.endTimeMs.toLong())
+                }
+                else -> continue
+            }
+            if (chapter.second < 0) continue
+            chapters.removeAll { it.first == chapter.first && it.second == chapter.second }
+            chapters.add(chapter)
+        }
+        chapters.sortBy { it.second }
+    }
     private fun currentSegment(): Triple<String, Long, Long>? {
         val position = player.currentPosition
-        return chapters.firstOrNull { position >= it.second && position < it.third && Regex("(?i)\\b(intro|opening|op\\d*|outro|ending|credits|ed\\d*)\\b").containsMatchIn(it.first) }
+        return chapters.mapIndexed { index, chapter ->
+            val end = if (chapter.third > chapter.second) chapter.third else chapters.getOrNull(index + 1)?.second ?: player.duration
+            Triple(chapter.first, chapter.second, end)
+        }.firstOrNull { position >= it.second && position < it.third && Regex("(?i)\\b(intro|opening|op\\d*|outro|ending|end|credits|ed\\d*)\\b").containsMatchIn(it.first) }
     }
     private fun skipCurrentSegment() {
         val segment = currentSegment() ?: return
@@ -312,7 +344,7 @@ class PlayerActivity : Activity() {
     private fun updatePlaybackActions() {
         if (!::nextCard.isInitialized) return
         val segment = if (ready) currentSegment() else null
-        val ending = segment?.first?.let { Regex("(?i)\\b(outro|ending|credits|ed\\d*)\\b").containsMatchIn(it) } == true
+        val ending = segment?.first?.let { Regex("(?i)\\b(outro|ending|end|credits|ed\\d*)\\b").containsMatchIn(it) } == true
         skipButton.visibility = if (segment != null && !nextCard.isShown) View.VISIBLE else View.GONE
         skipButton.text = if (ending) "Skip ending" else "Skip intro"
         if (player.isPlaying && segment != null && ((ending && savedTracks.optBoolean("skipOutro")) || (!ending && !introSkipped && savedTracks.optBoolean("skipIntro")))) skipCurrentSegment()
@@ -326,7 +358,8 @@ class PlayerActivity : Activity() {
         if (showNext && next != null) {
             val id = next.optString("id")
             if (previewVideo != id) { previewVideo = id; nextImage.setImageDrawable(null); next.optString("imageUrl").takeIf { it.startsWith("https://") }?.let { loadImage(it, nextImage) } }
-            nextLabel.text = "Up next · S${next.optInt("season")} E${next.optInt("episode")}\n${next.optString("title")}\n$preloadStatus"
+            val remaining = ((player.duration - player.currentPosition).coerceAtLeast(0) / 1000)
+            nextLabel.text = "Up next · S${next.optInt("season")} E${next.optInt("episode")}\n${next.optString("title")}\n${String.format(Locale.ENGLISH, "%02d:%02d", remaining / 60, remaining % 60)} remaining"
         }
     }
     fun updatePreload(args: JSONObject) {
@@ -358,8 +391,9 @@ class PlayerActivity : Activity() {
         chapters.clear()
         introSkipped = false
         skipButton.visibility = View.GONE
-        lastTapAt = 0L
-        lastTapSide = 0
+        restoredTrackTypes.clear()
+        subtitleRevision++
+        if (sourceUrl != null && sourceUrl != url) { externalSub = null; selectedExternalId = "" }
         sourceUrl = url
         val item = MediaItem.Builder().setUri(url)
         externalSub?.let { item.setSubtitleConfigurations(listOf(it)) }
@@ -383,27 +417,49 @@ class PlayerActivity : Activity() {
                 MimeTypes.AUDIO_AAC -> "AAC"
                 MimeTypes.AUDIO_FLAC -> "FLAC"
                 MimeTypes.AUDIO_OPUS -> "Opus"
+                MimeTypes.APPLICATION_MEDIA3_CUES -> "Embedded"
                 else -> it.substringAfterLast('/').uppercase(Locale.ROOT)
             }
         }).distinct().joinToString(" · ")
     private fun restoreTracks(tracks: Tracks) {
-        if (tracksRestored || tracks.groups.isEmpty()) return
-        tracksRestored = true
+        if (tracks.groups.isEmpty()) return
         val builder = player.trackSelectionParameters.buildUpon()
         for ((key, type) in listOf("sub" to C.TRACK_TYPE_TEXT, "audio" to C.TRACK_TYPE_AUDIO)) {
+            if (type in restoredTrackTypes) continue
             val saved = savedTracks.optJSONObject(key) ?: continue
-            if (saved.optBoolean("off")) { builder.setTrackTypeDisabled(type, true); continue }
-            val match = tracks.groups.filter { it.type == type }.flatMap { group ->
-                (0 until group.length).map { group to it }
-            }.firstOrNull { (group, index) ->
-                val format = group.getTrackFormat(index)
-                (!saved.optString("label").isBlank() && format.label == saved.optString("label")) ||
-                    (!saved.optString("lang").isBlank() && language(format.language) == language(saved.optString("lang")))
+            if (saved.optBoolean("off")) { builder.setTrackTypeDisabled(type, true); restoredTrackTypes.add(type); continue }
+            val available = tracks.groups.filter { it.type == type }.flatMap { group ->
+                (0 until group.length).filter { group.isTrackSupported(it) }.map { group to it }
             }
-            if (match != null) builder.setOverrideForType(TrackSelectionOverride(match.first.mediaTrackGroup, match.second))
+            if (available.isEmpty()) continue
+            val match = available.firstOrNull { (group, index) ->
+                !saved.optString("label").isBlank() && group.getTrackFormat(index).label == saved.optString("label")
+            } ?: available.firstOrNull { (group, index) ->
+                val format = group.getTrackFormat(index)
+                !saved.optString("lang").isBlank() && language(format.language) == language(saved.optString("lang"))
+            }
+            builder.setTrackTypeDisabled(type, false).clearOverridesOfType(type)
+            if (match != null) {
+                builder.setOverrideForType(TrackSelectionOverride(match.first.mediaTrackGroup, match.second))
+                restoredTrackTypes.add(type)
+            } else if (type == C.TRACK_TYPE_TEXT) {
+                builder.setPreferredTextLanguage(saved.optString("lang").takeIf { it.isNotBlank() })
+            }
         }
         savedTracks.optDouble("speed", 1.0).toFloat().takeIf { it in .25f..3f }?.let { player.setPlaybackSpeed(it) }
         player.trackSelectionParameters = builder.build()
+    }
+    private fun trackChoice(label: String, selected: Boolean, action: () -> Unit): View {
+        return LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(4), 0, dp(12), 0)
+            background = background(if (selected) 0xff163f50.toInt() else 0x221b232b)
+            isFocusable = true; contentDescription = if (selected) "$label, selected" else label
+            addView(text(label, 14f).apply { minHeight = dp(48); setPadding(dp(8), dp(6), dp(8), dp(6)) }, LinearLayout.LayoutParams(0, -2, 1f))
+            if (selected) addView(View(this@PlayerActivity).apply { background = background(0xff38bdf8.toInt(), 4) }, LinearLayout.LayoutParams(dp(8), dp(8)))
+            setOnClickListener { action() }
+            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(4) }
+        }
     }
     private fun tracksMenu(type: Int) {
         val choices = player.currentTracks.groups.filter { it.type == type }.flatMap { group ->
@@ -412,43 +468,59 @@ class PlayerActivity : Activity() {
         val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         val scroll = ScrollView(this).apply { addView(content) }
         val container = FrameLayout(this).apply {
-            addView(scroll, FrameLayout.LayoutParams(-1, minOf(dp(240), resources.displayMetrics.heightPixels - dp(170))))
+            addView(scroll, FrameLayout.LayoutParams(-1, -2))
         }
-        val dialog = AlertDialog.Builder(this).setTitle(if (type == C.TRACK_TYPE_TEXT) "Subtitles" else "Audio tracks")
-            .setView(container).create()
+        val heading = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL; setPadding(dp(8), 0, dp(8), 0) }
+        heading.addView(text(if (type == C.TRACK_TYPE_TEXT) "Subtitles" else "Audio tracks", 16f), LinearLayout.LayoutParams(0, dp(48), 1f))
+        val dialog = AlertDialog.Builder(this).setCustomTitle(heading).setView(container).create()
+        if (type == C.TRACK_TYPE_TEXT) heading.addView(text("Subtitle settings", 13f).apply {
+            gravity = Gravity.CENTER; minHeight = dp(48); isFocusable = true; setTextColor(0xff38bdf8.toInt())
+            setPadding(dp(6), dp(8), dp(6), dp(8))
+            setOnClickListener { dialog.dismiss(); subtitleSettings() }
+        })
+        fun fitRows() {
+            scroll.layoutParams = FrameLayout.LayoutParams(-1, minOf(dp(180), resources.displayMetrics.heightPixels - dp(150), dp(content.childCount * 60)))
+        }
         val embedded = choices.groupBy { language(it.first.getTrackFormat(it.second).language) }
         val addon = if (type == C.TRACK_TYPE_TEXT) arrayItems(subtitles).groupBy { language(it.optString("lang")) } else emptyMap()
         val languages = (embedded.keys + addon.keys).sorted()
         lateinit var showLanguages: () -> Unit
         fun showVariants(lang: String) {
             content.removeAllViews()
+            scroll.scrollTo(0, 0)
             content.addView(button("Back to languages") { showLanguages() })
             content.addView(text(lang, 18f).apply { setTextColor(0xff38bdf8.toInt()) })
             for ((group, index) in embedded[lang].orEmpty()) {
                 val format = group.getTrackFormat(index)
-                content.addView(button((if (group.isTrackSelected(index)) "Selected · " else "") + trackLabel(format)) {
+                content.addView(trackChoice(trackLabel(format), group.isTrackSelected(index)) {
+                        if (type == C.TRACK_TYPE_TEXT) { subtitleRevision++; selectedExternalId = "" }
                         player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
-                            .setTrackTypeDisabled(type, false).setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, index)).build()
+                            .setTrackTypeDisabled(type, false).clearOverridesOfType(type).setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, index)).build()
+                        restoredTrackTypes.add(type)
                         savedTracks.put(if (type == C.TRACK_TYPE_TEXT) "sub" else "audio", JSONObject()
                             .put("lang", format.language ?: "und").put("label", format.label ?: "").put("title", format.label ?: "").put("off", false))
                         preferences(); dialog.dismiss()
                 })
             }
-            for (sub in addon[lang].orEmpty()) content.addView(button(sub.optString("label", "Add-on subtitle")) {
+            for (sub in addon[lang].orEmpty()) content.addView(trackChoice(sub.optString("label", "Add-on subtitle") + "\nExternal", selectedExternalId == sub.optString("id") && choices.any { it.first.isTrackSelected(it.second) && it.first.getTrackFormat(it.second).label == externalSub?.label }) {
                 PlayerBridge.event("subtitle", JSONObject().put("subtitleId", sub.optString("id"))); dialog.dismiss()
             })
+            fitRows()
         }
         showLanguages = {
             content.removeAllViews()
+            scroll.scrollTo(0, 0)
             if (type == C.TRACK_TYPE_TEXT) {
-                content.addView(button("Off") {
-                    player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().setTrackTypeDisabled(type, true).build()
+                content.addView(trackChoice("Off", choices.none { it.first.isTrackSelected(it.second) }) {
+                    subtitleRevision++; selectedExternalId = ""
+                    player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().clearOverridesOfType(type).setTrackTypeDisabled(type, true).build()
+                    restoredTrackTypes.add(type)
                     savedTracks.put("sub", JSONObject().put("off", true)); preferences(); dialog.dismiss()
                 })
-                content.addView(button("Subtitle appearance") { dialog.dismiss(); subtitleSettings() })
             }
-            for (lang in languages) content.addView(button(lang) { showVariants(lang) })
+            for (lang in languages) content.addView(trackChoice("$lang\n${embedded[lang].orEmpty().size + addon[lang].orEmpty().size} tracks", embedded[lang].orEmpty().any { it.first.isTrackSelected(it.second) }) { showVariants(lang) })
             if (languages.isEmpty()) content.addView(text("No tracks available"))
+            fitRows()
         }
         showLanguages()
         showDialog(dialog)
@@ -473,12 +545,14 @@ class PlayerActivity : Activity() {
             fun change(delta: Float) {
                 val changed = (savedTracks.optDouble(key, default.toDouble()).toFloat() + delta).coerceIn(min, max)
                 savedTracks.put(key, changed); value.text = display(changed); applySubtitleStyle(); preferences()
+                if (key == "delay") reloadSource()
             }
             row.addView(button("-") { change(-step) }, LinearLayout.LayoutParams(dp(48), dp(48)))
             row.addView(value, LinearLayout.LayoutParams(0, dp(48), 1f))
             row.addView(button("+") { change(step) }, LinearLayout.LayoutParams(dp(48), dp(48)))
             content.addView(row)
         }
+        setting("Delay", "delay", 0f, -10f, 10f, .1f) { String.format(Locale.ENGLISH, "%+.2f s", it) }
         setting("Size", "scale", 1f, .5f, 2.5f, .1f) { "${(it * 100).toInt()}%" }
         setting("Raise subtitles", "position", 92f, 50f, 100f, -2f) { "${(100 - it).toInt()}%" }
         for ((key, label, default) in listOf(Triple("subtitleBackground", "Subtitle background", false), Triple("embeddedStyles", "Use embedded styling", true))) {
@@ -490,31 +564,70 @@ class PlayerActivity : Activity() {
         }
         val scroll = ScrollView(this).apply { addView(content) }
         val container = FrameLayout(this).apply {
-            addView(scroll, FrameLayout.LayoutParams(-1, minOf(dp(240), resources.displayMetrics.heightPixels - dp(170))))
+            addView(scroll, FrameLayout.LayoutParams(-1, minOf(dp(210), resources.displayMetrics.heightPixels - dp(150))))
         }
-        showDialog(AlertDialog.Builder(this).setTitle("Subtitle appearance").setView(container).create())
+        showDialog(AlertDialog.Builder(this).setCustomTitle(text("Subtitle settings", 16f)).setView(container).create())
+    }
+    private fun playbackSettings() {
+        val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(8), dp(16), dp(8)) }
+        for ((key, label, default) in listOf(
+            Triple("skipIntro", "Auto-skip intro", false), Triple("skipOutro", "Auto-skip outro", false),
+            Triple("nextPreview", "Next episode preview", true), Triple("preloadNext", "Preload next episode", true))) {
+            content.addView(Switch(this).apply {
+                text = label; textSize = 14f; setTextColor(Color.WHITE); minHeight = dp(48)
+                thumbTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
+                trackTintList = android.content.res.ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()), intArrayOf(0xff38bdf8.toInt(), 0xff343b43.toInt()))
+                isChecked = savedTracks.optBoolean(key, default)
+                setOnCheckedChangeListener { _, checked ->
+                    savedTracks.put(key, checked); preferences()
+                    if (key == "preloadNext" && !checked) {
+                        PlayerBridge.event("episode", JSONObject().put("mode", "cancel-preload"))
+                        preloadVideo = ""; preloadStatus = ""
+                    }
+                    updatePlaybackActions()
+                }
+            })
+        }
+        showDialog(AlertDialog.Builder(this).setCustomTitle(text("Playback settings", 16f)).setView(content).create())
+    }
+    private fun reloadSource() {
+        val play = player.playWhenReady
+        val position = player.currentPosition / 1000.0
+        sourceUrl?.let { setSource(JSONObject().put("url", it).put("startAt", position)); player.playWhenReady = play }
     }
     private fun preferences() { PlayerBridge.event("preferences", JSONObject().put("tracks", savedTracks)) }
     private fun speedMenu() {
         val speeds = floatArrayOf(.5f, .75f, 1f, 1.25f, 1.5f, 2f)
-        showDialog(AlertDialog.Builder(this).setTitle("Playback speed").setSingleChoiceItems(
-            speeds.map { "${it}×" }.toTypedArray(), speeds.toList().indexOf(player.playbackParameters.speed)) { dialog, index ->
-            player.setPlaybackSpeed(speeds[index]); savedTracks.put("speed", speeds[index]); preferences(); dialog.dismiss()
-        }.create())
+        val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(8), 0, dp(8), dp(8)) }
+        val dialog = AlertDialog.Builder(this).setCustomTitle(text("Playback speed", 16f)).setView(content).create()
+        for (pair in speeds.toList().chunked(2)) {
+            val row = LinearLayout(this)
+            for (speed in pair) row.addView(trackChoice("${speed}x", kotlin.math.abs(speed - player.playbackParameters.speed) < .01f) {
+                player.setPlaybackSpeed(speed); savedTracks.put("speed", speed); preferences(); dialog.dismiss()
+            }, LinearLayout.LayoutParams(0, -2, 1f).apply { setMargins(dp(2), dp(2), dp(2), dp(2)) })
+            content.addView(row)
+        }
+        showDialog(dialog, 260)
     }
-    private fun showDialog(dialog: AlertDialog) {
+    private fun showDialog(dialog: AlertDialog, width: Int = 330) {
         dialog.show()
         dialog.setCanceledOnTouchOutside(true)
         dialog.window?.apply {
             setBackgroundDrawable(background(0xff11151c.toInt()))
             setDimAmount(.25f)
-            setLayout(minOf(dp(560), resources.displayMetrics.widthPixels - dp(40)), -2)
+            setLayout(minOf(dp(width), resources.displayMetrics.widthPixels - dp(32)), -2)
             setGravity(Gravity.END or Gravity.BOTTOM)
-            attributes = attributes.apply { x = dp(18); y = dp(100) }
+            attributes = attributes.apply { x = dp(14); y = dp(92) }
         }
     }
     private fun arrayItems(array: JSONArray) = (0 until array.length()).mapNotNull { array.optJSONObject(it) }
-    private fun orderedEpisodes() = arrayItems(episodes).sortedWith(compareBy({ it.optInt("season") }, { it.optInt("episode") }))
+    private fun orderedEpisodes(): List<JSONObject> {
+        val today = java.text.SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).format(java.util.Date())
+        return arrayItems(episodes).filter {
+            val date = it.optString("date").take(10)
+            !Regex("\\d{4}-\\d{2}-\\d{2}").matches(date) || date <= today
+        }.sortedWith(compareBy({ it.optInt("season") }, { it.optInt("episode") }))
+    }
     private fun adjacentEpisode(next: Boolean): JSONObject? {
         val ordered = orderedEpisodes()
         val index = ordered.indexOfFirst { it.optString("id") == ui.optString("currentVideoId") }
@@ -530,6 +643,38 @@ class PlayerActivity : Activity() {
         val entry = adjacentEpisode(next) ?: return
         PlayerBridge.event("episode", JSONObject().put("mode", if (next) "next" else "prev").put("videoId", entry.optString("id")))
     }
+    fun updateNavigation(args: JSONObject) {
+        if (args.optString("status") != "error") return
+        Toast.makeText(this, args.optString("message", "Could not open this episode. Try again."), Toast.LENGTH_LONG).show()
+        val entry = arrayItems(episodes).firstOrNull { it.optString("id") == args.optString("videoId") }
+        if (entry != null) chooseEpisode(entry.optString("id"))
+    }
+    private fun chooseEpisode(id: String) {
+        chosenVideo = id; chosenProvider = ""; requestId = ""
+        val providers = arrayItems(ui.optJSONArray("providers") ?: JSONArray())
+        if (providers.isEmpty()) { requestStreams(); return }
+        val panel = drawerBase("Streams")
+        val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        panel.addView(ScrollView(this).apply { addView(list) }, LinearLayout.LayoutParams(-1, 0, 1f))
+        for (provider in providers) {
+            val row = LinearLayout(this).apply {
+                gravity = Gravity.CENTER_VERTICAL; minimumHeight = dp(76); setPadding(dp(8), dp(12), dp(8), dp(12))
+                isFocusable = true
+                setOnClickListener { requestStreams(provider.optString("id"), provider.optString("label", "Streams")) }
+            }
+            val image = ImageView(this).apply { scaleType = ImageView.ScaleType.FIT_CENTER; setImageResource(R.drawable.rainflix_r) }
+            row.addView(image, LinearLayout.LayoutParams(dp(44), dp(44)))
+            provider.optString("logo").takeIf { it.isNotBlank() }?.let { loadImage(it, image) }
+            row.addView(text(provider.optString("label", "Streams"), 18f), LinearLayout.LayoutParams(0, -2, 1f))
+            list.addView(row); divider(list)
+        }
+    }
+    private fun requestStreams(provider: String = "", label: String = "Streams") {
+        chosenProvider = provider; requestId = java.util.UUID.randomUUID().toString()
+        streams = JSONArray()
+        drawerBase(label).addView(text("Finding available streams..."))
+        PlayerBridge.event("episode", JSONObject().put("mode", "choose").put("videoId", chosenVideo).put("choiceId", requestId).put("providerId", provider))
+    }
     private fun drawerBase(heading: String): LinearLayout {
         drawer?.let { root.removeView(it) }
         if (drawerShade == null) {
@@ -543,6 +688,7 @@ class PlayerActivity : Activity() {
         val header = LinearLayout(this)
         header.addView(button("‹") {
             if (heading == "Episodes") dismissDrawer()
+            else if (chosenProvider.isNotEmpty()) chooseEpisode(chosenVideo)
             else if (heading == "Streams") episodeDrawer()
             else updateStreams(JSONObject().put("requestId", requestId).put("videoId", chosenVideo).put("streams", streams))
         })
@@ -555,10 +701,10 @@ class PlayerActivity : Activity() {
     private fun dismissDrawer() {
         drawer?.let { root.removeView(it) }; drawer = null
         drawerShade?.let { root.removeView(it) }; drawerShade = null
-        chosenVideo = ""
+        chosenVideo = ""; chosenProvider = ""; requestId = ""
     }
     private fun episodeDrawer() {
-        chosenVideo = ""
+        chosenVideo = ""; chosenProvider = ""; requestId = ""
         val panel = drawerBase("Episodes")
         val seasons = (arrayItems(ui.optJSONArray("seasons") ?: JSONArray()).map { it.optInt("season", it.optInt("season_number")) } +
             arrayItems(episodes).map { it.optInt("season") }).distinct().sorted()
@@ -595,9 +741,7 @@ class PlayerActivity : Activity() {
             if (ep.optString("id") == ui.optString("currentVideoId")) row.background = background(0x5538bdf8)
             row.isFocusable = true
             row.setOnClickListener {
-                chosenVideo = ep.optString("id"); requestId = java.util.UUID.randomUUID().toString()
-                drawerBase("Streams").addView(text("Finding available streams..."))
-                PlayerBridge.event("episode", JSONObject().put("mode", "choose").put("videoId", chosenVideo).put("choiceId", requestId))
+                chooseEpisode(ep.optString("id"))
             }
             list.addView(row)
             if (ep.optString("id") == ui.optString("currentVideoId")) scroll.post { scroll.smoothScrollTo(0, row.top) }
@@ -620,6 +764,11 @@ class PlayerActivity : Activity() {
         if (args.optString("requestId") != requestId || args.optString("videoId") != chosenVideo) return
         streams = args.optJSONArray("streams") ?: JSONArray()
         if (streams.length() == 1) { selectStream(streams.getJSONObject(0)); return }
+        if (chosenProvider.isNotEmpty()) {
+            val label = arrayItems(ui.optJSONArray("providers") ?: JSONArray()).firstOrNull { it.optString("id") == chosenProvider }?.optString("label") ?: "Streams"
+            showSources(arrayItems(streams), label)
+            return
+        }
         val panel = drawerBase("Streams")
         val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         panel.addView(ScrollView(this).apply { addView(list) }, LinearLayout.LayoutParams(-1, 0, 1f))
@@ -638,7 +787,17 @@ class PlayerActivity : Activity() {
             description.addView(text("${entries.size} sources", 13f).apply { setPadding(dp(12), 0, dp(12), 0); setTextColor(0xff94a3b8.toInt()) })
             row.addView(description, LinearLayout.LayoutParams(0, -2, 1f))
             row.setOnClickListener {
-            val sources = drawerBase(entries[0].optString("providerLabel", "Streams"))
+                showSources(entries, entries[0].optString("providerLabel", "Streams"))
+            }
+            list.addView(row); divider(list)
+        }
+        if (streams.length() == 0) {
+            list.addView(text("No streams available"))
+            list.addView(button("Retry") { chooseEpisode(chosenVideo) })
+        }
+    }
+    private fun showSources(entries: List<JSONObject>, label: String) {
+            val sources = drawerBase(label)
             val sourceList = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
             sources.addView(ScrollView(this).apply { addView(sourceList) }, LinearLayout.LayoutParams(-1, 0, 1f))
             for (source in entries) {
@@ -657,10 +816,10 @@ class PlayerActivity : Activity() {
                 }
                 sourceList.addView(sourceRow); divider(sourceList)
             }
+            if (entries.isEmpty()) {
+                sourceList.addView(text("No streams available"))
+                sourceList.addView(button("Retry") { requestStreams(chosenProvider, label) })
             }
-            list.addView(row); divider(list)
-        }
-        if (streams.length() == 0) list.addView(text("No streams available"))
     }
     private fun divider(list: LinearLayout) {
         list.addView(View(this).apply { setBackgroundColor(0x25ffffff) }, LinearLayout.LayoutParams(-1, dp(1)).apply { leftMargin = dp(12); rightMargin = dp(12) })
@@ -672,15 +831,32 @@ class PlayerActivity : Activity() {
     fun loadSubtitle(args: JSONObject) {
         val url = args.optString("url")
         if (!url.startsWith("https://") && !url.startsWith("http://")) return
-        val mime = when { url.substringBefore('?').endsWith(".srt") -> MimeTypes.APPLICATION_SUBRIP
-            url.substringBefore('?').endsWith(".ass") || url.substringBefore('?').endsWith(".ssa") -> MimeTypes.TEXT_SSA
-            else -> MimeTypes.TEXT_VTT }
-        externalSub = MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(url))
-            .setMimeType(mime).setLanguage(args.optString("lang", "und")).setLabel(args.optString("label"))
-            .setSelectionFlags(C.SELECTION_FLAG_DEFAULT).build()
-        val position = player.currentPosition / 1000.0
-        savedTracks.put("sub", JSONObject().put("lang", args.optString("lang")).put("label", args.optString("label")).put("title", args.optString("label")).put("off", false))
-        preferences(); sourceUrl?.let { setSource(JSONObject().put("url", it).put("startAt", position)) }
+        val generation = ++subtitleRevision
+        images.execute {
+            var connection: HttpURLConnection? = null
+            val mime = try {
+                connection = URL(url).openConnection() as HttpURLConnection
+                connection.connectTimeout = 10000; connection.readTimeout = 10000
+                val bytes = connection.inputStream.use { input ->
+                    val buffer = ByteArray(4096)
+                    var count = 0
+                    while (count < buffer.size) { val read = input.read(buffer, count, buffer.size - count); if (read < 0) break; count += read }
+                    buffer.copyOf(count)
+                }
+                SubtitleContent.mimeType(bytes)
+            } catch (_: Exception) { null } finally { connection?.disconnect() }
+            handler.post {
+                if (closed || generation != subtitleRevision) return@post
+                if (mime == null) { Toast.makeText(this, "This subtitle could not be loaded", Toast.LENGTH_SHORT).show(); return@post }
+                externalSub = MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(url))
+                    .setId("rainflix-sub:${args.optString("id")}")
+                    .setMimeType(mime).setLanguage(args.optString("lang", "und")).setLabel(args.optString("label"))
+                    .setSelectionFlags(C.SELECTION_FLAG_DEFAULT).build()
+                selectedExternalId = args.optString("id")
+                savedTracks.put("sub", JSONObject().put("lang", args.optString("lang")).put("label", args.optString("label")).put("title", args.optString("label")).put("off", false))
+                preferences(); reloadSource()
+            }
+        }
     }
     private fun loadImage(url: String, view: ImageView, fallback: String? = null) {
         imageCache.get(url)?.let { view.setImageBitmap(it); return }
@@ -712,11 +888,17 @@ class PlayerActivity : Activity() {
     }
     override fun onPause() {
         super.onPause()
+        PlayerBridge.webView?.get()?.onPause()
         if (!closed && ::player.isInitialized) {
             player.pause()
             PlayerBridge.event("episode", JSONObject().put("mode", "cancel-preload"))
             preloadVideo = ""
         }
+    }
+    override fun onResume() {
+        super.onResume()
+        // Keep the catalog bridge active only while RainFlix's own player is foreground.
+        PlayerBridge.webView?.get()?.onResume()
     }
     fun close(notify: Boolean) {
         if (closed) return
@@ -724,6 +906,7 @@ class PlayerActivity : Activity() {
         closed = true; logoPulse?.cancel(); handler.removeCallbacksAndMessages(null); images.shutdownNow()
         if (::player.isInitialized) { surface.player = null; player.release() }
         if (PlayerBridge.activity === this) PlayerBridge.activity = null
+        PlayerBridge.restoreOrientation?.invoke(); PlayerBridge.restoreOrientation = null
         finish()
     }
     override fun onDestroy() { close(!complete); super.onDestroy() }

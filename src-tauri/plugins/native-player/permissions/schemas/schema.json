@@ -403,6 +403,18 @@
           "markdownDescription": "Denies the update_episodes command without any pre-configured scope."
         },
         {
+          "description": "Enables the update_navigation command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-update-navigation",
+          "markdownDescription": "Enables the update_navigation command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the update_navigation command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-update-navigation",
+          "markdownDescription": "Denies the update_navigation command without any pre-configured scope."
+        },
+        {
           "description": "Enables the update_preload command without any pre-configured scope.",
           "type": "string",
           "const": "allow-update-preload",
@@ -439,10 +451,10 @@
           "markdownDescription": "Denies the update_subtitles command without any pre-configured scope."
         },
         {
-          "description": "RainFlix Android playback and player event subscriptions.\n#### This default permission set includes:\n\n- `allow-start`\n- `allow-stop`\n- `allow-set-source`\n- `allow-update-episodes`\n- `allow-update-streams`\n- `allow-update-subtitles`\n- `allow-load-subtitle`\n- `allow-register-listener`\n- `allow-remove-listener`\n- `allow-take-install-link`\n- `allow-set-orientation`\n- `allow-update-preload`",
+          "description": "RainFlix Android playback and player event subscriptions.\n#### This default permission set includes:\n\n- `allow-start`\n- `allow-stop`\n- `allow-set-source`\n- `allow-update-episodes`\n- `allow-update-streams`\n- `allow-update-subtitles`\n- `allow-load-subtitle`\n- `allow-register-listener`\n- `allow-remove-listener`\n- `allow-take-install-link`\n- `allow-set-orientation`\n- `allow-update-preload`\n- `allow-update-navigation`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "RainFlix Android playback and player event subscriptions.\n#### This default permission set includes:\n\n- `allow-start`\n- `allow-stop`\n- `allow-set-source`\n- `allow-update-episodes`\n- `allow-update-streams`\n- `allow-update-subtitles`\n- `allow-load-subtitle`\n- `allow-register-listener`\n- `allow-remove-listener`\n- `allow-take-install-link`\n- `allow-set-orientation`\n- `allow-update-preload`"
+          "markdownDescription": "RainFlix Android playback and player event subscriptions.\n#### This default permission set includes:\n\n- `allow-start`\n- `allow-stop`\n- `allow-set-source`\n- `allow-update-episodes`\n- `allow-update-streams`\n- `allow-update-subtitles`\n- `allow-load-subtitle`\n- `allow-register-listener`\n- `allow-remove-listener`\n- `allow-take-install-link`\n- `allow-set-orientation`\n- `allow-update-preload`\n- `allow-update-navigation`"
         }
       ]
     }

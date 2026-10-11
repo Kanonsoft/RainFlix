@@ -626,8 +626,17 @@ export default function TitlePlayers({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sources]);
   const resolveEpisodeStreams = async (videoId, signal, providerId) => {
-    const video = episodes?.find((item) => String(item.id) === videoId);
+    let video = episodes?.find((item) => String(item.id) === videoId);
+    if (!video) {
+      const match = /^tt\d+:(\d+):\d+$/.exec(videoId);
+      if (match && onLoadSeason) {
+        const loaded = await onLoadSeason(Number(match[1]), signal);
+        video = loaded?.find((item) => String(item.id) === videoId);
+      }
+    }
     if (!video) return [];
+    const release = video.releaseDate || video.date;
+    if (release && new Date(release).getTime() > Date.now()) return [];
     const target = {
       ...details,
       addonVideoId: videoId,
@@ -931,38 +940,42 @@ export default function TitlePlayers({
             )}
           </div>
         )}
-        {chosenProvider && episodeChosen && availability[chosenProvider.id] && (
-          <div hidden={!showSources}>
-            <AddonSources
-              key={chosenProvider.id}
-              source={chosenProvider}
-              details={
-                !chosenProvider.addon && details.tmdbDetails
-                  ? details.tmdbDetails
-                  : details
-              }
-              season={season}
-              episode={episode}
-              revision={providerRevision}
-              initialStreams={availability[chosenProvider.id]?.streams}
-              resumePreference={
-                resumed.current &&
-                chosenProvider.id === resumePreference?.providerId
-                  ? resumePreference
-                  : null
-              }
-              onReady={revealSources}
-              visible={showSources}
-              onPlay={(playback, single = false) => {
-                if (single) {
-                  setProviderChoice("");
-                  setSourcesVisible(false);
+        {chosenProvider &&
+          episodeChosen &&
+          availability[chosenProvider.id] &&
+          !episodePlayback.current && (
+            <div hidden={!showSources}>
+              <AddonSources
+                key={chosenProvider.id}
+                source={chosenProvider}
+                details={
+                  !chosenProvider.addon && details.tmdbDetails
+                    ? details.tmdbDetails
+                    : details
                 }
-                start(chosenProvider, playback);
-              }}
-            />
-          </div>
-        )}
+                season={season}
+                episode={episode}
+                revision={providerRevision}
+                initialStreams={availability[chosenProvider.id]?.streams}
+                resumePreference={
+                  resumed.current &&
+                  chosenProvider.id === resumePreference?.providerId
+                    ? resumePreference
+                    : null
+                }
+                onReady={revealSources}
+                visible={showSources}
+                autoPlayAllowed={!active}
+                onPlay={(playback, single = false) => {
+                  if (single) {
+                    setProviderChoice("");
+                    setSourcesVisible(false);
+                  }
+                  start(chosenProvider, playback);
+                }}
+              />
+            </div>
+          )}
       </div>
       {active && (
         <Playback
@@ -986,6 +999,11 @@ export default function TitlePlayers({
               season={season}
               episode={episode}
               episodes={episodes}
+              streamProviders={sources.map((source) => ({
+                id: source.id,
+                label: source.label,
+                logo: source.addon?.manifest.logo || source.logo || "",
+              }))}
               seasons={seasons}
               currentVideoId={currentVideoId}
               onEpisodeSelect={(id, autoplay, playback) => {
@@ -1000,21 +1018,16 @@ export default function TitlePlayers({
                       settings: config[source.id] || {},
                       details,
                     });
+                  return Boolean(source);
                 } else {
                   transition.current = Boolean(autoplay || playback);
-                  onEpisodeSelect?.(id, autoplay, playback);
+                  const accepted = onEpisodeSelect?.(id, autoplay, playback);
+                  if (accepted === false) transition.current = false;
+                  return accepted;
                 }
               }}
               onResolveEpisodeStreams={resolveEpisodeStreams}
               onResolvePreload={async (id, signal) => {
-                if (!selection.playback.stream.isNativeTorrent) return null;
-                const video = episodes?.find((item) => String(item.id) === id);
-                const releaseDate = video?.releaseDate || video?.date;
-                if (
-                  !video ||
-                  (releaseDate && new Date(releaseDate).getTime() > Date.now())
-                )
-                  return null;
                 const choices = await resolveEpisodeStreams(
                   id,
                   signal,
@@ -1023,7 +1036,11 @@ export default function TitlePlayers({
                 const stream = preferredEpisodeStream(
                   choices
                     .map((choice) => choice.stream)
-                    .filter((stream) => stream.isNativeTorrent),
+                    .filter((stream) =>
+                      selection.playback.stream.isNativeTorrent
+                        ? stream.isNativeTorrent
+                        : stream.isNativeMedia,
+                    ),
                   selection.playback.stream,
                 );
                 return (

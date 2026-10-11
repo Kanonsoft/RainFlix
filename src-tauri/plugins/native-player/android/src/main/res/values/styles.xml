@@ -1,7 +1,10 @@
 <resources>
     <style name="RainFlixNativePlayerTheme" parent="android:style/Theme.Material.NoActionBar">
         <item name="android:windowActionModeOverlay">true</item>
-        <item name="android:windowBackground">#000000</item>
+        <!-- Keep the catalog WebView visible to Android so its provider bridge can run. -->
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowDisablePreview">true</item>
         <item name="android:colorAccent">#38BDF8</item>
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:windowLightNavigationBar">false</item>

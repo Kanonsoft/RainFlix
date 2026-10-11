@@ -1,3 +1,3 @@
 [default]
 description = "RainFlix Android playback and player event subscriptions."
-permissions = ["allow-start", "allow-stop", "allow-set-source", "allow-update-episodes", "allow-update-streams", "allow-update-subtitles", "allow-load-subtitle", "allow-register-listener", "allow-remove-listener", "allow-take-install-link", "allow-set-orientation", "allow-update-preload"]
+permissions = ["allow-start", "allow-stop", "allow-set-source", "allow-update-episodes", "allow-update-streams", "allow-update-subtitles", "allow-load-subtitle", "allow-register-listener", "allow-remove-listener", "allow-take-install-link", "allow-set-orientation", "allow-update-preload", "allow-update-navigation"]

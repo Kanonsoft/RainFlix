@@ -73,6 +73,40 @@ for (const android of [true, false])
     await expect(reduced).not.toBeChecked();
     await expect(page.getByLabel("Preferred subtitles")).toHaveValue("en");
     await expect(page.getByLabel("Preferred audio")).toHaveValue("");
+    await expect(page.locator("#appLoader")).toHaveClass(/is-hidden/, {
+      timeout: 15000,
+    });
+    await expect(page.getByLabel("Subtitle size")).toHaveValue("1");
+    const preview = page.getByRole("figure", { name: "Subtitle preview" });
+    await expect(preview.locator("img")).toBeVisible();
+    await page.getByLabel("Subtitle size").focus();
+    await page.keyboard.press("End");
+    await expect(preview.locator("figcaption")).toHaveCSS("font-size", "35px");
+    await page.getByLabel("Subtitle vertical position").focus();
+    await page.keyboard.press("Home");
+    await page.getByLabel("Subtitle delay").focus();
+    await page.keyboard.press("Home");
+    const nativeDefaults = await page.evaluate(async () => {
+      const { nativeTrackSettings } = await import("/src/lib/app-settings.js");
+      return {
+        defaults: nativeTrackSettings(),
+        remembered: nativeTrackSettings({
+          scale: 1.3,
+          position: 90,
+          delay: 0.5,
+        }),
+      };
+    });
+    expect(nativeDefaults.defaults).toMatchObject({
+      scale: 2.5,
+      position: 50,
+      delay: -10,
+    });
+    expect(nativeDefaults.remembered).toMatchObject({
+      scale: 1.3,
+      position: 90,
+      delay: 0.5,
+    });
     await expect(page.getByText("Storage", { exact: true })).toHaveCount(0);
     await expect(page.getByLabel("Intro fallback length")).toHaveCount(0);
     if (!android) {
@@ -85,6 +119,11 @@ for (const android of [true, false])
     await reduced.check();
     await page.getByLabel("Preferred audio").selectOption("ja");
     await page.reload();
+    await expect(page.getByLabel("Subtitle size")).toHaveValue("2.5");
+    await expect(page.getByLabel("Subtitle vertical position")).toHaveValue(
+      "50",
+    );
+    await expect(page.getByLabel("Subtitle delay")).toHaveValue("-10");
     await expect(page.getByLabel("Preferred audio")).toHaveValue("ja");
     if (!android)
       await expect(

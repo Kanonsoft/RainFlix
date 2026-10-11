@@ -14,6 +14,7 @@ Settings is available only in Windows and Android navigation at `/settings`. Web
 
 - Reduced animations defaults off for both Android and Windows. Existing saved preferences remain unchanged. When enabled, it replaces the startup poster wall with the R loader, uses a solid dark ambient background (no movie image) and uses hero fades instead of diagonal reveals.
 - Preferred subtitle language defaults to English; audio defaults to the source's selected track. Explicit remembered per-title track choices take precedence.
+- Subtitle settings offers a bundled-image preview with sample text and controls for size (50-250%), vertical position (0-50% above the bottom) and delay (-10 to +10 seconds). The preview updates size and position immediately; it is a still image, not a timing simulation. These device-local defaults are passed to both native players. Remembered per-title appearance choices take precedence, like remembered languages.
 - Fullscreen on start is an opt-in Windows preference, applied on the next app launch. Escape leaves desktop fullscreen outside playback; player Escape keeps its existing exit behavior. Android playback manages orientation and fullscreen separately.
 - Automatic intro/outro skipping defaults off. Native players use supported chapter markers. Legacy fallback timing values remain internal for compatibility, but their inputs and explanatory text are no longer shown in Settings.
 - Next-episode prefetch, preview and automatic next default on, with separate switches. Prefetch is best effort and does not guarantee instant playback.

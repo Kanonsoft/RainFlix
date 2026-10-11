@@ -163,6 +163,7 @@ forward!(remove_listener, "removeListener");
 forward!(take_install_link, "takeInstallLink");
 forward!(set_orientation, "setOrientation");
 forward!(update_preload, "updatePreload");
+forward!(update_navigation, "updateNavigation");
 
 #[tauri::command]
 async fn set_source<R: Runtime>(
@@ -188,7 +189,8 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             remove_listener,
             take_install_link,
             set_orientation,
-            update_preload
+            update_preload,
+            update_navigation
         ])
         .setup(|app, api| {
             #[cfg(target_os = "android")]

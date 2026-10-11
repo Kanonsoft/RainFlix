@@ -12,6 +12,9 @@ const defaults = {
   preloadNext: true,
   nextPreview: true,
   autoNext: true,
+  subtitleScale: 1,
+  subtitlePosition: 92,
+  subtitleDelay: 0,
 };
 let snapshot;
 const webSettings = { ...defaults, reduceAnimations: false };
@@ -54,6 +57,9 @@ export function nativeTrackSettings(saved = {}) {
     ...(settings.audioLanguage
       ? { audio: { lang: settings.audioLanguage, off: false } }
       : {}),
+    scale: settings.subtitleScale,
+    position: settings.subtitlePosition,
+    delay: settings.subtitleDelay,
     ...saved,
     skipIntro: settings.skipIntro,
     skipOutro: settings.skipOutro,

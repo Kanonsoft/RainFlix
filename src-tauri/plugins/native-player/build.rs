@@ -11,6 +11,7 @@ const COMMANDS: &[&str] = &[
     "take_install_link",
     "set_orientation",
     "update_preload",
+    "update_navigation",
 ];
 
 fn main() {
