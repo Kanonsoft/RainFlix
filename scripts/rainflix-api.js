@@ -1374,6 +1374,293 @@
     }
   }
 
+  function animeDate(offset = 0) {
+    const date = new Date();
+    date.setDate(date.getDate() + offset);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  }
+
+  const ANIME_GENRES = GENRES.filter((genre) =>
+    [
+      "action-adventure",
+      "comedy",
+      "crime",
+      "drama",
+      "family",
+      "fantasy-scifi",
+      "history",
+      "horror",
+      "kids",
+      "music",
+      "mystery",
+      "romance-soap",
+      "thriller",
+      "war-politics",
+    ].includes(genre.slug),
+  )
+    .map((genre) =>
+      genre.slug === "romance-soap" ? { ...genre, name: "Romance" } : genre,
+    )
+    .concat([
+      {
+        slug: "slice-of-life",
+        name: "Slice of Life",
+        keywords: ["slice of life"],
+      },
+      { slug: "isekai", name: "Isekai", keywords: ["isekai"] },
+      { slug: "mecha", name: "Mecha", keywords: ["mecha"] },
+      { slug: "school", name: "School", keywords: ["school life", "school"] },
+      { slug: "sports", name: "Sports", keywords: ["sports"] },
+      { slug: "shounen", name: "Shounen", keywords: ["shounen", "shonen"] },
+      { slug: "shoujo", name: "Shoujo", keywords: ["shoujo", "shojo"] },
+      {
+        slug: "boys-love",
+        name: "Boys' Love (Yaoi)",
+        keywords: ["boys' love (bl)", "boys love", "yaoi"],
+      },
+      {
+        slug: "girls-love",
+        name: "Girls' Love (Yuri)",
+        keywords: ["girls' love (gl)", "girls love", "yuri"],
+      },
+    ]);
+
+  const EXPLICIT_ANIME_KEYWORDS = [
+    "hentai",
+    "pornography",
+    "pornographic animation",
+  ];
+
+  async function animeKeywordIds(names) {
+    const results = await Promise.all(
+      names.map(async (name) => {
+        const feed = await tmdbFetch("search/keyword", { query: name });
+        if (!feed) throw new Error("Anime categories are unavailable.");
+        return (feed.results || [])
+          .filter((item) => item.name?.toLowerCase() === name)
+          .map((item) => item.id);
+      }),
+    );
+    return [...new Set(results.flat())];
+  }
+
+  function safeAnime(item) {
+    const keywords = item.keywords?.keywords || item.keywords?.results || [];
+    return (
+      !item.adult &&
+      !keywords.some((keyword) =>
+        EXPLICIT_ANIME_KEYWORDS.includes(keyword.name?.toLowerCase()),
+      ) &&
+      !/\b(hentai|pornographic)\b/i.test(
+        `${item.title || item.name || ""} ${item.original_title || item.original_name || ""}`,
+      )
+    );
+  }
+
+  async function filterAnimeTitles(items, type) {
+    const checked = await Promise.all(
+      items.filter(safeAnime).map(async (item) => {
+        const details = await tmdbFetch(
+          `${type || item.media_type}/${item.id}`,
+          { append_to_response: "keywords" },
+        );
+        return details && safeAnime(details) ? item : null;
+      }),
+    );
+    return checked.filter(Boolean);
+  }
+
+  async function getAnimeBrowse({
+    genre,
+    page = 1,
+    year,
+    limit = PAGE_SIZE,
+  } = {}) {
+    const selectedGenre = ANIME_GENRES.find((item) => item.slug === genre);
+    const excluded = await animeKeywordIds(EXPLICIT_ANIME_KEYWORDS);
+    const included = selectedGenre?.keywords
+      ? await animeKeywordIds(selectedGenre.keywords)
+      : [];
+    if (selectedGenre?.keywords && !included.length)
+      return { items: [], page, totalPages: 1 };
+    const requests = ["movie", "tv"].flatMap((type) => {
+      const ids =
+        selectedGenre && !selectedGenre.keywords
+          ? selectedGenre[type === "movie" ? "movieGenreIds" : "tvGenreIds"]
+          : [null];
+      return ids.map(async (id) => {
+        const params = {
+          page,
+          sort_by: "popularity.desc",
+          with_original_language: "ja",
+          with_genres: id ? `16,${id}` : "16",
+          include_adult: false,
+          without_keywords: excluded.join(","),
+          ...(included.length ? { with_keywords: included.join("|") } : {}),
+        };
+        if (year)
+          params[
+            type === "movie" ? "primary_release_year" : "first_air_date_year"
+          ] = year;
+        const feed = await tmdbFetch(`discover/${type}`, params);
+        if (!feed) throw new Error("Anime catalog is unavailable.");
+        return {
+          ...feed,
+          results: await filterAnimeTitles(feed.results || [], type),
+          type,
+        };
+      });
+    });
+    const feeds = await Promise.all(requests);
+    const items = uniqueTitles(
+      feeds.flatMap((feed) =>
+        (feed.results || [])
+          .filter(
+            (item) =>
+              safeAnime(item) &&
+              item.original_language === "ja" &&
+              item.genre_ids?.includes(16),
+          )
+          .map((item) => ({
+            ...mapTmdbTitle(item, feed.type),
+            popularity: item.popularity || 0,
+          })),
+      ),
+    )
+      .sort((a, b) => b.popularity - a.popularity)
+      .slice(0, limit);
+    return {
+      items,
+      page,
+      totalPages: Math.min(
+        500,
+        Math.max(1, ...feeds.map((feed) => feed.total_pages || 1)),
+      ),
+    };
+  }
+
+  async function getAnimeFeed(kind, limit = PAGE_SIZE) {
+    if (kind === "trending") {
+      const pages = await Promise.all(
+        [1, 2, 3, 4, 5].map((page) => tmdbFetch("trending/all/week", { page })),
+      );
+      if (!pages.some(Boolean))
+        throw new Error("Anime catalog is unavailable.");
+      const candidates = pages.flatMap((page) =>
+        (page?.results || []).filter(
+          (item) =>
+            safeAnime(item) &&
+            item.original_language === "ja" &&
+            item.genre_ids?.includes(16),
+        ),
+      );
+      const checked = await filterAnimeTitles([
+        ...new Map(
+          candidates.map((item) => [`${item.media_type}:${item.id}`, item]),
+        ).values(),
+      ]);
+      return uniqueTitles(
+        checked.map((item) => mapTmdbTitle(item, item.media_type)),
+        limit,
+      );
+    }
+    const today = animeDate();
+    const params = {
+      with_genres: 16,
+      with_original_language: "ja",
+      include_adult: "false",
+      without_keywords: (await animeKeywordIds(EXPLICIT_ANIME_KEYWORDS)).join(
+        ",",
+      ),
+      include_null_first_air_dates: "false",
+      sort_by: kind === "new" ? "first_air_date.desc" : "popularity.desc",
+      ...(kind === "new"
+        ? { "first_air_date.gte": animeDate(-90), "first_air_date.lte": today }
+        : {
+            "air_date.gte": kind === "recent" ? animeDate(-14) : today,
+            "air_date.lte": kind === "recent" ? today : animeDate(7),
+          }),
+    };
+    const pageCount =
+      kind === "schedule" ? 1 : Math.min(3, Math.ceil(limit / 20));
+    const pages = await Promise.all(
+      Array.from({ length: pageCount }, (_, index) =>
+        tmdbFetch("discover/tv", { ...params, page: index + 1 }),
+      ),
+    );
+    if (!pages.some(Boolean)) throw new Error("Anime catalog is unavailable.");
+    const data = {
+      results: [
+        ...new Map(
+          pages
+            .flatMap((page) => page?.results || [])
+            .filter(
+              (item) =>
+                safeAnime(item) &&
+                item.original_language === "ja" &&
+                item.genre_ids?.includes(16),
+            )
+            .map((item) => [item.id, item]),
+        ).values(),
+      ],
+    };
+    if (!data) throw new Error("Anime catalog is unavailable.");
+    if (kind === "new")
+      return (await filterAnimeTitles(data.results || [], "tv"))
+        .slice(0, limit)
+        .map((item) => mapTmdbTitle(item, "tv"));
+    const details = await Promise.allSettled(
+      (data.results || [])
+        .slice(0, Math.max(20, limit))
+        .map((item) =>
+          tmdbFetch(`tv/${item.id}`, { append_to_response: "keywords" }),
+        ),
+    );
+    if (
+      details.length &&
+      details.every((result) => result.status === "rejected" || !result.value)
+    ) {
+      throw new Error("Episode dates are unavailable.");
+    }
+    return details
+      .flatMap((result) => {
+        if (result.status !== "fulfilled" || !result.value) return [];
+        const title = result.value;
+        if (!safeAnime(title)) return [];
+        const episode =
+          kind === "recent"
+            ? title.last_episode_to_air
+            : title.next_episode_to_air;
+        if (
+          !episode?.air_date ||
+          episode.season_number < 1 ||
+          episode.episode_number < 1
+        )
+          return [];
+        const lower = kind === "recent" ? animeDate(-14) : today;
+        const upper = kind === "recent" ? today : animeDate(7);
+        if (episode.air_date < lower || episode.air_date > upper) return [];
+        const item = mapTmdbTitle(title, "tv");
+        return [
+          {
+            ...item,
+            episodeDate: episode.air_date,
+            episodeTitle: episode.name || "",
+            season: episode.season_number,
+            episode: episode.episode_number,
+            resumeLabel: `S${episode.season_number} E${episode.episode_number}`,
+            detailPath: `/title/tv/${title.id}?season=${episode.season_number}&episode=${episode.episode_number}`,
+          },
+        ];
+      })
+      .sort((a, b) =>
+        kind === "recent"
+          ? b.episodeDate.localeCompare(a.episodeDate)
+          : a.episodeDate.localeCompare(b.episodeDate),
+      )
+      .slice(0, limit);
+  }
+
   async function getPersonTitles(personId, limit = Number.POSITIVE_INFINITY) {
     const cleanId = String(personId || "").trim();
 
@@ -1731,6 +2018,9 @@
     createImageFallback,
     escapeHtml,
     getDetails,
+    getAnimeFeed,
+    getAnimeBrowse,
+    ANIME_GENRES,
     getDetailsByImdb,
     getGenre,
     getGenreTitles,

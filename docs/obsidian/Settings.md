@@ -12,7 +12,7 @@ Related: [[Android Native]], [[Title Playback]], [[Startup Artwork]].
 
 Settings is available only in Windows and Android navigation at `/settings`. Web redirects this route to Home. Preferences are device-local under `rainflix:settings:v1`; add-ons and My List keep their existing storage.
 
-- Reduced animations defaults on for Android and off for Windows. It replaces the startup poster wall with the R loader, uses a solid dark ambient background (no movie image) and uses hero fades instead of diagonal reveals.
+- Reduced animations defaults off for both Android and Windows. Existing saved preferences remain unchanged. When enabled, it replaces the startup poster wall with the R loader, uses a solid dark ambient background (no movie image) and uses hero fades instead of diagonal reveals.
 - Preferred subtitle language defaults to English; audio defaults to the source's selected track. Explicit remembered per-title track choices take precedence.
 - Fullscreen on start is an opt-in Windows preference, applied on the next app launch. Escape leaves desktop fullscreen outside playback; player Escape keeps its existing exit behavior. Android playback manages orientation and fullscreen separately.
 - Automatic intro/outro skipping defaults off. Native players use supported chapter markers. Legacy fallback timing values remain internal for compatibility, but their inputs and explanatory text are no longer shown in Settings.

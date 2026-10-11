@@ -177,7 +177,10 @@ class PlayerActivity : Activity() {
                     if (now - downAt < 300 && kotlin.math.abs(event.x - downX) < dp(24) && kotlin.math.abs(event.y - downY) < dp(24)) {
                         val side = if (event.x < touch.width * .35f) -1 else if (event.x > touch.width * .65f) 1 else 0
                         if (side != 0 && side == lastTapSide && now - lastTapAt < 700) seekBy(side * 5000L)
-                        else { seekTotal = 0; surface.showController() }
+                        else {
+                            seekTotal = 0
+                            if (surface.isControllerFullyVisible) surface.hideController() else surface.showController()
+                        }
                         lastTapAt = now; lastTapSide = side
                         touch.performClick()
                     }
@@ -242,6 +245,7 @@ class PlayerActivity : Activity() {
         surface.setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { visibility ->
             controls.visibility = visibility
         })
+        updateEpisodeNavigation()
         setContentView(root)
         player.addListener(object : Player.Listener {
             override fun onPlaybackStateChanged(state: Int) {
@@ -294,20 +298,11 @@ class PlayerActivity : Activity() {
         session.optString("url").takeIf { it.isNotBlank() }?.let { setSource(session) }
     }
     private fun nextEpisode(): JSONObject? {
-        val ordered = orderedEpisodes()
-        val index = ordered.indexOfFirst { it.optString("id") == ui.optString("currentVideoId") }
-        return if (index >= 0) ordered.getOrNull(index + 1) else null
+        return adjacentEpisode(true)
     }
     private fun currentSegment(): Triple<String, Long, Long>? {
         val position = player.currentPosition
-        val marker = chapters.firstOrNull { position >= it.second && position < it.third && Regex("(?i)\\b(intro|opening|op\\d*|outro|ending|credits|ed\\d*)\\b").containsMatchIn(it.first) }
-        if (marker != null) return marker
-        if (ui.optString("currentVideoId").isBlank() || ui.optJSONArray("seasons")?.length() == 0 || player.duration <= 180000 || player.duration == C.TIME_UNSET) return null
-        val intro = savedTracks.optInt("introSeconds", 90).coerceIn(0, 300) * 1000L
-        val outro = savedTracks.optInt("outroSeconds", 60).coerceIn(0, 300) * 1000L
-        if (position < intro && intro > 0) return Triple("intro", 0L, intro)
-        if (outro > 0 && position >= player.duration - outro) return Triple("ending", player.duration - outro, player.duration)
-        return null
+        return chapters.firstOrNull { position >= it.second && position < it.third && Regex("(?i)\\b(intro|opening|op\\d*|outro|ending|credits|ed\\d*)\\b").containsMatchIn(it.first) }
     }
     private fun skipCurrentSegment() {
         val segment = currentSegment() ?: return
@@ -360,6 +355,11 @@ class PlayerActivity : Activity() {
     fun setSource(args: JSONObject) {
         val url = args.optString("url")
         if (!url.startsWith("http://") && !url.startsWith("https://")) return
+        chapters.clear()
+        introSkipped = false
+        skipButton.visibility = View.GONE
+        lastTapAt = 0L
+        lastTapSide = 0
         sourceUrl = url
         val item = MediaItem.Builder().setUri(url)
         externalSub?.let { item.setSubtitleConfigurations(listOf(it)) }
@@ -515,10 +515,19 @@ class PlayerActivity : Activity() {
     }
     private fun arrayItems(array: JSONArray) = (0 until array.length()).mapNotNull { array.optJSONObject(it) }
     private fun orderedEpisodes() = arrayItems(episodes).sortedWith(compareBy({ it.optInt("season") }, { it.optInt("episode") }))
-    private fun adjacent(next: Boolean) {
+    private fun adjacentEpisode(next: Boolean): JSONObject? {
         val ordered = orderedEpisodes()
         val index = ordered.indexOfFirst { it.optString("id") == ui.optString("currentVideoId") }
-        val entry = ordered.getOrNull(index + if (next) 1 else -1) ?: return
+        return if (index >= 0) ordered.getOrNull(index + if (next) 1 else -1) else null
+    }
+    private fun updateEpisodeNavigation() {
+        surface.findViewById<View>(com.rainflix.nativeplayer.R.id.rainflix_previous).visibility =
+            if (adjacentEpisode(false) != null) View.VISIBLE else View.GONE
+        surface.findViewById<View>(com.rainflix.nativeplayer.R.id.rainflix_next).visibility =
+            if (adjacentEpisode(true) != null) View.VISIBLE else View.GONE
+    }
+    private fun adjacent(next: Boolean) {
+        val entry = adjacentEpisode(next) ?: return
         PlayerBridge.event("episode", JSONObject().put("mode", if (next) "next" else "prev").put("videoId", entry.optString("id")))
     }
     private fun drawerBase(heading: String): LinearLayout {
@@ -603,6 +612,7 @@ class PlayerActivity : Activity() {
         if (revision < episodeRevision) return
         episodeRevision = revision
         episodes = args.optJSONArray("episodes") ?: episodes
+        updateEpisodeNavigation()
         if (args.has("season")) browsedSeason = args.optInt("season")
         drawer?.let { if (chosenVideo.isEmpty()) episodeRows(it, args.optString("status", "ready")) }
     }

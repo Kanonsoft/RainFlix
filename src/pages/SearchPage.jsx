@@ -73,7 +73,8 @@ export default function SearchPage({ onBackdrop, onReady, browse = false }) {
       : "all";
   const genreSlug = browse ? searchParams.get("genre") || "" : "";
   const year = browse ? searchParams.get("year") || "" : "";
-  const genre = genreSlug ? api.getGenre(genreSlug) : null;
+  const genres = api.GENRES;
+  const genre = genres.find((item) => item.slug === genreSlug) || null;
   const browseMode = browse;
   const [inputValue, setInputValue] = useState(query);
   const [retryVersion, setRetryVersion] = useState(0);
@@ -238,6 +239,7 @@ export default function SearchPage({ onBackdrop, onReady, browse = false }) {
 
   const updateFilter = (name, value) => {
     const next = new URLSearchParams(searchParams);
+    if (name === "type" && value !== type) next.delete("genre");
     if (value && value !== "all") {
       next.set(name, value);
     } else {
@@ -453,7 +455,7 @@ export default function SearchPage({ onBackdrop, onReady, browse = false }) {
                   }
                 >
                   <option value="">All genres</option>
-                  {api.GENRES.map((item) => (
+                  {genres.map((item) => (
                     <option value={item.slug} key={item.slug}>
                       {item.name}
                     </option>

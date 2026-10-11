@@ -70,14 +70,7 @@ for (const android of [true, false])
       page.getByRole("heading", { name: "Settings", exact: true }),
     ).toBeVisible();
     const reduced = page.getByRole("switch", { name: "Reduce animations" });
-    if (android) {
-      await expect(reduced).toBeChecked();
-      await expect(page.locator(".ambient-backdrop")).toHaveCSS(
-        "background-color",
-        "rgb(45, 51, 59)",
-      );
-      await expect(page.locator(".ambient-backdrop-layer")).toHaveCount(0);
-    } else await expect(reduced).not.toBeChecked();
+    await expect(reduced).not.toBeChecked();
     await expect(page.getByLabel("Preferred subtitles")).toHaveValue("en");
     await expect(page.getByLabel("Preferred audio")).toHaveValue("");
     await expect(page.getByText("Storage", { exact: true })).toHaveCount(0);
@@ -89,7 +82,7 @@ for (const android of [true, false])
       await expect(fullscreen).not.toBeChecked();
       await fullscreen.check();
     }
-    await reduced.setChecked(!android);
+    await reduced.check();
     await page.getByLabel("Preferred audio").selectOption("ja");
     await page.reload();
     await expect(page.getByLabel("Preferred audio")).toHaveValue("ja");
@@ -99,7 +92,7 @@ for (const android of [true, false])
       ).toBeChecked();
     await expect(
       page.getByRole("switch", { name: "Reduce animations" }),
-    ).toHaveJSProperty("checked", !android);
+    ).toBeChecked();
     await expect
       .poll(() =>
         page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),

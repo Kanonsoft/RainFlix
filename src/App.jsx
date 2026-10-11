@@ -33,6 +33,7 @@ const SearchPage = lazy(() => import("./pages/SearchPage.jsx"));
 const WatchPage = lazy(() => import("./pages/WatchPage.jsx"));
 const TitlePage = lazy(() => import("./pages/TitlePage.jsx"));
 const DownloadsPage = lazy(() => import("./pages/DownloadsPage.jsx"));
+const AnimePage = lazy(() => import("./pages/AnimePage.jsx"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage.jsx"));
 const PrivacyAnalytics = lazy(() =>
   import("./components/PrivacyAnalytics.jsx").catch(() => ({
@@ -299,6 +300,15 @@ function AppShell() {
         <main id="app-view" className="flex-1 outline-none" tabIndex="-1">
           <Suspense fallback={<RouteFallback />}>
             <Routes>
+              <Route
+                path="/anime"
+                element={
+                  <AnimePage
+                    onReady={completeBoot}
+                    onBackdrop={updateBackdrop}
+                  />
+                }
+              />
               <Route
                 path="/settings"
                 element={

@@ -66,6 +66,14 @@ export function MediaCard({ item }) {
         <h3 className="truncate text-sm font-black text-slate-50">
           {item.title}
         </h3>
+        {item.episodeDate && (
+          <p className="text-xs text-slate-400">
+            {new Date(`${item.episodeDate}T12:00:00`).toLocaleDateString(
+              undefined,
+              { month: "short", day: "numeric" },
+            )}
+          </p>
+        )}
         <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
           <span className="rounded-full bg-blue-500/20 px-2 py-1 font-black text-sky-200">
             {item.rating}

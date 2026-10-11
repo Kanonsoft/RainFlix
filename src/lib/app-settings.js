@@ -1,16 +1,14 @@
 import { useSyncExternalStore } from "react";
-import { isAndroid, isNativeApp } from "../platform/index.js";
+import { isNativeApp } from "../platform/index.js";
 
 const key = "rainflix:settings:v1";
 const defaults = {
-  reduceAnimations: isAndroid,
+  reduceAnimations: false,
   fullscreenOnStart: false,
   subtitleLanguage: "en",
   audioLanguage: "",
   skipIntro: false,
   skipOutro: false,
-  introSeconds: 90,
-  outroSeconds: 60,
   preloadNext: true,
   nextPreview: true,
   autoNext: true,
@@ -62,7 +60,5 @@ export function nativeTrackSettings(saved = {}) {
     preloadNext: settings.preloadNext,
     nextPreview: settings.nextPreview,
     autoNext: settings.autoNext,
-    introSeconds: settings.introSeconds,
-    outroSeconds: settings.outroSeconds,
   };
 }

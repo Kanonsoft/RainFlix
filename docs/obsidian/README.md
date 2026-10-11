@@ -20,6 +20,7 @@ Open this folder as an Obsidian vault, or open the repository as a vault and nav
 
 - [[Configuration]]: settings, provider selection, credentials, and local commands.
 - [[Downloads]]: web download page, GitHub Releases installer lookup, and publishing steps.
+- [[Anime]]: shared web, Windows and Android anime hero, weekly trends, recent episodes, release dates and new series.
 - [[Yastream]]: request format, playback, subtitles, and limitations.
 - [[Torrentio]]: IMDb matching, direct streams, and external torrent links.
 - [[Browser WebTorrent]]: pure static WebRTC torrent playback and browser limits.

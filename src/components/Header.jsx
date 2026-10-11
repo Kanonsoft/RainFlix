@@ -311,6 +311,9 @@ export default function Header() {
           <Link className={mobilePrimaryClass("home")} to="/home">
             Home
           </Link>
+          <Link className={mobilePrimaryClass("anime")} to="/anime">
+            Anime
+          </Link>
           <Link className={mobilePrimaryClass("browse")} to="/browse">
             Browse
           </Link>
@@ -361,6 +364,9 @@ export default function Header() {
           >
             <Link className={primaryClass("home")} to="/home">
               Home
+            </Link>
+            <Link className={primaryClass("anime")} to="/anime">
+              Anime
             </Link>
             <Link className={primaryClass("browse")} to="/browse">
               Browse

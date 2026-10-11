@@ -25,6 +25,11 @@ below One place. Your way. The page backdrop remains fixed while scrolling.
 Open RainFlix on web takes you straight to the catalog.
 Native apps start at Home.
 
+RainFlix Anime is available after Home on web, Windows and Android, with a
+trending hero, weekly top ten, paginated recent episodes and new anime, and an
+episode release schedule. Anime uses its own page rather than a Browse type.
+Explicit-content filtering depends on TMDb metadata and is not a parental-control guarantee.
+
 ## Features
 
 | Experience         | What you get                                                                                                                           |
@@ -39,7 +44,7 @@ Native apps start at Home.
 | Player controls    | Seek, pause, speed, language-grouped subtitles/audio, subtitle appearance, and episode/provider/source selection                       |
 | Native settings    | Reduced animations, fullscreen on Windows, language preferences, playback options, and clear cache                                     |
 | Visual polish      | Swipe-following hero transitions, decoded-image background fades, compact mobile cards, and a transparent R startup logo               |
-| Reduced animations | Solid charcoal background (`#2d333b`), no movie backdrop, and simplified motion; enabled by default on Android                         |
+| Reduced animations | Solid charcoal background (`#2d333b`), no movie backdrop, and simplified motion; optional and off by default on Android and Windows    |
 | Caching            | Weekly startup poster snapshots with bundled first-install artwork, bounded catalog/artwork caches, and device-local preferences       |
 
 ## Platforms
