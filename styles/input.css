@@ -777,12 +777,14 @@ html.details-modal-open {
 
 .ambient-backdrop-layer {
   position: absolute;
-  inset: 0;
+  inset: -48px;
   background-position: center top;
   background-size: cover;
-  filter: saturate(0.8) contrast(1.08);
-  transform: scale(1.03);
+  filter: blur(38px) saturate(0.8) contrast(1.08);
   will-change: opacity;
+}
+.ambient-backdrop:not(.is-static) {
+  opacity: 0.25;
 }
 .ambient-backdrop.is-static {
   background: #2d333b;
@@ -797,17 +799,7 @@ html.details-modal-open {
   }
 
   to {
-    opacity: 0.25;
-  }
-}
-
-@keyframes ambient-backdrop-fade-out {
-  from {
-    opacity: 0.25;
-  }
-
-  to {
-    opacity: 0;
+    opacity: 1;
   }
 }
 
@@ -817,7 +809,7 @@ html.details-modal-open {
 
 .ambient-backdrop-previous {
   animation: none;
-  opacity: 0.25;
+  opacity: 1;
 }
 
 .ambient-backdrop.is-static .ambient-backdrop-layer {

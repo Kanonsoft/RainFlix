@@ -125,8 +125,8 @@ for (const width of [320, 390, 1440])
     });
     await expect(navigation.getByRole("button")).toHaveCount(3);
     if (width < 768) {
-      await expect(navigation).toHaveCSS("position", "fixed");
-      expect((await navigation.boundingBox()).y).toBeGreaterThan(800);
+      await expect(navigation).toHaveCSS("position", "sticky");
+      expect((await navigation.boundingBox()).y).toBeLessThan(150);
     }
     await expect(page.locator(".landing-watch-bar")).toBeHidden();
     const brand = page.locator(".landing-feature-brand");
@@ -134,6 +134,14 @@ for (const width of [320, 390, 1440])
     const mediaBox = await page.locator(".landing-trailer-media").boundingBox();
     expect(Math.abs(mediaBox.x - width * 0.04)).toBeLessThan(1);
     expect(Math.abs(mediaBox.width - width * 0.92)).toBeLessThan(1);
+    expect(Math.abs(mediaBox.width / mediaBox.height - 16 / 9)).toBeLessThan(
+      0.01,
+    );
+    const frameBox = await page
+      .locator(".landing-trailer-media iframe")
+      .boundingBox();
+    for (const field of ["x", "y", "width", "height"])
+      expect(Math.abs(frameBox[field] - mediaBox[field])).toBeLessThan(1);
     expect((await brand.boundingBox()).y).toBeGreaterThanOrEqual(
       mediaBox.y + mediaBox.height,
     );
@@ -158,11 +166,24 @@ for (const width of [320, 390, 1440])
         Math.abs(downloadBox.x + downloadBox.width / 2 - width / 2),
       ).toBeLessThan(1);
     expect(downloadBox.y).toBeGreaterThanOrEqual(logoBox.y + logoBox.height);
-    expect((await navigation.boundingBox()).width).toBeLessThan(width - 20);
+    if (width < 768) {
+      expect((await navigation.boundingBox()).width).toBe(width);
+      await expect(navigation).toHaveCSS("border-radius", "0px");
+    } else
+      expect((await navigation.boundingBox()).width).toBeLessThan(width - 20);
     await navigation
       .getByRole("button", { name: "RainFlix", exact: true })
       .click();
     await expect(page.locator(".landing-watch-bar")).toBeVisible();
+    await expect(page.locator(".landing-watch")).toHaveAttribute(
+      "href",
+      /#\/downloads$/,
+    );
+    if (width < 768) {
+      await expect
+        .poll(async () => (await navigation.boundingBox()).y)
+        .toBeLessThan(20);
+    }
     await expect(page.locator(".landing-watch-bar")).toHaveCSS(
       "position",
       "fixed",

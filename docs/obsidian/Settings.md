@@ -6,6 +6,10 @@ tags: [rainflix, settings, native]
 
 Reduced-animation mode uses a fixed solid charcoal (`#2d333b`), inspired by the cool gray reference palette. It does not display movie artwork behind pages or animate background changes. Featured-title artwork remains visible inside the carousel and transitions using a decoded-image crossfade.
 
+Normal ambient movie backgrounds use the landing-page-style 38px blur on both current and outgoing image layers, including dynamic crossfades. A 48px overscan prevents blurred edges from revealing gaps. Hero/card artwork stays sharp, fixed background sizing stays stable on mobile, and reduced-animation mode keeps its solid color unchanged. This shared CSS applies to web, Windows and Android.
+
+Ambient dimming is applied once to the image container at 25% opacity, not to each overlapping image. The outgoing image stays opaque while the incoming image fades to opaque within that container. Removing the outgoing image after the fade therefore cannot cause a bright-to-dark jump. The static reduced-animation background is excluded from this opacity rule.
+
 In this mode the sticky header and bottom navigation share opaque `#0d1317`, at every scroll position, without blur or transitions. Manage add-ons and Subtitle settings are plain text links without icons.
 
 Windows opens maximized by default. Changing Fullscreen on start immediately enters/exits fullscreen and saves the next-launch preference; Escape exits window fullscreen outside playback. Back-to-top respects reduced-animation settings.

@@ -423,7 +423,7 @@ function TrendingStrip({
   );
 }
 
-function WatchDock({ movie }) {
+function WatchDock() {
   const destination = useRef(null);
   const [docked, setDocked] = useState(false);
   const [visible, setVisible] = useState(false);
@@ -470,7 +470,7 @@ function WatchDock({ movie }) {
       >
         <Link
           className="landing-download landing-watch"
-          to={movie ? watchPath(movie) : "/home"}
+          to="/downloads"
           target="_blank"
           rel="noopener noreferrer"
         >
@@ -762,7 +762,7 @@ export default function LandingPage() {
       </section>
       <section className="landing-bottom">
         <h2>Your next story starts here.</h2>
-        <WatchDock movie={featured} />
+        <WatchDock />
         <p>Find a favorite. Start a watchlist. Make it your RainFlix.</p>
         <div className="landing-platform-links">
           <Link to="/downloads" target="_blank" rel="noopener noreferrer">

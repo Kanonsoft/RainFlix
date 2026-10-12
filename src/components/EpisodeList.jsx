@@ -120,7 +120,7 @@ export default function EpisodeList({
       </label>
       <div
         ref={list}
-        className="min-h-0 overflow-y-auto overscroll-y-contain pr-1 [scrollbar-gutter:stable]"
+        className="min-h-0 overflow-y-auto overscroll-y-auto pr-1 [scrollbar-gutter:stable]"
         data-episode-list
       >
         {filtered.length ? (

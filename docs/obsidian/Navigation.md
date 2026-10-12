@@ -8,4 +8,6 @@ Title selection steps use `selection=episodes|streams` and an opaque provider ID
 
 Browse omits result counts. Anime paged grids reserve empty slots on shorter pages so rows and columns keep their dimensions. UI text is non-selectable, while inputs and editable fields retain text selection. Hover styling is restricted to hover-capable pointers, not touch devices.
 
+Title-page stream and episode lists remain bounded scroll areas, but use automatic vertical scroll chaining. Reaching either edge passes wheel/touch scrolling back to the title page instead of trapping it with overscroll containment. This shared React layout applies to web, Windows and Android; native fullscreen playback panels retain their independent behavior.
+
 Newest movie/series sections link to `/newest/movie` and `/newest/tv`, preserving any genre/year filter. These dedicated catalogs load later TMDb pages on scroll with ghost cards and retry on failure. The sort and released-only constraints match the Home newest rows. Add-on browse pages likewise append `skip` batches on scroll, stopping when the provider returns no new titles, including providers ignoring skip. No page buttons are rendered.
