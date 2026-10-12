@@ -111,6 +111,7 @@
 .landing-trailer-frame {
   position: relative;
   width: 100%;
+  margin-inline: auto;
   overflow: hidden;
   border-radius: 8px;
   background: #05070a;
@@ -119,19 +120,21 @@
 .landing-trailer-media {
   position: relative;
   width: 100%;
-  aspect-ratio: 16 / 9;
+  aspect-ratio: 21 / 9;
   overflow: hidden;
   border-radius: 8px;
 }
 .landing-feature-brand {
   position: relative;
   z-index: 4;
+  width: 340px;
+  max-width: 100%;
   padding: 32px 0 24px;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   gap: 18px;
-  text-align: left;
+  text-align: center;
 }
 .landing-feature-brand h1 {
   max-width: 100%;
@@ -143,7 +146,7 @@
   max-width: 100%;
   height: 130px;
   object-fit: contain;
-  object-position: left center;
+  object-position: center;
 }
 .landing-trailer-frame iframe {
   position: absolute;
@@ -682,11 +685,14 @@
     box-shadow: none;
     overflow: visible;
   }
+  .landing-trailer-media {
+    aspect-ratio: 16 / 9;
+  }
   .landing-feature-brand {
     position: relative;
     left: auto;
     bottom: auto;
-    max-width: none;
+    width: 100%;
     align-items: center;
     padding: 30px 0 20px;
     gap: 22px;

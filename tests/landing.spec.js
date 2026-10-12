@@ -108,6 +108,10 @@ for (const width of [320, 390, 1440])
       page.getByRole("heading", { name: "Trending Movie", exact: true }),
     ).toBeVisible();
     await expect(page.locator("#appLoader")).toHaveCount(0);
+    const trailerBox = await page
+      .locator(".landing-trailer-frame")
+      .boundingBox();
+    expect(Math.abs(trailerBox.width - width * 0.92)).toBeLessThan(1);
     await expect(page.locator(".landing-trailer-poster")).toHaveClass(
       /is-playing/,
     );
@@ -132,11 +136,16 @@ for (const width of [320, 390, 1440])
     const brand = page.locator(".landing-feature-brand");
     await expect(brand).toHaveCSS("position", "relative");
     const mediaBox = await page.locator(".landing-trailer-media").boundingBox();
-    expect(Math.abs(mediaBox.x - width * 0.04)).toBeLessThan(1);
-    expect(Math.abs(mediaBox.width - width * 0.92)).toBeLessThan(1);
-    expect(Math.abs(mediaBox.width / mediaBox.height - 16 / 9)).toBeLessThan(
-      0.01,
-    );
+    const expectedTrailerWidth = width * 0.92;
+    expect(
+      Math.abs(mediaBox.x - (width - expectedTrailerWidth) / 2),
+    ).toBeLessThan(1);
+    expect(Math.abs(mediaBox.width - expectedTrailerWidth)).toBeLessThan(1);
+    expect(
+      Math.abs(
+        mediaBox.width / mediaBox.height - (width < 768 ? 16 / 9 : 21 / 9),
+      ),
+    ).toBeLessThan(0.01);
     const frameBox = await page
       .locator(".landing-trailer-media iframe")
       .boundingBox();
@@ -148,10 +157,7 @@ for (const width of [320, 390, 1440])
     await expect(
       page.getByText("This week's most trending movie", { exact: true }),
     ).toHaveCount(0);
-    await expect(brand).toHaveCSS(
-      "align-items",
-      width < 768 ? "center" : "flex-start",
-    );
+    await expect(brand).toHaveCSS("align-items", "center");
     await expect(brand.getByRole("link")).toHaveCSS("border-radius", "999px");
     await expect(page.locator(".landing-nav .landing-open")).toHaveCSS(
       "border-radius",
@@ -159,9 +165,12 @@ for (const width of [320, 390, 1440])
     );
     const logoBox = await brand.locator("h1").boundingBox();
     const downloadBox = await brand.getByRole("link").boundingBox();
-    if (width >= 768)
-      expect(Math.abs(downloadBox.x - mediaBox.x)).toBeLessThan(1);
-    else
+    expect(
+      Math.abs(
+        logoBox.x + logoBox.width / 2 - (downloadBox.x + downloadBox.width / 2),
+      ),
+    ).toBeLessThan(2);
+    if (width < 768)
       expect(
         Math.abs(downloadBox.x + downloadBox.width / 2 - width / 2),
       ).toBeLessThan(1);
