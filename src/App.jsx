@@ -32,6 +32,7 @@ const AddonTitlePage = lazy(() => import("./pages/AddonTitlePage.jsx"));
 const SearchPage = lazy(() => import("./pages/SearchPage.jsx"));
 const WatchPage = lazy(() => import("./pages/WatchPage.jsx"));
 const TitlePage = lazy(() => import("./pages/TitlePage.jsx"));
+const SimilarPage = lazy(() => import("./pages/SimilarPage.jsx"));
 const DownloadsPage = lazy(() => import("./pages/DownloadsPage.jsx"));
 const AnimePage = lazy(() => import("./pages/AnimePage.jsx"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage.jsx"));
@@ -455,6 +456,15 @@ function AppShell() {
                 }
               />
               <Route path="*" element={<Navigate replace to="/home" />} />
+              <Route
+                path="/similar/:mediaType/:id"
+                element={
+                  <SimilarPage
+                    onBackdrop={updateBackdrop}
+                    onReady={completeBoot}
+                  />
+                }
+              />
             </Routes>
           </Suspense>
         </main>

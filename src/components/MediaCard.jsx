@@ -161,12 +161,12 @@ export function CardSkeleton({ detailed = false }) {
     >
       <div className="aspect-[2/3] animate-pulse bg-blue-950/40" />
       {detailed ? (
-        <div className="space-y-2 p-3">
-          <div className="h-4 w-4/5 animate-pulse rounded bg-blue-950/70" />
-          <div className="flex gap-2">
-            <div className="h-6 w-12 animate-pulse rounded-full bg-blue-950/60" />
-            <div className="h-6 w-10 animate-pulse rounded-full bg-blue-950/50" />
-            <div className="h-6 w-16 animate-pulse rounded-full bg-blue-950/50" />
+        <div className="space-y-2 p-2 sm:p-3">
+          <div className="h-5 w-4/5 animate-pulse rounded bg-blue-950/70" />
+          <div className="flex gap-1 sm:gap-2">
+            <div className="h-4 w-12 animate-pulse rounded bg-blue-950/60 sm:h-6 sm:rounded-full" />
+            <div className="h-4 w-10 animate-pulse rounded bg-blue-950/50 sm:h-6 sm:rounded-full" />
+            <div className="h-4 w-16 animate-pulse rounded bg-blue-950/50 sm:h-6 sm:rounded-full" />
           </div>
         </div>
       ) : null}
@@ -180,6 +180,7 @@ export function MediaGrid({
   emptyText = "No titles found.",
   browse = false,
   ghostCount = 0,
+  skeletonDetailed = false,
 }) {
   const classes = browse
     ? "catalog-grid grid grid-cols-3 gap-2 sm:grid-cols-3 md:grid-cols-6 md:gap-4"
@@ -189,7 +190,10 @@ export function MediaGrid({
     return (
       <div className={classes} aria-busy="true">
         {Array.from({ length: api.PAGE_SIZE }, (_, index) => (
-          <CardSkeleton key={`skeleton-${index}`} detailed={browse} />
+          <CardSkeleton
+            key={`skeleton-${index}`}
+            detailed={browse || skeletonDetailed}
+          />
         ))}
       </div>
     );

@@ -1,88 +1,112 @@
 import { expect, test } from "@playwright/test";
 import { mockPlayback, openPlayer } from "./helpers/playback.js";
 
-for (const native of [false, true]) {
-  test(`configured web Yastream default ${native ? "does not install on desktop" : "installs and requires source selection"}`, async ({
+test("web has no Yastream preset and promotes RainFlix App before official services", async ({
+  page,
+  baseURL,
+}) => {
+  await mockPlayback({ page, baseURL }, false);
+  await page.route("**/scripts/config.js", async (route) => {
+    const response = await route.fetch();
+    await route.fulfill({ response, body: await response.text() });
+  });
+  let yastreamRequests = 0;
+  await page.route("https://yastream.tamthai.de/**", (route) => {
+    yastreamRequests++;
+    return route.fulfill({ json: { streams: [] } });
+  });
+  await openPlayer(page);
+  await expect(
+    page.getByRole("button", { name: "Play with Yastream" }),
+  ).toHaveCount(0);
+  const app = page.getByRole("link", {
+    name: "RainFlix App free streams - download the app",
+  });
+  await expect(app).toBeVisible();
+  await expect(app.locator("xpath=../*[1]")).toHaveAttribute(
+    "href",
+    "#/downloads",
+  );
+  expect(yastreamRequests).toBe(0);
+  const actions = page.getByRole("group", { name: "Title actions" });
+  await expect(actions.locator(":scope > :first-child")).toHaveText(
+    "Watch on RainFlix App",
+  );
+  await expect(actions.locator(":scope > :first-child")).toHaveClass(
+    /bg-sky-400/,
+  );
+  await page
+    .getByRole("link", { name: "Watch on RainFlix App", exact: true })
+    .click();
+  await expect(page).toHaveURL(/#\/downloads$/);
+});
+
+for (const platform of ["web", "desktop", "android"]) {
+  test(`${platform} retires removed presets but preserves manual add-ons`, async ({
     page,
     baseURL,
   }) => {
     await mockPlayback({ page, baseURL }, false);
+    const native = platform !== "web";
+    await page.route("**/src/platform/index.js", (route) =>
+      route.fulfill({
+        contentType: "text/javascript",
+        body: `export const isNativeApp=${native},isAndroid=${platform === "android"},isDesktop=${platform === "desktop"},browserTorrentAvailable=false; export function shareBaseUrl(){return location.origin;}`,
+      }),
+    );
+    let preset = true;
     await page.route("**/scripts/config.js", async (route) => {
       const response = await route.fetch();
-      await route.fulfill({ response, body: await response.text() });
+      await route.fulfill({
+        response,
+        body: `${await response.text()}\nwindow.RAINFLIX_CONFIG.nativeDefaultAddons=${native && preset ? '["https://preset.example/manifest.json"]' : "[]"};window.RAINFLIX_CONFIG.webDefaultAddons=${!native && preset ? '["https://preset.example/manifest.json"]' : "[]"};`,
+      });
     });
-    if (native)
-      await page.route("**/src/platform/index.js", (route) =>
-        route.fulfill({
-          contentType: "text/javascript",
-          body: "export const isNativeApp=true,isAndroid=false,isDesktop=true,browserTorrentAvailable=false; export function shareBaseUrl(){return location.origin;}",
-        }),
-      );
-    let manifests = 0,
-      media = 0;
-    const requests = [];
-    await page.route("https://yastream.tamthai.de/**", (route) => {
-      const url = route.request().url();
-      if (url.endsWith("/manifest.json")) {
-        manifests++;
-        return route.fulfill({
-          json: {
-            id: "community.yastream",
-            name: "Yastream",
-            types: ["movie", "series"],
-            resources: ["stream"],
-            idPrefixes: ["tt", "tmdb"],
-            catalogs: [],
-          },
-        });
-      }
-      requests.push(url);
+    let requests = 0;
+    await page.route("https://preset.example/**", (route) => {
+      requests++;
       return route.fulfill({
         json: {
-          streams: [
-            { name: "1080p", url: `${baseURL}/__default__/one.mp4` },
-            { name: "720p", url: `${baseURL}/__default__/two.mp4` },
-          ],
+          id: "preset",
+          name: "Former preset",
+          types: ["movie"],
+          resources: ["catalog"],
+          catalogs: [],
         },
       });
     });
-    await page.route("**/__default__/**", (route) => {
-      media++;
-      return route.fulfill({
-        path: "tests/fixtures/player-sample.mp4",
-        contentType: "video/mp4",
-      });
-    });
-    await openPlayer(page);
-    if (native) {
-      expect(manifests).toBe(0);
-      await expect(
-        page.getByRole("button", { name: "Play with Yastream" }),
-      ).toHaveCount(0);
-      return;
-    }
-    await expect(
-      page.getByRole("button", { name: "Play with Yastream" }),
-    ).toBeVisible();
-    expect(manifests).toBe(1);
-    expect(media).toBe(0);
-    expect(requests[0]).toContain("/stream/movie/tt0505000.json");
-    await page.getByRole("button", { name: "Play with Yastream" }).click();
-    await expect(page.locator("button[data-stream-id]")).toHaveCount(2);
-    expect(media).toBe(0);
-    await page.locator("button[data-stream-id]").first().click();
-    await expect(page.locator("#fullscreenPlayback")).toBeVisible();
-    await expect.poll(() => media).toBeGreaterThan(0);
-    await page.keyboard.press("Escape");
-    await page.reload();
-    await expect(
-      page.getByRole("button", { name: "Play with Yastream" }),
-    ).toBeVisible();
-    const count = await page.evaluate(async () =>
-      (await import("/src/lib/addon-storage.js"))
-        .addonRegistrations()
-        .then((items) => items.length),
+    await page.route("https://manual.example/**", (route) =>
+      route.fulfill({
+        json: {
+          id: "manual",
+          name: "Manual provider",
+          types: ["movie"],
+          resources: ["stream"],
+        },
+      }),
     );
-    expect(count).toBe(1);
+    await openPlayer(page);
+    await expect.poll(() => requests).toBe(1);
+    await page.evaluate(async () => {
+      const addons = await import("/src/lib/addons.js");
+      await addons.installAddon("https://manual.example/manifest.json");
+    });
+    preset = false;
+    await page.reload();
+    await expect
+      .poll(() =>
+        page.evaluate(async () => {
+          const storage = await import("/src/lib/addon-storage.js");
+          return (await storage.addonRegistrations()).map(
+            (item) => item.manifestUrl,
+          );
+        }),
+      )
+      .toEqual(["https://manual.example/manifest.json"]);
+    expect(requests).toBe(1);
+    if (native)
+      await expect(
+        page.getByRole("link", { name: "Watch on RainFlix App", exact: true }),
+      ).toHaveCount(0);
   });
 }

@@ -131,6 +131,7 @@ for (const width of [390, 1440]) {
               title: `Related title ${index + 1}`,
               poster_path: "/poster.jpg",
               vote_average: 8,
+              vote_count: 500,
               release_date: "2025-01-01",
               overview: "Related movie.",
             })),

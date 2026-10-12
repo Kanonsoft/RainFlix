@@ -72,6 +72,12 @@ Continue Watching records native media only after `playing`. Iframes keep the ex
 
 ## Buffering Artwork
 
+More like this uses plot/keyword TF-IDF cosine similarity plus weighted genres, language, companies, cast, crew and directors, with Bayesian rating confidence and minimum-vote filters. More opens a scroll-loaded recommendations catalog. See [[Recommendations]] for weights, request bounds and limitations.
+
+Native manual Skip intro/ending prompts auto-hide after three seconds. They reappear on mobile control reveal/touch activity or desktop control activity (mouse movement, click, keyboard). Entering a new metadata-defined skip segment shows it briefly; expiry does not disable automatic skipping, and missing chapter metadata still produces no skip action. Android uses a monotonic deadline and one hide callback; mpv uses its monotonic control-activity clock. Native regression checks: `PlayerUiTest.skipPromptExpiresAndReturnsWithControls` and `scripts/verify-skip-prompt.lua` with the bundled player UI and `tests/fixtures/player-sample.mp4`.
+
+On web title pages, RainFlix App is the first Streams entry, before official availability. The title action row starts with a blue Watch on RainFlix App button, before My List, Share and Play trailer. Both link to Downloads in the current tab; native app title pages omit this download action.
+
 The native episode drawer loads a selected season through the same `getTmdbTitleMeta` callback used by title pages, without changing the playing episode. It includes a clickable season selector, previous/next season controls, loading/error/retry states, and episode -> provider -> stream selection. A provider with a sole playable result starts directly after its explicit click. The playback heading includes local season/episode numbers (`S23 E1`) and the episode title.
 
 Missing or failed title logos use the bundled RainFlix R artwork, including the native player's initial loading and pause overlays. The title page uses provider -> episode -> streams. The Android player uses episode -> provider -> streams: selecting an episode shows compatible installed providers immediately, and an explicit provider click requests only that provider. A sole result plays immediately; empty results offer Retry. Back returns to providers, then episodes. URLs stay in the frontend's per-request memory; only opaque choice IDs, provider names, and stream labels reach the native menu.

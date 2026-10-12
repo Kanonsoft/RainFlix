@@ -546,6 +546,9 @@
         const response = await fetch(requestUrl, {
           cache: requestCache,
           headers,
+          ...(options.timeoutMs
+            ? { signal: AbortSignal.timeout(options.timeoutMs) }
+            : {}),
         });
 
         if (!response.ok) {
@@ -586,6 +589,9 @@
       title: title || "Untitled",
       year: releaseDate ? releaseDate.slice(0, 4) : "TBA",
       rating: item.vote_average ? Number(item.vote_average).toFixed(1) : "NR",
+      voteAverage: Number(item.vote_average || 0),
+      voteCount: Number(item.vote_count || 0),
+      originalLanguage: item.original_language || "",
       poster: imageUrl(item.poster_path, "w500"),
       backdrop:
         imageUrl(item.backdrop_path, "w1280") ||
@@ -1907,6 +1913,119 @@
     };
   }
 
+  async function getRecommendationProfile(mediaType, id) {
+    if (!["movie", "tv"].includes(mediaType) || !/^[1-9]\d*$/.test(String(id)))
+      throw new Error("Invalid recommendation title.");
+    const data = await tmdbFetch(
+      `${mediaType}/${id}`,
+      { append_to_response: "keywords,credits" },
+      { timeoutMs: 10000 },
+    );
+    if (!data?.id) throw new Error("Title metadata is unavailable.");
+    const crew = data.credits?.crew || [];
+    return {
+      ...mapTmdbTitle(data, mediaType),
+      synopsis: data.overview || "",
+      genreIds: (data.genres || []).map((genre) => genre.id),
+      tagline: data.tagline || "",
+      adult: data.adult === true,
+      keywords: data.keywords?.keywords || data.keywords?.results || [],
+      companies: data.production_companies || [],
+      cast: (data.credits?.cast || []).slice(0, 12),
+      crew: crew
+        .filter((person) =>
+          [
+            "Director",
+            "Writer",
+            "Screenplay",
+            "Creator",
+            "Executive Producer",
+          ].includes(person.job),
+        )
+        .slice(0, 24),
+      directors: [
+        ...crew.filter((person) => person.job === "Director"),
+        ...(data.created_by || []),
+      ],
+    };
+  }
+
+  async function getRecommendationCandidates(profile, page = 1) {
+    const type = profile.mediaType;
+    const discovery = {
+      page,
+      include_adult: false,
+      sort_by: "vote_count.desc",
+      "vote_count.gte": type === "tv" ? 10 : 20,
+    };
+    const queries = [
+      [`${type}/${profile.id}/recommendations`, { page }, true],
+      [`${type}/${profile.id}/similar`, { page }, true],
+    ];
+    if (profile.keywords?.length)
+      queries.push([
+        `discover/${type}`,
+        {
+          ...discovery,
+          with_keywords: profile.keywords
+            .slice(0, 5)
+            .map((item) => item.id)
+            .join("|"),
+        },
+      ]);
+    if (profile.companies?.length)
+      queries.push([
+        `discover/${type}`,
+        {
+          ...discovery,
+          with_companies: profile.companies
+            .slice(0, 3)
+            .map((item) => item.id)
+            .join("|"),
+        },
+      ]);
+    if (profile.genreIds?.length)
+      queries.push([
+        `discover/${type}`,
+        {
+          ...discovery,
+          with_genres: profile.genreIds.slice(0, 3).join("|"),
+          ...(profile.originalLanguage
+            ? { with_original_language: profile.originalLanguage }
+            : {}),
+        },
+      ]);
+    const responses = await Promise.allSettled(
+      queries.map(async ([path, params, seed]) => {
+        const data = await tmdbFetch(path, params, { timeoutMs: 10000 });
+        if (!data) throw new Error("Recommendations are unavailable.");
+        return {
+          items: (data.results || [])
+            .filter((item) => !item.adult)
+            .map((item) => ({
+              ...mapTmdbTitle(item, type),
+              synopsis: item.overview || "",
+              recommendationSeed: Boolean(seed),
+            })),
+          hasMore: page < (data.total_pages || 1),
+        };
+      }),
+    );
+    const successful = responses
+      .filter((result) => result.status === "fulfilled")
+      .map((result) => result.value);
+    if (!successful.length)
+      throw new Error("Recommendations could not be loaded.");
+    return {
+      items: uniqueTitles(successful.flatMap((result) => result.items)).filter(
+        (item) =>
+          String(item.id) !== String(profile.id) &&
+          (item.poster || item.backdrop),
+      ),
+      hasMore: successful.some((result) => result.hasMore),
+    };
+  }
+
   async function getEpisodeGroups(id) {
     const data = await tmdbFetch(`tv/${id}/episode_groups`);
     return (Array.isArray(data?.results) ? data.results : []).filter(
@@ -2033,6 +2152,8 @@
     getEpisodeGroup,
     getEpisodeGroups,
     getSimilar,
+    getRecommendationProfile,
+    getRecommendationCandidates,
     getWatchProviders,
     getTitleLogos,
     getTrending,

@@ -35,16 +35,12 @@ function CatalogRow({ addon, catalog }) {
     return () => controller.abort();
   }, [addon, catalog, requiresInput]);
   if (requiresInput) return null;
-  if (loading)
-    return (
-      <div className="h-[420px] md:h-[480px]" aria-busy="true">
-        <MediaGrid items={[]} loading />
-      </div>
-    );
-  if (!items.length) return null;
+  if (!loading && !items.length) return null;
   return (
     <section
       className="mt-12"
+      aria-busy={loading}
+      data-addon-catalog-row
       aria-label={`${addon.manifest.name}: ${addonCatalogLabel(catalog)}`}
     >
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
@@ -61,7 +57,7 @@ function CatalogRow({ addon, catalog }) {
           Browse catalog
         </Link>
       </div>
-      <MediaGrid items={items} />
+      <MediaGrid items={items} loading={loading} skeletonDetailed />
     </section>
   );
 }

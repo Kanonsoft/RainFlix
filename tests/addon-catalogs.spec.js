@@ -300,8 +300,11 @@ test("home hides empty, invalid, failed and input-only catalog rows", async ({
   await revealHomeCatalogs(page);
   await expect.poll(() => new Set(requests).size).toBe(4);
   await expect(
-    page.getByRole("region", { name: /^Test Catalog:/ }),
+    page.locator("[data-addon-catalog-row][aria-busy=false]"),
   ).toHaveCount(0);
+  await expect(
+    page.locator("[data-addon-catalog-row][aria-busy=true]"),
+  ).toHaveCount(1);
   release();
   await expect(
     page.getByRole("region", {
@@ -314,6 +317,75 @@ test("home hides empty, invalid, failed and input-only catalog rows", async ({
   ).toHaveCount(1);
   expect(requests.some((url) => url.includes("/series/search"))).toBe(false);
 });
+
+for (const width of [390, 1440]) {
+  test(`home catalog skeletons align with loaded cards at ${width}px`, async ({
+    page,
+    baseURL,
+  }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    await setup({ page, baseURL });
+    let release;
+    const ready = new Promise((resolve) => {
+      release = resolve;
+    });
+    await page.route("https://catalog.example/**", async (route) => {
+      await ready;
+      await route.fulfill({
+        json: {
+          metas: Array.from({ length: 12 }, (_, index) => ({
+            ...preview,
+            id: `custom:show:${index}`,
+            name: `Catalog Show ${index}`,
+          })),
+        },
+      });
+    });
+    await page.goto("/#/home");
+    await expect(page.locator("#appLoader")).toHaveClass(/is-hidden/, {
+      timeout: 15000,
+    });
+    await revealHomeCatalogs(page);
+    const row = page.locator("[data-addon-catalog-row]");
+    await row.scrollIntoViewIfNeeded();
+    await expect(row).toHaveAttribute("aria-busy", "true");
+    await expect(
+      row.getByRole("heading", { name: "Featured shows - Series" }),
+    ).toBeVisible();
+    const grid = row.locator(".catalog-row");
+    await expect(grid.locator(":scope > div[aria-hidden=true]")).toHaveCount(
+      12,
+    );
+    await expect(
+      grid.locator(":scope > div[aria-hidden=true] > .space-y-2"),
+    ).toHaveCount(12);
+    const before = await grid.boundingBox();
+    const ghost = await grid.locator(":scope > div").first().boundingBox();
+    const rowBox = await row.boundingBox();
+    expect(before.y + before.height).toBeLessThanOrEqual(
+      rowBox.y + rowBox.height + 1,
+    );
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth - innerWidth,
+      ),
+    ).toBeLessThanOrEqual(1);
+    await page.screenshot({
+      path: testInfo.outputPath(`catalog-ghost-${width}.png`),
+    });
+    release();
+    await expect(row).toHaveAttribute("aria-busy", "false");
+    await expect(grid.locator("article")).toHaveCount(12);
+    const after = await grid.boundingBox();
+    const card = await grid.locator("article").first().boundingBox();
+    expect(Math.abs(after.x - before.x)).toBeLessThanOrEqual(1);
+    expect(Math.abs(after.y - before.y)).toBeLessThanOrEqual(1);
+    expect(Math.abs(card.width - ghost.width)).toBeLessThanOrEqual(1);
+    await page.screenshot({
+      path: testInfo.outputPath(`catalog-loaded-${width}.png`),
+    });
+  });
+}
 
 test("home adds catalogs and disabling the owner removes them", async ({
   page,

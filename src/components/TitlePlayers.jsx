@@ -822,7 +822,6 @@ export default function TitlePlayers({
       >
         {!pickingEpisode && !lookupPending && !showSources && canPlay && (
           <>
-            <OfficialProviders details={details} />
             {!isNativeApp && (
               <Link
                 to="/downloads"
@@ -843,6 +842,7 @@ export default function TitlePlayers({
                 </span>
               </Link>
             )}
+            <OfficialProviders details={details} />
           </>
         )}
         {pickingEpisode ? (

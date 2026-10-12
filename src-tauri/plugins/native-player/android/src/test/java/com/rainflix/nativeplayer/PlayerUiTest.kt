@@ -16,6 +16,29 @@ import org.robolectric.shadows.ShadowAlertDialog
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28], qualifiers = "w900dp-h400dp-land")
 class PlayerUiTest {
+    @Test fun skipPromptExpiresAndReturnsWithControls() {
+        PlayerBridge.session = JSONObject().put("sessionId", "skip-test").put("ui", JSONObject())
+        val controller = Robolectric.buildActivity(PlayerActivity::class.java).create().start().resume().visible()
+        val activity = controller.get()
+        try {
+            PlayerActivity::class.java.getDeclaredField("ready").apply { isAccessible = true }.setBoolean(activity, true)
+            @Suppress("UNCHECKED_CAST")
+            val chapters = PlayerActivity::class.java.getDeclaredField("chapters").apply { isAccessible = true }.get(activity) as MutableList<Triple<String, Long, Long>>
+            chapters.add(Triple("Opening", 0L, 60000L))
+            val update = PlayerActivity::class.java.getDeclaredMethod("updatePlaybackActions").apply { isAccessible = true }
+            val reveal = PlayerActivity::class.java.getDeclaredMethod("revealSkipPrompt").apply { isAccessible = true }
+            val button = PlayerActivity::class.java.getDeclaredField("skipButton").apply { isAccessible = true }.get(activity) as View
+            update.invoke(activity)
+            assertEquals(View.VISIBLE, button.visibility)
+            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(3100))
+            update.invoke(activity)
+            assertEquals(View.GONE, button.visibility)
+            reveal.invoke(activity)
+            assertEquals(View.VISIBLE, button.visibility)
+            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(3100))
+            assertEquals(View.GONE, button.visibility)
+        } finally { controller.pause().stop().destroy(); PlayerBridge.session = null; PlayerBridge.emit = null }
+    }
     private fun findText(view: View, value: String): TextView? {
         if (view is TextView && view.text.toString() == value) return view
         if (view is ViewGroup) for (index in 0 until view.childCount) {

@@ -68,6 +68,52 @@ function registrations() {
 }
 addonRegistrations()
   .then(async (saved) => {
+    const defaults = isNativeApp
+      ? config.nativeDefaultAddons
+      : config.webDefaultAddons;
+    if (Array.isArray(defaults)) {
+      const seedKey = isNativeApp
+        ? "native-default-addons"
+        : "web-default-addons";
+      const seeded = await addonRegistrations(undefined, seedKey).catch(
+        () => [],
+      );
+      const currentDefaults = new Set(
+        defaults.map((address) => {
+          try {
+            return manifestAddress(address);
+          } catch {
+            return address;
+          }
+        }),
+      );
+      const retired = new Set(
+        seeded.filter((address) => !currentDefaults.has(address)),
+      );
+      // Retire former presets, not unrelated manually installed providers.
+      for (const item of [...saved, ...installed]) {
+        if (retired.has(item.manifestUrl)) removedRegistrations.add(item.id);
+      }
+      installed = installed.filter(
+        (item) => !removedRegistrations.has(item.id),
+      );
+      const remaining = saved.filter(
+        (item) => !removedRegistrations.has(item.id),
+      );
+      if (remaining.length !== saved.length)
+        await addonRegistrations(remaining).catch(() => {});
+      if (retired.size)
+        await addonRegistrations(
+          seeded.filter((address) => !retired.has(address)),
+          seedKey,
+        ).catch(() => {});
+      saved = remaining;
+      try {
+        sessionStorage.setItem(storageKey, JSON.stringify(installed));
+      } catch {
+        /* Optional storage. */
+      }
+    }
     registrationSnapshot = saved;
     registrationsRead = true;
     if (storageRevision > 0)

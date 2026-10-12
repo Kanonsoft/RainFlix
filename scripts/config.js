@@ -22,11 +22,8 @@
       "https://torrentsdb.com/manifest.json",
       "https://animesub.duckdns.org/u_1EnfIqAoOAtgQ2Emhmoavg/manifest.json",
       "https://subsense.nepiraw.com/4l8prd32-%7B%22languages%22%3A%5B%22en%22%5D%2C%22maxSubtitles%22%3A10%2C%22keepAss%22%3Atrue%7D/manifest.json",
-      "https://7a82163c306e-stremio-netflix-catalog-addon.baby-beamup.club/bmZ4LGRucCxhbXAsYXRwLGhibSxpcWksdmlrLGNydSxobHU6OlVTOjE3OTE3MDE0MDc5NDI6MDowOlBI/manifest.json",
     ],
-    webDefaultAddons: [
-      "https://yastream.tamthai.de/eyJjYXRhbG9ncyI6W10sImNhdGFsb2ciOltdLCJzdHJlYW0iOlsia2lzc2toIiwib25ldG91Y2h0diJdLCJuc2Z3IjpmYWxzZSwiaW5mbyI6ZmFsc2UsInBvc3RlciI6InJwZGIiLCJtZnBVcmwiOiIiLCJ0YktleSI6IiIsIm1mcFBhc3MiOiIifQ==/manifest.json",
-    ],
+    webDefaultAddons: [],
     stremioService: {
       enabled: true,
       baseUrl: "http://127.0.0.1:11470",

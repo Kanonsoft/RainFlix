@@ -73,6 +73,9 @@ class PlayerActivity : Activity() {
     private var seekTotal = 0
     private lateinit var seekFeedback: TextView
     private lateinit var skipButton: TextView
+    private var skipSegmentKey: Pair<String, Long>? = null
+    private var skipVisibleUntil = 0L
+    private val hideSkipPrompt = Runnable { if (::skipButton.isInitialized) skipButton.visibility = View.GONE }
     private lateinit var nextCard: LinearLayout
     private lateinit var nextImage: ImageView
     private lateinit var nextLabel: TextView
@@ -243,6 +246,8 @@ class PlayerActivity : Activity() {
         root.addView(nextCard, FrameLayout.LayoutParams(minOf(dp(340), resources.displayMetrics.widthPixels / 2), -2, Gravity.END or Gravity.BOTTOM).apply { rightMargin = dp(18); bottomMargin = dp(112) })
         surface.setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { visibility ->
             controls.visibility = visibility
+            if (visibility == View.VISIBLE) revealSkipPrompt()
+            else { skipVisibleUntil = 0; skipButton.visibility = View.GONE }
         })
         updateEpisodeNavigation()
         setContentView(root)
@@ -341,11 +346,30 @@ class PlayerActivity : Activity() {
         introSkipped = true
         player.seekTo(segment.third.coerceAtMost(player.duration))
     }
+    private fun revealSkipPrompt() {
+        skipVisibleUntil = SystemClock.uptimeMillis() + 3000
+        handler.removeCallbacks(hideSkipPrompt)
+        handler.postDelayed(hideSkipPrompt, 3000)
+        if (::player.isInitialized) updatePlaybackActions()
+    }
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        if (event.actionMasked == MotionEvent.ACTION_DOWN && ::surface.isInitialized && surface.isControllerFullyVisible) revealSkipPrompt()
+        return super.dispatchTouchEvent(event)
+    }
     private fun updatePlaybackActions() {
         if (!::nextCard.isInitialized) return
         val segment = if (ready) currentSegment() else null
+        val key = segment?.let { it.first to it.second }
+        if (key != skipSegmentKey) {
+            skipSegmentKey = key
+            if (key != null) {
+                skipVisibleUntil = SystemClock.uptimeMillis() + 3000
+                handler.removeCallbacks(hideSkipPrompt)
+                handler.postDelayed(hideSkipPrompt, 3000)
+            }
+        }
         val ending = segment?.first?.let { Regex("(?i)\\b(outro|ending|end|credits|ed\\d*)\\b").containsMatchIn(it) } == true
-        skipButton.visibility = if (segment != null && !nextCard.isShown) View.VISIBLE else View.GONE
+        skipButton.visibility = if (segment != null && drawer == null && !nextCard.isShown && SystemClock.uptimeMillis() < skipVisibleUntil) View.VISIBLE else View.GONE
         skipButton.text = if (ending) "Skip ending" else "Skip intro"
         if (player.isPlaying && segment != null && ((ending && savedTracks.optBoolean("skipOutro")) || (!ending && !introSkipped && savedTracks.optBoolean("skipIntro")))) skipCurrentSegment()
         val next = nextEpisode()
@@ -390,6 +414,7 @@ class PlayerActivity : Activity() {
         if (!url.startsWith("http://") && !url.startsWith("https://")) return
         chapters.clear()
         introSkipped = false
+        skipSegmentKey = null; skipVisibleUntil = 0; handler.removeCallbacks(hideSkipPrompt)
         skipButton.visibility = View.GONE
         restoredTrackTypes.clear()
         subtitleRevision++

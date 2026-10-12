@@ -8,8 +8,9 @@ import EpisodeList from "./EpisodeList.jsx";
 import RelatedCarousel from "./RelatedCarousel.jsx";
 import TitleArtwork from "./TitleArtwork.jsx";
 import TitlePlayers from "./TitlePlayers.jsx";
-import { shareBaseUrl } from "../platform/index.js";
+import { isNativeApp, shareBaseUrl } from "../platform/index.js";
 import { getTmdbTitleMeta } from "../lib/addon-catalogs.js";
+import { contentRecommendations } from "../lib/recommendations.js";
 
 const actionClass =
   "inline-flex min-h-11 items-center gap-2 rounded-lg border border-white/20 px-4 text-sm font-bold transition hover:border-sky-400 hover:text-sky-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400";
@@ -190,17 +191,19 @@ function Content({
     : "";
 
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     setSimilar([]);
     if (tmdb)
-      api
-        .getSimilar(tmdb.mediaType, tmdb.id, api.PAGE_SIZE)
+      contentRecommendations(tmdb.mediaType, tmdb.id, {
+        signal: controller.signal,
+      })
         .then((feed) => {
-          if (!cancelled) setSimilar(feed?.items || []);
+          if (!controller.signal.aborted)
+            setSimilar((feed?.items || []).slice(0, api.PAGE_SIZE));
         })
         .catch(() => {});
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [tmdb]);
 
@@ -280,6 +283,14 @@ function Content({
                 role="group"
                 aria-label="Title actions"
               >
+                {!isNativeApp && (
+                  <Link
+                    className="inline-flex min-h-11 items-center justify-center rounded-lg bg-sky-400 px-4 text-sm font-bold text-slate-950 transition hover:bg-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+                    to="/downloads"
+                  >
+                    Watch on RainFlix App
+                  </Link>
+                )}
                 {libraryTitle && (
                   <button
                     className={actionClass}
@@ -498,7 +509,12 @@ function Content({
       </div>
       {similar.length > 0 && (
         <div className={selectionStep ? "hidden md:block" : ""}>
-          <RelatedCarousel items={similar} />
+          <RelatedCarousel
+            items={similar}
+            morePath={
+              tmdb ? `/similar/${tmdb.mediaType}/${tmdb.id}` : undefined
+            }
+          />
         </div>
       )}
     </>

@@ -16,6 +16,7 @@ Open this folder as an Obsidian vault, or open the repository as a vault and nav
 - [[Settings]]: native app preferences, playback defaults and cache controls.
 - [[Startup Artwork]]: bundled posters and the weekly background artwork cache.
 - [[Title Playback]]: shared title pages, fullscreen playback, source selection, and trailers.
+- [[Recommendations]]: weighted content similarity, quality filters and the More like this catalog.
 - [[Add-ons]]: installable directory, installed add-on management, Windows website install links, storage, and supported capabilities.
 
 - [[Configuration]]: settings, provider selection, credentials, and local commands.

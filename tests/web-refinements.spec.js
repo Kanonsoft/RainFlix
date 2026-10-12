@@ -44,6 +44,8 @@ test("mobile stream selection hides related titles and exits using Escape", asyn
             {
               id: 600,
               title: "Related fixture",
+              vote_average: 8,
+              vote_count: 500,
               poster_path: "/poster.jpg",
               release_date: "2025-01-01",
             },

@@ -22,6 +22,7 @@ local skip_options = { intro=false,outro=false,preview=true,preload=true }
 local preload_video
 local preload_retry_at=0
 local skipped_chapter
+local skip_prompt = { chapter=nil, expires=0, last_input=mp.get_time() }
 local function canonical_language(value)
     local code = tostring(value or "und"):lower():gsub("_","-")
     local aliases = { eng="en",jpn="ja",spa="es",fre="fr",fra="fr",ger="de",deu="de",chi="zh",zho="zh",
@@ -98,7 +99,6 @@ local was_buffering = false
 local smoke_buffer = nil
 local season = tonumber(ui.season) or 1
 local season_page = 0
-local last_input = mp.get_time()
 local hitboxes = {}
 local bitmap_cache = {}
 local wanted_bitmaps = {}
@@ -346,7 +346,7 @@ local function select_panel(name)
         end
         episode_focus_pending=true
     end
-    last_input = mp.get_time()
+    skip_prompt.last_input = mp.get_time()
 end
 
 local function render_subtitles(parts)
@@ -897,6 +897,11 @@ local function render()
     local duration = mp.get_property_number("duration",0)
     local chapters, current_chapter = chapter_at(position)
     local skip = skip_chapter(position,duration)
+    local prompt_chapter = skip and skip.index or nil
+    if prompt_chapter ~= skip_prompt.chapter then
+        skip_prompt.chapter = prompt_chapter
+        skip_prompt.expires = skip and mp.get_time()+3 or 0
+    end
     if skip and not restoring_tracks and not buffering and not panel and not mp.get_property_bool("pause",false)
         and ((skip.title=="Skip intro" and skip_options.intro) or (skip.title=="Skip ending" and skip_options.outro))
         and skipped_chapter~=skip.index then
@@ -918,7 +923,7 @@ local function render()
     end
     local show_next=skip_options.preview and upcoming and has_played and height>=540 and width>=400 and duration>0 and remaining>0
         and (remaining<=math.min(30,duration*0.1) or (skip and skip.title=="Skip ending" and remaining<=120))
-    local visible = panel or mp.get_time() - last_input < 4
+    local visible = panel or mp.get_time() - skip_prompt.last_input < 4
     if visible then
         for band=0,11 do
             rectangle(parts,0,band*8,width,8,C.background,0x20+band*17)
@@ -1004,7 +1009,7 @@ local function render()
         end
     end
 
-    if skip and not panel and not buffering then
+    if skip and not panel and not buffering and mp.get_time() < math.max(skip_prompt.expires,skip_prompt.last_input+3) then
         local y=show_next and height-430 or height-184
         rounded(parts,width-252,y,226,50,C.background,0x50)
         button(parts,width-252,y,226,50,skip.title,function()
@@ -1043,6 +1048,7 @@ local function render()
     if os.getenv("RAINFLIX_NATIVE_SMOKE_MEDIA") then
         mp.set_property_native("user-data/rainflix",{ buffering=buffering,percent=percent,fill=buffer_fill,
             logo=ui.logo ~= nil and ui.logo.path ~= nil, skip=skip, panel=panel,
+            skipPromptVisible=skip~=nil and not panel and not buffering and mp.get_time()<math.max(skip_prompt.expires,skip_prompt.last_input+3),
             languages=subtitle_languages(tracks_of("sub")),mouse=mp.get_property_native("mouse-pos"),size={w=width,h=height},season=season,
             subtitleLanguage=language,subtitleVariants=language and (function()
                 local count=0
@@ -1060,7 +1066,7 @@ local function render()
 end
 
 local function reveal()
-    last_input = mp.get_time()
+    skip_prompt.last_input = mp.get_time()
     render()
 end
 
@@ -1174,13 +1180,14 @@ mp.add_forced_key_binding("WHEEL_DOWN", "rainflix-wheel-down", function()
     reveal()
 end)
 
-mp.register_event("start-file",function() ready=false; has_played=false; skipped_chapter=nil; buffer_fill=0; reveal() end)
+mp.register_event("start-file",function() ready=false; has_played=false; skipped_chapter=nil; skip_prompt.chapter=nil; skip_prompt.expires=0; buffer_fill=0; reveal() end)
 mp.register_event("playback-restart",function() ready=true; has_played=true; reveal() end)
 mp.register_event("file-loaded", function() restore_preferences(); reveal() end)
 for _,property in ipairs({ "aid","sid","sub-delay","sub-scale","sub-pos","volume","speed","mute" }) do
     mp.observe_property(property,"native",save_preferences)
 end
 if os.getenv("RAINFLIX_NATIVE_SMOKE_MEDIA") then
+    mp.register_script_message("rainflix-smoke-reveal",reveal)
     mp.register_script_message("rainflix-smoke-preload-status",function(status,percent)
         ui.preloadStatus={id="smoke",status=status,percent=tonumber(percent) or 0}
         render()
