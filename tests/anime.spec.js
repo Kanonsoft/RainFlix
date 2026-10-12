@@ -102,7 +102,6 @@ for (const [mode, width] of [
           .nth(1),
       ).toHaveText("Anime");
     } else {
-      await page.getByRole("button", { name: "Open navigation" }).click();
       await expect(
         page
           .getByRole("navigation", {
@@ -112,7 +111,6 @@ for (const [mode, width] of [
           .getByRole("link")
           .nth(1),
       ).toHaveText("Anime");
-      await page.locator("#mobileNavClose").click();
     }
     await expect(
       page.getByRole("link", { name: "Watch now" }).first(),
@@ -140,12 +138,16 @@ for (const [mode, width] of [
       "href",
       /season=2&episode=3/,
     );
+    const recentHeight = (await recent.boundingBox()).height;
     await recent
       .getByRole("button", { name: "Next Recently updated episodes page" })
       .click();
     await expect(recent.locator(".catalog-card")).toHaveCount(
       width < 1024 ? 4 : 3,
     );
+    expect(
+      Math.abs((await recent.boundingBox()).height - recentHeight),
+    ).toBeLessThanOrEqual(1);
     await recent
       .getByRole("button", { name: "Previous Recently updated episodes page" })
       .click();
@@ -165,10 +167,14 @@ for (const [mode, width] of [
       const newBox = await newest.boundingBox();
       expect(newBox.width).toBeGreaterThan(recentBox.width + 200);
     }
+    const newestHeight = (await newest.boundingBox()).height;
     await newest.getByRole("button", { name: "Next New anime page" }).click();
     await expect(newest.locator(".catalog-card")).toHaveCount(
       width < 1024 ? 4 : 1,
     );
+    expect(
+      Math.abs((await newest.boundingBox()).height - newestHeight),
+    ).toBeLessThanOrEqual(1);
     const schedule = page.getByRole("region", {
       name: "Episode release schedule",
     });

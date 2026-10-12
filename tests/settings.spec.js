@@ -76,12 +76,15 @@ for (const android of [true, false])
     await expect(page.locator("#appLoader")).toHaveClass(/is-hidden/, {
       timeout: 15000,
     });
+    await expect(page.getByLabel("Subtitle size")).toHaveCount(0);
+    await page.getByRole("link", { name: "Subtitle settings" }).click();
+    await expect(page).toHaveURL(/#\/settings\/subtitles$/);
     await expect(page.getByLabel("Subtitle size")).toHaveValue("1");
     const preview = page.getByRole("figure", { name: "Subtitle preview" });
     await expect(preview.locator("img")).toBeVisible();
     await page.getByLabel("Subtitle size").focus();
     await page.keyboard.press("End");
-    await expect(preview.locator("figcaption")).toHaveCSS("font-size", "35px");
+    await expect(preview.locator("figcaption")).toHaveCSS("font-size", "45px");
     await page.getByLabel("Subtitle vertical position").focus();
     await page.keyboard.press("Home");
     await page.getByLabel("Subtitle delay").focus();
@@ -107,6 +110,8 @@ for (const android of [true, false])
       position: 90,
       delay: 0.5,
     });
+    await page.goBack();
+    await expect(page).toHaveURL(/#\/settings$/);
     await expect(page.getByText("Storage", { exact: true })).toHaveCount(0);
     await expect(page.getByLabel("Intro fallback length")).toHaveCount(0);
     if (!android) {
@@ -117,13 +122,27 @@ for (const android of [true, false])
       await fullscreen.check();
     }
     await reduced.check();
+    for (const name of ["Manage add-ons", "Subtitle settings"]) {
+      await expect(page.getByRole("link", { name }).locator("svg")).toHaveCount(
+        0,
+      );
+    }
+    const header = page.locator("#site-header");
+    await expect(header).toHaveCSS("background-color", "rgb(13, 19, 23)");
+    await expect(header).toHaveCSS("backdrop-filter", "none");
+    await expect(header).toHaveCSS("transition-duration", "0s");
+    await expect(page.locator("body")).toHaveCSS("user-select", "none");
+    await page.evaluate(() => scrollTo(0, 500));
+    await expect(header).toHaveCSS("background-color", "rgb(13, 19, 23)");
     await page.getByLabel("Preferred audio").selectOption("ja");
     await page.reload();
+    await page.getByRole("link", { name: "Subtitle settings" }).click();
     await expect(page.getByLabel("Subtitle size")).toHaveValue("2.5");
     await expect(page.getByLabel("Subtitle vertical position")).toHaveValue(
       "50",
     );
     await expect(page.getByLabel("Subtitle delay")).toHaveValue("-10");
+    await page.goBack();
     await expect(page.getByLabel("Preferred audio")).toHaveValue("ja");
     if (!android)
       await expect(
@@ -154,7 +173,93 @@ for (const android of [true, false])
         .outputPath(`settings-${android ? "android" : "desktop"}.png`),
       fullPage: true,
     });
+    await page.getByRole("link", { name: "Subtitle settings" }).click();
+    await page.getByRole("button", { name: "Reset subtitle settings" }).click();
+    await expect(page.getByLabel("Subtitle size")).toHaveValue("1");
+    await expect(page.getByLabel("Subtitle vertical position")).toHaveValue(
+      "92",
+    );
+    await expect(page.getByLabel("Subtitle delay")).toHaveValue("0");
+    await page.screenshot({
+      path: test
+        .info()
+        .outputPath(`subtitle-settings-${android ? "android" : "desktop"}.png`),
+      fullPage: true,
+    });
   });
+
+test("global skip choices persist independently from title track preferences", async ({
+  page,
+  baseURL,
+}) => {
+  await mockPlayback({ page, baseURL }, false, true);
+  await page.route("**/src/platform/index.js", (route) =>
+    route.fulfill({
+      contentType: "text/javascript",
+      body: "export const isNativeApp=true,isAndroid=false,isDesktop=true,browserTorrentAvailable=false; export function shareBaseUrl(){return location.origin;}",
+    }),
+  );
+  await page.goto("/#/home");
+  const preferences = await page.evaluate(async () => {
+    const {
+      savePlayerSkipSettings,
+      readAppSettings,
+      nativeTrackSettings,
+      saveAppSettings,
+    } = await import("/src/lib/app-settings.js");
+    const { savePlaybackPreferences, readPlaybackPreferences } =
+      await import("/src/lib/playback-preferences.js");
+    const first = { mediaType: "tv", id: 505 };
+    savePlaybackPreferences(first, {
+      tracks: {
+        audio: 2,
+        sub: 4,
+        scale: 1.3,
+        skipIntro: false,
+        preloadNext: false,
+      },
+    });
+    savePlayerSkipSettings({ skipIntro: true, skipOutro: true });
+    savePlayerSkipSettings({ skipIntro: "false" });
+    const stored = readPlaybackPreferences(first);
+    const nextEpisode = nativeTrackSettings(stored.tracks);
+    const otherTitle = nativeTrackSettings(
+      readPlaybackPreferences({ mediaType: "tv", id: 506 }).tracks,
+    );
+    saveAppSettings({ subtitleScale: 2 });
+    return {
+      stored,
+      nextEpisode,
+      otherTitle,
+      app: readAppSettings(),
+      after: nativeTrackSettings(stored.tracks),
+    };
+  });
+  expect(preferences.stored.tracks).toEqual({ audio: 2, sub: 4, scale: 1.3 });
+  expect(preferences.nextEpisode).toMatchObject({
+    audio: 2,
+    sub: 4,
+    scale: 1.3,
+    skipIntro: true,
+    skipOutro: true,
+  });
+  expect(preferences.otherTitle).toMatchObject({
+    skipIntro: true,
+    skipOutro: true,
+  });
+  expect(preferences.after).toMatchObject({
+    scale: 1.3,
+    skipIntro: true,
+    skipOutro: true,
+  });
+  await page.reload();
+  expect(
+    await page.evaluate(
+      async () =>
+        (await import("/src/lib/app-settings.js")).readAppSettings().skipIntro,
+    ),
+  ).toBe(true);
+});
 
 test("web hides settings and library history sections", async ({
   page,

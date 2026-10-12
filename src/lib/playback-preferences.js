@@ -1,4 +1,16 @@
 const key = "rainflix:playback-preferences:v1";
+const appWideKeys = new Set([
+  "skipIntro",
+  "skipOutro",
+  "nextPreview",
+  "preloadNext",
+  "autoNext",
+]);
+function titleTracks(tracks) {
+  return Object.fromEntries(
+    Object.entries(tracks || {}).filter(([key]) => !appWideKeys.has(key)),
+  );
+}
 
 function titleKey(details) {
   const title = details.tmdbDetails || details;
@@ -7,9 +19,11 @@ function titleKey(details) {
 
 export function readPlaybackPreferences(details) {
   try {
-    return (
-      JSON.parse(localStorage.getItem(key) || "{}")[titleKey(details)] || {}
-    );
+    const preference =
+      JSON.parse(localStorage.getItem(key) || "{}")[titleKey(details)] || {};
+    return preference.tracks
+      ? { ...preference, tracks: titleTracks(preference.tracks) }
+      : preference;
   } catch {
     return {};
   }
@@ -20,6 +34,7 @@ export function savePlaybackPreferences(details, change) {
     const values = JSON.parse(localStorage.getItem(key) || "{}");
     const id = titleKey(details);
     values[id] = { ...values[id], ...change, updatedAt: Date.now() };
+    if (values[id].tracks) values[id].tracks = titleTracks(values[id].tracks);
     localStorage.setItem(
       key,
       JSON.stringify(

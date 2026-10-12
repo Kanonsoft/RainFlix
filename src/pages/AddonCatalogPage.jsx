@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
 import { useAddons } from "../lib/addons.js";
 import {
@@ -25,8 +25,14 @@ function Catalog({ addon, catalog }) {
   const offset = Math.max(0, Number.parseInt(params.get("skip"), 10) || 0);
   const [pageSize, setPageSize] = useState(0);
   const [hasMore, setHasMore] = useState(false);
+  const sentinel = useRef(null);
+  const request = useRef(null);
+  const busy = useRef(false);
   useEffect(() => {
     const controller = new AbortController();
+    request.current = controller;
+    busy.current = false;
+    setHasMore(false);
     const values = Object.fromEntries(new URLSearchParams(query));
     const definitions = catalogExtras(catalog);
     if (
@@ -48,7 +54,7 @@ function Catalog({ addon, catalog }) {
       .then((result) => {
         if (controller.signal.aborted) return;
         setFeed({ items: result.items, loading: false });
-        setPageSize(result.count);
+        setPageSize(offset + result.count);
         setHasMore(
           result.items.length > 0 &&
             definitions.some((extra) => extra.name === "skip"),
@@ -60,6 +66,67 @@ function Catalog({ addon, catalog }) {
       });
     return () => controller.abort();
   }, [addon, catalog, query, offset, revision]);
+  const loadMore = useCallback(async () => {
+    if (
+      busy.current ||
+      feed.loading ||
+      !hasMore ||
+      request.current?.signal.aborted
+    )
+      return;
+    busy.current = true;
+    const signal = request.current.signal;
+    setFeed((current) => ({ ...current, loadingMore: true, moreError: false }));
+    try {
+      const result = await getAddonCatalog(
+        addon,
+        catalog,
+        { ...Object.fromEntries(new URLSearchParams(query)), skip: pageSize },
+        signal,
+      );
+      if (signal.aborted) return;
+      const known = new Set(
+        feed.items.map((item) => `${item.mediaType}:${item.id}`),
+      );
+      const added = result.items.filter(
+        (item) => !known.has(`${item.mediaType}:${item.id}`),
+      );
+      setFeed((current) => ({
+        ...current,
+        items: [...current.items, ...added],
+        loadingMore: false,
+      }));
+      setPageSize((current) => current + result.count);
+      setHasMore(added.length > 0 && result.count > 0);
+    } catch {
+      if (!signal.aborted)
+        setFeed((current) => ({
+          ...current,
+          loadingMore: false,
+          moreError: true,
+        }));
+    } finally {
+      if (!signal.aborted) busy.current = false;
+    }
+  }, [addon, catalog, query, pageSize, hasMore, feed.loading, feed.items]);
+  useEffect(() => {
+    if (
+      !sentinel.current ||
+      !hasMore ||
+      feed.loading ||
+      feed.loadingMore ||
+      feed.moreError
+    )
+      return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) void loadMore();
+      },
+      { rootMargin: "300px" },
+    );
+    observer.observe(sentinel.current);
+    return () => observer.disconnect();
+  }, [hasMore, feed.loading, feed.loadingMore, feed.moreError, loadMore]);
   return (
     <>
       <h1 className="mt-4 break-words text-2xl font-bold">
@@ -75,7 +142,7 @@ function Catalog({ addon, catalog }) {
             const next = new URLSearchParams();
             for (const [name, value] of new FormData(event.currentTarget))
               if (String(value).trim()) next.set(name, String(value).trim());
-            setParams(next);
+            setParams(next, { replace: true });
           }}
         >
           {extras
@@ -137,33 +204,19 @@ function Catalog({ addon, catalog }) {
             </button>
           </div>
         ) : (
-          <MediaGrid browse items={feed.items} loading={feed.loading} />
+          <MediaGrid
+            browse
+            items={feed.items}
+            loading={feed.loading}
+            ghostCount={feed.loadingMore ? 12 : 0}
+          />
         )}
       </div>
-      {!missing.length && (
-        <div className="mt-6 flex flex-wrap justify-center gap-3">
-          {offset > 0 && (
-            <button
-              className={controlClass}
-              onClick={() => {
-                const next = new URLSearchParams(params);
-                next.delete("skip");
-                setParams(next);
-              }}
-            >
-              Back to first page
-            </button>
-          )}
-          {hasMore && !feed.loading && !feed.error && (
-            <button
-              className={controlClass}
-              onClick={() => {
-                const next = new URLSearchParams(params);
-                next.set("skip", String(offset + pageSize));
-                setParams(next);
-              }}
-            >
-              Next page
+      {!missing.length && hasMore && !feed.error && (
+        <div ref={sentinel} className="mt-6 min-h-1">
+          {feed.moreError && (
+            <button className={controlClass} onClick={loadMore}>
+              Retry catalog
             </button>
           )}
         </div>

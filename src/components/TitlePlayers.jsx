@@ -351,7 +351,7 @@ export default function TitlePlayers({
   episodePicker,
   episodeLabel,
   episodeTitle,
-  episodeChosen = true,
+  episodeChosen: passedEpisodeChosen = true,
   onBackToEpisodes,
   seriesProvider = "",
   onSeriesProviderChange,
@@ -365,6 +365,7 @@ export default function TitlePlayers({
   const [providerChoice, setProviderChoice] = useState("");
   const [providerRevision, setProviderRevision] = useState(0);
   const [sourcesVisible, setSourcesVisible] = useState(false);
+  const returnFocus = useRef("");
   const [availability, setAvailability] = useState({});
   const [availabilityRevision, setAvailabilityRevision] = useState(0);
   const [resumePreference, setResumePreference] = useState(() =>
@@ -374,10 +375,25 @@ export default function TitlePlayers({
   );
   const resumed = useRef(false);
   const episodePlayback = useRef(location.state?.rainflixEpisodePlayback);
+  const params = new URLSearchParams(location.search);
+  const selectionPhase = params.get("selection");
+  const routeProvider = params.get("provider") || "";
+  const providerFirst =
+    Boolean(episodePicker) && details.addonType === "series";
+  const manualFlow = ["episodes", "streams"].includes(selectionPhase);
+  const resuming = Boolean(
+    resumePreference || episodePlayback.current || params.get("play"),
+  );
+  const episodeChosen = manualFlow
+    ? selectionPhase === "streams"
+    : providerFirst
+      ? resuming && passedEpisodeChosen
+      : passedEpisodeChosen;
   const started = useRef(false);
   const completedIdentity = useRef(null);
   const endController = useRef(null);
   const transition = useRef(false);
+  const closing = useRef(false);
   useEffect(() => () => endController.current?.abort(), []);
   const pendingPreference = useRef(null);
   const remembered = useRef(readPlaybackPreferences(details));
@@ -434,8 +450,6 @@ export default function TitlePlayers({
         .map((addon) => ({ id: addon.id, label: addon.manifest.name, addon })),
     ];
   }, [details, installed]);
-  const providerFirst =
-    Boolean(episodePicker) && details.addonType === "series";
   useEffect(() => {
     const controller = new AbortController();
     setAvailability({});
@@ -491,14 +505,20 @@ export default function TitlePlayers({
   }, [availableSources, resumePreference]);
   const chosenProvider = sources.find(
     (source) =>
-      source.id === (providerChoice || (episodeChosen ? seriesProvider : "")) &&
-      !source.url,
+      source.id ===
+        (manualFlow
+          ? routeProvider
+          : resuming
+            ? providerChoice || seriesProvider
+            : "") && !source.url,
   );
   const chosenProviderId = chosenProvider?.id;
   const showSources = Boolean(chosenProvider && sourcesVisible);
   const hasEpisodePicker = Boolean(episodePicker);
   const pickingEpisode =
-    !episodeChosen && (!providerFirst || Boolean(seriesProvider));
+    !episodeChosen &&
+    (!providerFirst ||
+      Boolean(manualFlow ? routeProvider : resuming ? seriesProvider : ""));
   const revealSources = useCallback(() => setSourcesVisible(true), []);
   const trailer = useMemo(
     () =>
@@ -520,6 +540,8 @@ export default function TitlePlayers({
     episodeChosen && chosenProvider && !sourcesVisible && !active,
   );
   const close = useCallback(() => {
+    if (closing.current) return;
+    closing.current = true;
     transition.current = false;
     endController.current?.abort();
     setSelection(null);
@@ -529,8 +551,40 @@ export default function TitlePlayers({
       onSeriesProviderChange?.("");
       onBackToEpisodes?.();
     }
-    navigate(-1);
-  }, [navigate, providerFirst, onSeriesProviderChange, onBackToEpisodes]);
+    // Fullscreen/key events can arrive before the new route's effects commit.
+    if (
+      window.history.state?.usr?.rainflixPlayback &&
+      window.history.state?.idx > 0
+    ) {
+      const root = window.history.state.usr.rainflixSelectionRoot;
+      navigate(
+        !sourcesVisible &&
+          Number.isInteger(root) &&
+          root >= 0 &&
+          root < window.history.state.idx
+          ? root - window.history.state.idx
+          : -1,
+      );
+    } else {
+      const params = new URLSearchParams(location.search);
+      params.delete("play");
+      params.delete("resume");
+      navigate(
+        {
+          pathname: location.pathname,
+          search: params.size ? `?${params}` : "",
+        },
+        { replace: true },
+      );
+    }
+  }, [
+    navigate,
+    location,
+    providerFirst,
+    onSeriesProviderChange,
+    onBackToEpisodes,
+    sourcesVisible,
+  ]);
   const finishPlayback = async () => {
     if (endController.current) return;
     const controller = new AbortController();
@@ -557,6 +611,7 @@ export default function TitlePlayers({
     }
   }, [onStarted, details]);
   const start = (source, playback) => {
+    closing.current = false;
     const token = crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`;
     const params = new URLSearchParams(location.search);
     params.set("play", "1");
@@ -594,7 +649,11 @@ export default function TitlePlayers({
       navigate(
         { pathname: location.pathname, search: `?${params}` },
         {
-          state: { rainflixPlayback: token },
+          replace: Boolean(new URLSearchParams(location.search).get("play")),
+          state: {
+            rainflixPlayback: token,
+            rainflixSelectionRoot: location.state?.rainflixSelectionRoot,
+          },
         },
       );
     });
@@ -702,12 +761,6 @@ export default function TitlePlayers({
   useEffect(() => {
     const selecting = pickingEpisode || showSources || lookupPending;
     onSelectionStepChange?.(selecting);
-    if (selecting && window.matchMedia("(max-width: 767px)").matches) {
-      selectionPanel.current?.scrollIntoView({
-        block: "start",
-        behavior: "auto",
-      });
-    }
   }, [pickingEpisode, showSources, lookupPending, onSelectionStepChange]);
   useEffect(() => {
     if (chosenProviderId && (showSources || lookupPending)) {
@@ -724,24 +777,78 @@ export default function TitlePlayers({
         );
     target?.focus({ preventScroll: true });
   }, [episodeChosen, hasEpisodePicker]);
+  const navigateSelection = (phase, provider = "") => {
+    const next = new URLSearchParams(location.search);
+    next.delete("play");
+    next.delete("resume");
+    if (phase) next.set("selection", phase);
+    else next.delete("selection");
+    if (provider) next.set("provider", provider);
+    else next.delete("provider");
+    navigate(
+      { pathname: location.pathname, search: next.size ? `?${next}` : "" },
+      {
+        state: {
+          rainflixSelection: true,
+          rainflixSelectionRoot:
+            location.state?.rainflixSelectionRoot ??
+            window.history.state?.idx ??
+            0,
+        },
+      },
+    );
+  };
   const backToPlayers = () => {
-    const id = providerChoice;
+    const id = routeProvider || providerChoice;
+    returnFocus.current = id;
     flushSync(() => {
       setProviderChoice("");
       setSourcesVisible(false);
       if (providerFirst) {
-        onSeriesProviderChange?.(id || seriesProvider);
+        onSeriesProviderChange?.(
+          selectionPhase === "episodes" ? "" : id || seriesProvider,
+        );
         onBackToEpisodes?.();
       }
     });
+    if (location.state?.rainflixSelection && window.history.state?.idx > 0)
+      navigate(-1);
+    else {
+      const next = new URLSearchParams(location.search);
+      if (selectionPhase === "streams" && providerFirst)
+        next.set("selection", "episodes");
+      else if (selectionPhase === "streams" && id && hasEpisodePicker) {
+        next.delete("provider");
+      } else {
+        next.delete("selection");
+        next.delete("provider");
+      }
+      navigate(
+        { pathname: location.pathname, search: next.size ? `?${next}` : "" },
+        { replace: true },
+      );
+    }
     providerButtons.current.get(id)?.focus({ preventScroll: true });
     if (sourcePanel.current) sourcePanel.current.scrollTop = 0;
   };
+  useEffect(() => {
+    if (manualFlow || !returnFocus.current) return;
+    providerButtons.current
+      .get(returnFocus.current)
+      ?.focus({ preventScroll: true });
+    returnFocus.current = "";
+  }, [manualFlow]);
   // Stop on pop immediately, even when React coalesces rapid router transitions.
   useEffect(() => {
     const stop = () => {
       endController.current?.abort();
       setSelection(null);
+      if (
+        new URLSearchParams(window.location.hash.split("?")[1] || "").get(
+          "selection",
+        ) === "streams"
+      )
+        setSourcesVisible(true);
     };
     window.addEventListener("popstate", stop);
     return () => window.removeEventListener("popstate", stop);
@@ -753,12 +860,12 @@ export default function TitlePlayers({
     <section
       ref={selectionPanel}
       aria-labelledby="titlePlayersHeading"
-      className="flex max-h-[min(42rem,75svh)] min-h-0 scroll-mt-24 flex-col"
+      className="flex min-h-[min(34rem,65svh)] max-h-[min(42rem,75svh)] scroll-mt-24 flex-col md:min-h-0"
     >
       <div className="mb-3 flex min-h-11 shrink-0 items-center gap-3">
-        {(lookupPending ||
+        {(manualFlow ||
+          lookupPending ||
           showSources ||
-          pickingEpisode ||
           (episodePicker && episodeChosen)) && (
           <button
             ref={sourceBack}
@@ -781,16 +888,7 @@ export default function TitlePlayers({
                   ? "Back to streams"
                   : `Back to ${episodeLabel.toLowerCase()}`
             }
-            onClick={
-              showSources || lookupPending
-                ? backToPlayers
-                : () => {
-                    setProviderChoice("");
-                    setSourcesVisible(false);
-                    if (providerFirst) onSeriesProviderChange?.("");
-                    onBackToEpisodes();
-                  }
-            }
+            onClick={backToPlayers}
             className="grid h-11 w-11 shrink-0 place-items-center rounded-lg hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
           >
             <ArrowLeft className="h-5 w-5" aria-hidden="true" />
@@ -904,10 +1002,12 @@ export default function TitlePlayers({
                     onBackToEpisodes?.();
                     setProviderChoice("");
                     setSourcesVisible(false);
+                    navigateSelection("episodes", source.id);
                   } else {
                     setProviderChoice(source.id);
                     setSourcesVisible(false);
                     setProviderRevision((value) => value + 1);
+                    navigateSelection("streams", source.id);
                   }
                 }}
                 aria-label={`Play with ${source.label}`}

@@ -153,7 +153,7 @@ export function MediaCard({ item }) {
   );
 }
 
-export function CardSkeleton({ detailed = false }) {
+export function CardSkeleton({ detailed = false, episodeDate = false }) {
   return (
     <div
       className="overflow-hidden rounded-lg border border-blue-900/60 bg-slate-950 shadow-xl shadow-black/20"
@@ -163,6 +163,9 @@ export function CardSkeleton({ detailed = false }) {
       {detailed ? (
         <div className="space-y-2 p-2 sm:p-3">
           <div className="h-5 w-4/5 animate-pulse rounded bg-blue-950/70" />
+          {episodeDate && (
+            <div className="h-4 w-12 animate-pulse rounded bg-blue-950/50" />
+          )}
           <div className="flex gap-1 sm:gap-2">
             <div className="h-4 w-12 animate-pulse rounded bg-blue-950/60 sm:h-6 sm:rounded-full" />
             <div className="h-4 w-10 animate-pulse rounded bg-blue-950/50 sm:h-6 sm:rounded-full" />

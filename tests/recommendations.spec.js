@@ -160,7 +160,10 @@ for (const width of [390, 1440]) {
       path: testInfo.outputPath(`similar-${width}.png`),
       fullPage: true,
     });
-    await page.getByRole("link", { name: "Back to title" }).click();
+    await expect(
+      page.getByRole("button", { name: "Back to title" }),
+    ).toHaveCount(0);
+    await page.goBack();
     await expect(page).toHaveURL(/#\/title\/movie\/505$/);
   });
 }
@@ -178,4 +181,31 @@ test("recommendation failures are retryable without unrelated demo results", asy
   );
   await expect(page.locator(".catalog-grid article")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Retry" })).toBeVisible();
+});
+
+test("title recommendations show ghost cards during slow metadata lookup", async ({
+  page,
+  baseURL,
+}) => {
+  await mockPlayback({ page, baseURL }, false);
+  let release;
+  const gate = new Promise((resolve) => {
+    release = resolve;
+  });
+  await page.route(
+    /api\.themoviedb\.org\/3\/movie\/505\/(similar|recommendations)/,
+    async (route) => {
+      await gate;
+      await route.fulfill({ json: { results: [], total_pages: 1 } });
+    },
+  );
+  await page.goto("/#/title/movie/505");
+  const related = page.locator('section[aria-labelledby="similarTitle"]');
+  try {
+    await expect(related).toHaveAttribute("aria-busy", "true");
+    await expect(page.locator("#similarCarousel > div")).toHaveCount(12);
+  } finally {
+    release();
+  }
+  await expect(related).toHaveCount(0);
 });

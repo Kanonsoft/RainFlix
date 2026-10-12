@@ -139,7 +139,7 @@ test("directory failures retry without removing installed management or manual i
 });
 
 for (const width of [390, 1440]) {
-  test(`desktop navigation places Anime after Home, My List after Browse and Add-ons last at ${width}px`, async ({
+  test(`native navigation moves Add-ons into Settings at ${width}px`, async ({
     page,
     baseURL,
   }) => {
@@ -152,8 +152,6 @@ for (const width of [390, 1440]) {
       }),
     );
     await page.goto("/#/home");
-    if (width < 768)
-      await page.getByRole("button", { name: "Open navigation" }).click();
     const nav = page.getByRole("navigation", {
       name: width < 768 ? "Mobile primary navigation" : "Primary navigation",
       exact: true,
@@ -168,7 +166,17 @@ for (const width of [390, 1440]) {
       "Browse",
       "My List",
       "Settings",
-      "Add-ons",
     ]);
+    await expect(
+      nav.getByRole("link", { name: "Add-ons", exact: true }),
+    ).toHaveCount(0);
+    await nav.getByRole("link", { name: "Settings", exact: true }).click();
+    await page.getByRole("link", { name: "Manage add-ons" }).click();
+    await expect(page).toHaveURL(/#\/addons$/);
+    await expect(
+      nav.getByRole("link", { name: "Settings", exact: true }),
+    ).toHaveClass(/is-active/);
+    await page.goBack();
+    await expect(page).toHaveURL(/#\/settings$/);
   });
 }

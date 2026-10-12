@@ -788,6 +788,13 @@
           logo: imageUrl(company.logo_path, "w185"),
         })),
       trailerKey: preferredTrailer(item.videos),
+      backdrops: [
+        ...new Set(
+          (item.images?.backdrops || [])
+            .map((image) => imageUrl(image.file_path, "w780"))
+            .filter(Boolean),
+        ),
+      ].slice(0, 8),
       duration:
         normalizedType === "tv"
           ? episodeRuntime
@@ -1331,6 +1338,59 @@
     }
   }
 
+  async function getNewestTitles({
+    mediaType = "movie",
+    page = 1,
+    limit = 24,
+    genre = "",
+    year = "",
+  } = {}) {
+    if (!["movie", "tv"].includes(mediaType))
+      throw new Error("Invalid catalog type.");
+    const selectedGenre = GENRES.find((item) => item.slug === genre);
+    const data = await tmdbFetch(
+      `discover/${mediaType}`,
+      {
+        include_adult: false,
+        page,
+        "vote_count.gte": 5,
+        ...(selectedGenre
+          ? {
+              with_genres:
+                selectedGenre[
+                  mediaType === "tv" ? "tvGenreIds" : "movieGenreIds"
+                ].join("|"),
+            }
+          : {}),
+        ...(mediaType === "movie"
+          ? {
+              include_video: false,
+              "primary_release_date.lte": today(),
+              sort_by: "primary_release_date.desc",
+              region: config().tmdbRegion || "US",
+              ...(year ? { primary_release_year: year } : {}),
+            }
+          : {
+              include_null_first_air_dates: false,
+              "first_air_date.lte": today(),
+              sort_by: "first_air_date.desc",
+              ...(year ? { first_air_date_year: year } : {}),
+            }),
+      },
+      { timeoutMs: 10000 },
+    );
+    if (!data) throw new Error("The catalog is unavailable.");
+    return {
+      items: (data.results || [])
+        .filter((item) => !item.adult)
+        .map((item) => mapTmdbTitle(item, mediaType))
+        .filter((item) => item.poster || item.backdrop)
+        .slice(0, limit),
+      page,
+      totalPages: Math.min(500, data.total_pages || 1),
+    };
+  }
+
   async function getNewestSeries(limit = PAGE_SIZE) {
     try {
       const data = await tmdbFetch("discover/tv", {
@@ -1369,6 +1429,7 @@
 
       return {
         items: (data.results || [])
+          .filter((item) => !item.adult)
           .map((item) => mapTmdbTitle(item, "movie"))
           .filter((item) => item.backdrop || item.poster)
           .slice(0, limit),
@@ -1378,6 +1439,25 @@
       console.warn(error);
       return fallbackFeed("movie", limit);
     }
+  }
+
+  async function getTrendingKdramas(limit = PAGE_SIZE) {
+    const pages = await Promise.all(
+      [1, 2, 3].map((page) => tmdbFetch("trending/tv/week", { page })),
+    );
+    return uniqueTitles(
+      pages
+        .flatMap((page) =>
+          (page?.results || []).filter(
+            (item) =>
+              !item.adult &&
+              item.original_language === "ko" &&
+              item.genre_ids?.includes(18),
+          ),
+        )
+        .map((item) => mapTmdbTitle(item, "tv")),
+      limit,
+    );
   }
 
   function animeDate(offset = 0) {
@@ -2146,6 +2226,7 @@
     getCompanyTitles,
     getLoaderPosters,
     getNewestMovies,
+    getNewestTitles,
     getNewestSeries,
     getPersonTitles,
     getSeasonDetails,
@@ -2159,6 +2240,7 @@
     getTrending,
     getTrendingThisWeek,
     getTrendingMovies,
+    getTrendingKdramas,
     getYearTitles,
     hasTmdbCredentials,
     mediaLabel,

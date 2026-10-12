@@ -48,6 +48,15 @@ const subscribe = (listener) => {
 export function useAppSettings() {
   return useSyncExternalStore(subscribe, readAppSettings);
 }
+export function savePlayerSkipSettings(tracks) {
+  const settings = readAppSettings();
+  const changes = {};
+  for (const key of ["skipIntro", "skipOutro"]) {
+    if (typeof tracks?.[key] === "boolean" && tracks[key] !== settings[key])
+      changes[key] = tracks[key];
+  }
+  if (Object.keys(changes).length) saveAppSettings(changes);
+}
 export function nativeTrackSettings(saved = {}) {
   const settings = readAppSettings();
   return {

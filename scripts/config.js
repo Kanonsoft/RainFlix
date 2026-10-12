@@ -18,10 +18,14 @@
     analyticsWebsiteId: "",
     analyticsDomains: "",
     nativeDefaultAddons: [
-      "https://torrentio.strem.fun/sizefilter=10GB/manifest.json",
+      "https://torrentio.strem.fun/limit=3|sizefilter=10GB/manifest.json",
       "https://torrentsdb.com/manifest.json",
       "https://animesub.duckdns.org/u_1EnfIqAoOAtgQ2Emhmoavg/manifest.json",
-      "https://subsense.nepiraw.com/4l8prd32-%7B%22languages%22%3A%5B%22en%22%5D%2C%22maxSubtitles%22%3A10%2C%22keepAss%22%3Atrue%7D/manifest.json",
+      "https://opensubtitlesv3-pro.dexter21767.com/eyJsYW5ncyI6WyJlbmdsaXNoIl0sInNvdXJjZSI6ImFsbCIsImFpVHJhbnNsYXRlZCI6dHJ1ZSwiYXV0b0FkanVzdG1lbnQiOnRydWV9/manifest.json",
+      "https://subsense.nepiraw.com/bjmyz00d-%7B%22languages%22%3A%5B%22en%22%5D%2C%22maxSubtitles%22%3A10%2C%22keepAss%22%3Atrue%7D/manifest.json",
+      "https://94c8cb9f702d-brazuca-torrents.baby-beamup.club/limit=3|sizefilter=10GB/manifest.json",
+      "https://meteorfortheweebs.midnightignite.me/eyJjYWNoZWRPbmx5IjpmYWxzZSwic2tpcFJlbGVhc2VGaWx0ZXIiOnRydWUsInJlbW92ZVRyYXNoIjpmYWxzZSwicmVtb3ZlU2FtcGxlcyI6ZmFsc2UsImFsbG93QWR1bHQiOmZhbHNlLCJleGNsdWRlM0QiOmZhbHNlLCJlbmFibGVTZWFEZXgiOmZhbHNlLCJzaG93WW91ck1lZGlhIjpmYWxzZSwieW91ck1lZGlhTGVnYWN5TW9kZSI6ZmFsc2UsIm1pblNlZWRlcnMiOjAsIm1heFJlc3VsdHMiOjAsIm1heFBlclJlc29sdXRpb24iOjMsIm1heFNpemVCeXRlcyI6MTA3Mzc0MTgyNDAsInJlc29sdXRpb25zIjpbXSwicHJlZmVycmVkTGFuZ3MiOlsiZW4iLCJtdWx0aSJdLCJsYW5ndWFnZXMiOltdLCJleGNsdWRlZExhbmdzIjpbXSwicmVzdWx0Rm9ybWF0IjpbInRpdGxlIiwicXVhbGl0eSIsInNpemUiLCJhdWRpbyJdLCJsYW5ndWFnZUZvcm1hdCI6ImZsYWdzIiwic29ydE9yZGVyIjpbImNhY2hlZCIsInNlYWRleCIsInJlc29sdXRpb24iLCJxdWFsaXR5IiwibGFuZ3VhZ2UiLCJzZWVkZXJzIiwic2l6ZSIsInBhY2siXSwiYWxsb3dQMlAiOnRydWUsImV4Y2x1ZGVkU291cmNlcyI6W119/manifest.json",
+      "https://7a82163c306e-stremio-netflix-catalog-addon.baby-beamup.club/bmZ4LGRucCxhbXAsYXRwLGhibSxobHUsdmlrLGNydSxpcWk6OlVTOjE3OTE3Nzk0MDEzOTY6MDowOlBI/manifest.json",
     ],
     webDefaultAddons: [],
     stremioService: {

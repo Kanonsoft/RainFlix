@@ -3,13 +3,21 @@ import {
   Suspense,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
-import { Navigate, Route, Routes, useLocation } from "react-router";
+import {
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useNavigationType,
+} from "react-router";
 import AppLoader from "./components/AppLoader.jsx";
 import Footer from "./components/Footer.jsx";
 import Header from "./components/Header.jsx";
+import MobileNavigation from "./components/MobileNavigation.jsx";
 import { DetailsProvider } from "./components/details/DetailsProvider.jsx";
 import { LibraryProvider } from "./components/library/LibraryProvider.jsx";
 import useRemoteNavigation from "./hooks/useRemoteNavigation.js";
@@ -33,9 +41,13 @@ const SearchPage = lazy(() => import("./pages/SearchPage.jsx"));
 const WatchPage = lazy(() => import("./pages/WatchPage.jsx"));
 const TitlePage = lazy(() => import("./pages/TitlePage.jsx"));
 const SimilarPage = lazy(() => import("./pages/SimilarPage.jsx"));
+const NewestPage = lazy(() => import("./pages/NewestPage.jsx"));
 const DownloadsPage = lazy(() => import("./pages/DownloadsPage.jsx"));
 const AnimePage = lazy(() => import("./pages/AnimePage.jsx"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage.jsx"));
+const SubtitleSettingsPage = lazy(
+  () => import("./pages/SubtitleSettingsPage.jsx"),
+);
 const PrivacyAnalytics = lazy(() =>
   import("./components/PrivacyAnalytics.jsx").catch(() => ({
     default: () => null,
@@ -44,39 +56,67 @@ const PrivacyAnalytics = lazy(() =>
 
 const BACKDROP_FADE_DURATION = 960;
 
-function routeIdentity(pathname) {
-  const parts = pathname.split("/").filter(Boolean);
-
-  return {
-    id: parts[0] === "watch" ? parts[2] || "" : "",
-    mediaType: parts[0] === "watch" ? parts[1] || "" : "",
-    routeName: parts[0] || "home",
-  };
-}
-
 function ScrollManager() {
   const location = useLocation();
-  const previousRoute = useRef(null);
+  const navigationType = useNavigationType();
+  const positions = useRef(new Map());
+  const previousPath = useRef(null);
 
-  useEffect(() => {
-    const nextRoute = routeIdentity(location.pathname);
-    const previous = previousRoute.current;
-    const sameWatchTitle =
-      previous?.routeName === "watch" &&
-      nextRoute.routeName === "watch" &&
-      previous.mediaType === nextRoute.mediaType &&
-      previous.id === nextRoute.id;
-
-    if (!sameWatchTitle) {
-      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-    }
-
-    previousRoute.current = nextRoute;
-    window.setTimeout(
-      () => document.querySelector("#app-view")?.focus({ preventScroll: true }),
-      0,
-    );
-  }, [location.pathname]);
+  useLayoutEffect(() => {
+    const savedPositions = positions.current;
+    const changedPath = previousPath.current !== location.pathname;
+    const sameTitle =
+      previousPath.current === location.pathname &&
+      /\/(title|watch)\//.test(location.pathname);
+    previousPath.current = location.pathname;
+    const target =
+      navigationType === "POP"
+        ? positions.current.get(location.key) || 0
+        : sameTitle
+          ? window.scrollY
+          : 0;
+    let restoring = true;
+    const restore = () => {
+      if (!sameTitle)
+        window.scrollTo({ top: target, left: 0, behavior: "instant" });
+    };
+    restore();
+    const observer = new ResizeObserver(restore);
+    if (target > 0 && !sameTitle) observer.observe(document.body);
+    const timer = window.setTimeout(() => {
+      restoring = false;
+      observer.disconnect();
+    }, 3000);
+    const save = () => {
+      if (!restoring || window.scrollY >= target)
+        positions.current.set(location.key, window.scrollY);
+    };
+    const stop = () => {
+      restoring = false;
+      observer.disconnect();
+    };
+    window.addEventListener("scroll", save, { passive: true });
+    window.addEventListener("wheel", stop, { passive: true });
+    window.addEventListener("touchstart", stop, { passive: true });
+    const focusTimer = changedPath
+      ? window.setTimeout(
+          () =>
+            document.querySelector("#app-view")?.focus({ preventScroll: true }),
+          0,
+        )
+      : null;
+    return () => {
+      savedPositions.set(location.key, window.scrollY);
+      if (savedPositions.size > 100)
+        savedPositions.delete(savedPositions.keys().next().value);
+      observer.disconnect();
+      window.clearTimeout(timer);
+      window.clearTimeout(focusTimer);
+      window.removeEventListener("scroll", save);
+      window.removeEventListener("wheel", stop);
+      window.removeEventListener("touchstart", stop);
+    };
+  }, [location.key, location.pathname, navigationType]);
 
   return null;
 }
@@ -280,7 +320,7 @@ function AppShell() {
       </div>
       <div
         id="app-shell"
-        className={`relative z-10 flex min-h-screen flex-col ${!isNativeApp ? "web-app" : ""}`}
+        className={`relative z-10 flex min-h-screen flex-col ${!isNativeApp ? "web-app" : ""} ${!landing && !new URLSearchParams(location.search).has("play") ? "mobile-navigation-layout" : ""}`}
       >
         <button
           className="fixed left-4 top-3 z-[500] -translate-y-20 rounded-lg bg-sky-400 px-4 py-3 text-sm font-black text-slate-950 shadow-xl transition focus:translate-y-0 focus:outline-none focus:ring-4 focus:ring-white/30"
@@ -345,6 +385,16 @@ function AppShell() {
               <Route
                 path="/addons"
                 element={<AddonsPage onReady={completeBoot} />}
+              />
+              <Route
+                path="/settings/subtitles"
+                element={
+                  isNativeApp ? (
+                    <SubtitleSettingsPage onReady={completeBoot} />
+                  ) : (
+                    <Navigate replace to="/home" />
+                  )
+                }
               />
               <Route
                 path="/downloads"
@@ -457,6 +507,15 @@ function AppShell() {
               />
               <Route path="*" element={<Navigate replace to="/home" />} />
               <Route
+                path="/newest/:mediaType"
+                element={
+                  <NewestPage
+                    onBackdrop={updateBackdrop}
+                    onReady={completeBoot}
+                  />
+                }
+              />
+              <Route
                 path="/similar/:mediaType/:id"
                 element={
                   <SimilarPage
@@ -469,6 +528,7 @@ function AppShell() {
           </Suspense>
         </main>
         <Footer />
+        {!landing && <MobileNavigation />}
       </div>
       <ScrollManager />
       <BackToTop />

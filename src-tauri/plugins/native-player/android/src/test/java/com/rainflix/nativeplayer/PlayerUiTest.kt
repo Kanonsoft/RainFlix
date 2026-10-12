@@ -16,7 +16,7 @@ import org.robolectric.shadows.ShadowAlertDialog
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28], qualifiers = "w900dp-h400dp-land")
 class PlayerUiTest {
-    @Test fun skipPromptExpiresAndReturnsWithControls() {
+    @Test fun unknownDurationNeverOffersAnUnsafeSkip() {
         PlayerBridge.session = JSONObject().put("sessionId", "skip-test").put("ui", JSONObject())
         val controller = Robolectric.buildActivity(PlayerActivity::class.java).create().start().resume().visible()
         val activity = controller.get()
@@ -26,18 +26,20 @@ class PlayerUiTest {
             val chapters = PlayerActivity::class.java.getDeclaredField("chapters").apply { isAccessible = true }.get(activity) as MutableList<Triple<String, Long, Long>>
             chapters.add(Triple("Opening", 0L, 60000L))
             val update = PlayerActivity::class.java.getDeclaredMethod("updatePlaybackActions").apply { isAccessible = true }
-            val reveal = PlayerActivity::class.java.getDeclaredMethod("revealSkipPrompt").apply { isAccessible = true }
             val button = PlayerActivity::class.java.getDeclaredField("skipButton").apply { isAccessible = true }.get(activity) as View
             update.invoke(activity)
-            assertEquals(View.VISIBLE, button.visibility)
-            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(3100))
-            update.invoke(activity)
-            assertEquals(View.GONE, button.visibility)
-            reveal.invoke(activity)
-            assertEquals(View.VISIBLE, button.visibility)
-            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(3100))
             assertEquals(View.GONE, button.visibility)
         } finally { controller.pause().stop().destroy(); PlayerBridge.session = null; PlayerBridge.emit = null }
+    }
+    @Test fun rejectsWholeEpisodeAndMisplacedIntroOutroMetadata() {
+        val duration = 1440000L
+        assertTrue(ChapterSkipGuard.isSafe("Opening", 0, 90000, duration))
+        assertTrue(ChapterSkipGuard.isSafe("Ending", 1320000, duration, duration))
+        assertFalse(ChapterSkipGuard.isSafe("Opening", 0, duration, duration))
+        assertFalse(ChapterSkipGuard.isSafe("Ending", 0, duration, duration))
+        assertFalse(ChapterSkipGuard.isSafe("Opening", 800000, 890000, duration))
+        assertFalse(ChapterSkipGuard.isSafe("Opening", 0, 90000, -1))
+        assertFalse(ChapterSkipGuard.isSafe("Ending", 1320000, duration + 1, duration))
     }
     private fun findText(view: View, value: String): TextView? {
         if (view is TextView && view.text.toString() == value) return view
@@ -98,6 +100,19 @@ class PlayerUiTest {
             val text = labels(dialog.window!!.decorView)
             assertEquals(1, text.count { it == "Subtitle settings" })
             assertFalse(text.contains("Subtitle appearance"))
+            dialog.dismiss()
+            activity.findViewById<View>(R.id.rainflix_settings).performClick()
+            dialog = ShadowAlertDialog.getLatestAlertDialog()
+            val playbackLabels = labels(dialog.window!!.decorView)
+            assertTrue(playbackLabels.contains("Auto-skip intro"))
+            assertTrue(playbackLabels.contains("Auto-skip outro"))
+            assertFalse(playbackLabels.contains("Next episode preview"))
+            assertFalse(playbackLabels.contains("Preload next episode"))
+            (findText(dialog.window!!.decorView, "Auto-skip intro") as android.widget.Switch).isChecked = true
+            (findText(dialog.window!!.decorView, "Auto-skip outro") as android.widget.Switch).isChecked = true
+            val settings = events.filter { it.optString("kind") == "settings" }.map { it.getJSONObject("settings") }
+            assertTrue(settings.any { it.optBoolean("skipIntro") })
+            assertTrue(settings.any { it.optBoolean("skipOutro") })
             dialog.dismiss()
             activity.findViewById<View>(R.id.rainflix_speed).performClick()
             dialog = ShadowAlertDialog.getLatestAlertDialog()

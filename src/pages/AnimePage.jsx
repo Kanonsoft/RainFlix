@@ -2,7 +2,11 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { ArrowLeft, ArrowRight, RotateCcw } from "lucide-react";
 import HeroCarousel from "../components/HeroCarousel.jsx";
-import { MediaCard, MediaGrid } from "../components/MediaCard.jsx";
+import {
+  CardSkeleton,
+  MediaCard,
+  MediaGrid,
+} from "../components/MediaCard.jsx";
 import ViewportCatalog from "../components/ViewportCatalog.jsx";
 import { api, imageFallback, watchPath } from "../lib/api.js";
 import { usePageMetadata } from "../lib/metadata.js";
@@ -61,19 +65,31 @@ function PagedAnime({ state, title, desktopSize = 10 }) {
   }, [desktopSize]);
   const total = Math.max(1, Math.ceil(state.items.length / pageSize));
   const current = Math.min(page, total);
+  const items = state.items.slice((current - 1) * pageSize, current * pageSize);
   return (
     <>
-      {state.loading ? (
-        <MediaGrid items={[]} loading />
-      ) : state.items.length ? (
+      {state.loading || state.items.length ? (
         <div
           className={`grid grid-cols-3 gap-2 sm:gap-4 ${desktopSize === 12 ? "lg:grid-cols-6" : "lg:grid-cols-5"}`}
         >
-          {state.items
-            .slice((current - 1) * pageSize, current * pageSize)
-            .map((item) => (
-              <MediaCard key={item.id} item={item} />
-            ))}
+          {!state.loading &&
+            items.map((item) => <MediaCard key={item.id} item={item} />)}
+          {Array.from(
+            { length: state.loading ? pageSize : pageSize - items.length },
+            (_, index) => (
+              <div
+                key={`slot-${index}`}
+                data-anime-slot
+                className={state.loading ? "" : "invisible"}
+                aria-hidden="true"
+              >
+                <CardSkeleton
+                  detailed
+                  episodeDate={Boolean(state.items[0]?.episodeDate)}
+                />
+              </div>
+            ),
+          )}
         </div>
       ) : (
         <p className="py-8 text-sm text-slate-400">No anime listed yet.</p>

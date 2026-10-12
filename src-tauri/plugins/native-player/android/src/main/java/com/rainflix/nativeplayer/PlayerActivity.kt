@@ -73,9 +73,6 @@ class PlayerActivity : Activity() {
     private var seekTotal = 0
     private lateinit var seekFeedback: TextView
     private lateinit var skipButton: TextView
-    private var skipSegmentKey: Pair<String, Long>? = null
-    private var skipVisibleUntil = 0L
-    private val hideSkipPrompt = Runnable { if (::skipButton.isInitialized) skipButton.visibility = View.GONE }
     private lateinit var nextCard: LinearLayout
     private lateinit var nextImage: ImageView
     private lateinit var nextLabel: TextView
@@ -246,8 +243,8 @@ class PlayerActivity : Activity() {
         root.addView(nextCard, FrameLayout.LayoutParams(minOf(dp(340), resources.displayMetrics.widthPixels / 2), -2, Gravity.END or Gravity.BOTTOM).apply { rightMargin = dp(18); bottomMargin = dp(112) })
         surface.setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { visibility ->
             controls.visibility = visibility
-            if (visibility == View.VISIBLE) revealSkipPrompt()
-            else { skipVisibleUntil = 0; skipButton.visibility = View.GONE }
+            if (visibility == View.VISIBLE) updatePlaybackActions()
+            else skipButton.visibility = View.GONE
         })
         updateEpisodeNavigation()
         setContentView(root)
@@ -339,37 +336,18 @@ class PlayerActivity : Activity() {
         return chapters.mapIndexed { index, chapter ->
             val end = if (chapter.third > chapter.second) chapter.third else chapters.getOrNull(index + 1)?.second ?: player.duration
             Triple(chapter.first, chapter.second, end)
-        }.firstOrNull { position >= it.second && position < it.third && Regex("(?i)\\b(intro|opening|op\\d*|outro|ending|end|credits|ed\\d*)\\b").containsMatchIn(it.first) }
+        }.firstOrNull { position >= it.second && position < it.third && Regex("(?i)\\b(intro|opening|op\\d*|outro|ending|end|credits|ed\\d*)\\b").containsMatchIn(it.first) && ChapterSkipGuard.isSafe(it.first, it.second, it.third, player.duration) }
     }
     private fun skipCurrentSegment() {
         val segment = currentSegment() ?: return
         introSkipped = true
         player.seekTo(segment.third.coerceAtMost(player.duration))
     }
-    private fun revealSkipPrompt() {
-        skipVisibleUntil = SystemClock.uptimeMillis() + 3000
-        handler.removeCallbacks(hideSkipPrompt)
-        handler.postDelayed(hideSkipPrompt, 3000)
-        if (::player.isInitialized) updatePlaybackActions()
-    }
-    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
-        if (event.actionMasked == MotionEvent.ACTION_DOWN && ::surface.isInitialized && surface.isControllerFullyVisible) revealSkipPrompt()
-        return super.dispatchTouchEvent(event)
-    }
     private fun updatePlaybackActions() {
         if (!::nextCard.isInitialized) return
         val segment = if (ready) currentSegment() else null
-        val key = segment?.let { it.first to it.second }
-        if (key != skipSegmentKey) {
-            skipSegmentKey = key
-            if (key != null) {
-                skipVisibleUntil = SystemClock.uptimeMillis() + 3000
-                handler.removeCallbacks(hideSkipPrompt)
-                handler.postDelayed(hideSkipPrompt, 3000)
-            }
-        }
         val ending = segment?.first?.let { Regex("(?i)\\b(outro|ending|end|credits|ed\\d*)\\b").containsMatchIn(it) } == true
-        skipButton.visibility = if (segment != null && drawer == null && !nextCard.isShown && SystemClock.uptimeMillis() < skipVisibleUntil) View.VISIBLE else View.GONE
+        skipButton.visibility = if (segment != null && drawer == null && !nextCard.isShown && surface.isControllerFullyVisible) View.VISIBLE else View.GONE
         skipButton.text = if (ending) "Skip ending" else "Skip intro"
         if (player.isPlaying && segment != null && ((ending && savedTracks.optBoolean("skipOutro")) || (!ending && !introSkipped && savedTracks.optBoolean("skipIntro")))) skipCurrentSegment()
         val next = nextEpisode()
@@ -414,7 +392,6 @@ class PlayerActivity : Activity() {
         if (!url.startsWith("http://") && !url.startsWith("https://")) return
         chapters.clear()
         introSkipped = false
-        skipSegmentKey = null; skipVisibleUntil = 0; handler.removeCallbacks(hideSkipPrompt)
         skipButton.visibility = View.GONE
         restoredTrackTypes.clear()
         subtitleRevision++
@@ -596,19 +573,15 @@ class PlayerActivity : Activity() {
     private fun playbackSettings() {
         val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(8), dp(16), dp(8)) }
         for ((key, label, default) in listOf(
-            Triple("skipIntro", "Auto-skip intro", false), Triple("skipOutro", "Auto-skip outro", false),
-            Triple("nextPreview", "Next episode preview", true), Triple("preloadNext", "Preload next episode", true))) {
+            Triple("skipIntro", "Auto-skip intro", false), Triple("skipOutro", "Auto-skip outro", false))) {
             content.addView(Switch(this).apply {
                 text = label; textSize = 14f; setTextColor(Color.WHITE); minHeight = dp(48)
                 thumbTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
                 trackTintList = android.content.res.ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()), intArrayOf(0xff38bdf8.toInt(), 0xff343b43.toInt()))
                 isChecked = savedTracks.optBoolean(key, default)
                 setOnCheckedChangeListener { _, checked ->
-                    savedTracks.put(key, checked); preferences()
-                    if (key == "preloadNext" && !checked) {
-                        PlayerBridge.event("episode", JSONObject().put("mode", "cancel-preload"))
-                        preloadVideo = ""; preloadStatus = ""
-                    }
+                    savedTracks.put(key, checked)
+                    PlayerBridge.event("settings", JSONObject().put("settings", JSONObject().put(key, checked)))
                     updatePlaybackActions()
                 }
             })
@@ -620,7 +593,11 @@ class PlayerActivity : Activity() {
         val position = player.currentPosition / 1000.0
         sourceUrl?.let { setSource(JSONObject().put("url", it).put("startAt", position)); player.playWhenReady = play }
     }
-    private fun preferences() { PlayerBridge.event("preferences", JSONObject().put("tracks", savedTracks)) }
+    private fun preferences() {
+        val titleTracks = JSONObject(savedTracks.toString())
+        for (key in listOf("skipIntro", "skipOutro", "nextPreview", "preloadNext", "autoNext")) titleTracks.remove(key)
+        PlayerBridge.event("preferences", JSONObject().put("tracks", titleTracks))
+    }
     private fun speedMenu() {
         val speeds = floatArrayOf(.5f, .75f, 1f, 1.25f, 1.5f, 2f)
         val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(8), 0, dp(8), dp(8)) }

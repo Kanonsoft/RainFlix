@@ -514,7 +514,8 @@ export default function SearchPage({ onBackdrop, onReady, browse = false }) {
                 ? browseTitle
                 : "Results"}
           </h2>
-          {!state.loading &&
+          {!browseMode &&
+          !state.loading &&
           (browseMode || relationshipId || query.length >= 2) ? (
             <span className="shrink-0 text-sm font-bold text-slate-500">
               {filteredResults.length}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router";
+import { Link, useParams } from "react-router";
 import HeroCarousel from "../components/HeroCarousel.jsx";
 import AddonCatalogRows from "../components/AddonCatalogRows.jsx";
 import ViewportCatalog from "../components/ViewportCatalog.jsx";
@@ -582,13 +582,19 @@ export default function CatalogPage({ mode = "home", onBackdrop, onReady }) {
       {config.showMovies ? (
         <ViewportCatalog key={`movies:${routeKey}`}>
           <section className="mt-12" aria-labelledby="newestMoviesTitle">
-            <div className="mb-5">
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
               <h2
                 id="newestMoviesTitle"
                 className="text-3xl font-black text-slate-50"
               >
                 {config.newestMoviesTitle}
               </h2>
+              <Link
+                className="min-h-11 py-2 text-sm font-bold text-sky-300 hover:underline"
+                to={`/newest/movie${genre || year ? `?${new URLSearchParams({ ...(genre ? { genre: genre.slug } : {}), ...(year ? { year: String(year) } : {}) })}` : ""}`}
+              >
+                Browse catalog
+              </Link>
             </div>
             <MediaGrid
               items={newestMovies}
@@ -602,13 +608,19 @@ export default function CatalogPage({ mode = "home", onBackdrop, onReady }) {
       {config.showSeries ? (
         <ViewportCatalog key={`series:${routeKey}`}>
           <section className="mt-12" aria-labelledby="newestSeriesTitle">
-            <div className="mb-5">
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
               <h2
                 id="newestSeriesTitle"
                 className="text-3xl font-black text-slate-50"
               >
                 {config.newestSeriesTitle}
               </h2>
+              <Link
+                className="min-h-11 py-2 text-sm font-bold text-sky-300 hover:underline"
+                to={`/newest/tv${genre || year ? `?${new URLSearchParams({ ...(genre ? { genre: genre.slug } : {}), ...(year ? { year: String(year) } : {}) })}` : ""}`}
+              >
+                Browse catalog
+              </Link>
             </div>
             <MediaGrid
               items={newestSeries}

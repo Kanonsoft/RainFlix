@@ -144,6 +144,11 @@ export async function selectPlayer(page, id, episodeNumber) {
     }
   }
   await provider.click();
+  if (new URL(page.url()).hash.startsWith("#/title/tv/")) {
+    await expect(
+      page.getByRole("region", { name: "Episodes", exact: true }),
+    ).toBeVisible();
+  }
   const episode = episodeNumber
     ? page.getByRole("button", {
         name: `${episodeNumber}. ${episodeNumber === 1 ? "First" : "Second"}`,

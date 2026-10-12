@@ -12,7 +12,11 @@ import rainflixLogo from "../../assets/rainflix-r.png";
 import { installedSubtitles, useAddons } from "../lib/addons.js";
 import PlaybackLoader from "./PlaybackLoader.jsx";
 import { streamPresentation } from "../lib/stream-presentation.js";
-import { nativeTrackSettings, readAppSettings } from "../lib/app-settings.js";
+import {
+  nativeTrackSettings,
+  readAppSettings,
+  savePlayerSkipSettings,
+} from "../lib/app-settings.js";
 import { isAndroid } from "../platform/index.js";
 
 function bufferedReadiness(video) {
@@ -1094,6 +1098,8 @@ function NativeTorrentPlayer({
             .catch(() => {});
         } else if (payload.kind === "preferences") {
           callbacks.current.onPreferences?.(payload.tracks);
+        } else if (payload.kind === "settings") {
+          savePlayerSkipSettings(payload.settings);
         } else if (payload.kind === "error") {
           fail(
             "The native player could not open this video. Try another source.",

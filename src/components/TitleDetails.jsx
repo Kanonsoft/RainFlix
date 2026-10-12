@@ -33,6 +33,9 @@ function Content({
   const [shareStatus, setShareStatus] = useState("");
   const [selectionStep, setSelectionStep] = useState(false);
   const [similar, setSimilar] = useState([]);
+  const [similarLoading, setSimilarLoading] = useState(
+    Boolean(meta.tmdbDetails),
+  );
   const [episodeChosen, setEpisodeChosen] = useState(
     () => new URLSearchParams(location.search).get("resume") === "1",
   );
@@ -193,6 +196,7 @@ function Content({
   useEffect(() => {
     const controller = new AbortController();
     setSimilar([]);
+    setSimilarLoading(Boolean(tmdb));
     if (tmdb)
       contentRecommendations(tmdb.mediaType, tmdb.id, {
         signal: controller.signal,
@@ -201,7 +205,10 @@ function Content({
           if (!controller.signal.aborted)
             setSimilar((feed?.items || []).slice(0, api.PAGE_SIZE));
         })
-        .catch(() => {});
+        .catch(() => {})
+        .finally(() => {
+          if (!controller.signal.aborted) setSimilarLoading(false);
+        });
     return () => {
       controller.abort();
     };
@@ -232,9 +239,7 @@ function Content({
   return (
     <>
       <div className="grid min-w-0 items-start gap-10 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_440px]">
-        <article
-          className={`min-w-0 ${selectionStep ? "hidden md:block" : ""}`}
-        >
+        <article className="min-w-0">
           <div className="grid min-w-0 gap-6 sm:grid-cols-[160px_minmax(0,1fr)]">
             <img
               className="aspect-[2/3] w-32 rounded-lg object-cover shadow-xl shadow-black/40 sm:w-40"
@@ -467,7 +472,7 @@ function Content({
                   isSeries={meta.addonType === "series"}
                   onVideoChange={(id) => {
                     setEpisodeChosen(id);
-                    if (id !== selectedVideo?.id) onVideoChange(id, false);
+                    onVideoChange(id, false, undefined, "streams");
                   }}
                   onSeasonChange={(value) => {
                     const id = meta.tmdbSeasons
@@ -507,10 +512,17 @@ function Content({
           />
         </aside>
       </div>
-      {similar.length > 0 && (
-        <div className={selectionStep ? "hidden md:block" : ""}>
+      {(similarLoading || similar.length > 0) && (
+        <div
+          className={
+            selectionStep
+              ? "invisible pointer-events-none md:visible md:pointer-events-auto"
+              : ""
+          }
+        >
           <RelatedCarousel
             items={similar}
+            loading={similarLoading}
             morePath={
               tmdb ? `/similar/${tmdb.mediaType}/${tmdb.id}` : undefined
             }

@@ -191,29 +191,46 @@ pub struct PlayerEpisode {
 async fn artwork(url: Option<&str>, width: u32, height: u32) -> Option<PlayerLogo> {
     let value = url?;
     let inline = value.strip_prefix("data:image/png;base64,");
-    if inline.is_some_and(|data| data.len() > 200_000) { return None; }
+    if inline.is_some_and(|data| data.len() > 200_000) {
+        return None;
+    }
     let url = if inline.is_none() {
         let url = url::Url::parse(value).ok()?;
-        if !matches!(url.scheme(), "http" | "https") || !url.username().is_empty() || url.password().is_some() { return None; }
+        if !matches!(url.scheme(), "http" | "https")
+            || !url.username().is_empty()
+            || url.password().is_some()
+        {
+            return None;
+        }
         Some(url)
-    } else { None };
+    } else {
+        None
+    };
     let work = async {
         let bytes = if let Some(data) = inline {
-            base64::engine::general_purpose::STANDARD.decode(data).ok()?
+            base64::engine::general_purpose::STANDARD
+                .decode(data)
+                .ok()?
         } else {
-        let client = reqwest::Client::builder()
-            .timeout(Duration::from_secs(3))
-            .build()
-            .ok()?;
-        let mut response = client.get(url?).send().await.ok()?.error_for_status().ok()?;
-        let mut bytes = Vec::new();
-        while let Some(chunk) = response.chunk().await.ok()? {
-            if bytes.len() + chunk.len() > 8 * 1024 * 1024 {
-                return None;
+            let client = reqwest::Client::builder()
+                .timeout(Duration::from_secs(3))
+                .build()
+                .ok()?;
+            let mut response = client
+                .get(url?)
+                .send()
+                .await
+                .ok()?
+                .error_for_status()
+                .ok()?;
+            let mut bytes = Vec::new();
+            while let Some(chunk) = response.chunk().await.ok()? {
+                if bytes.len() + chunk.len() > 8 * 1024 * 1024 {
+                    return None;
+                }
+                bytes.extend_from_slice(&chunk);
             }
-            bytes.extend_from_slice(&chunk);
-        }
-        bytes
+            bytes
         };
         let mut reader = image::ImageReader::new(std::io::Cursor::new(bytes))
             .with_guessed_format()
@@ -1443,6 +1460,15 @@ async fn observe_player(
                             .and_then(|text| serde_json::from_str::<Value>(text).ok())
                         {
                             let _ = app.emit("rainflix:native-torrent", json!({ "sessionId": session_id, "kind": "preferences", "tracks": tracks }));
+                        }
+                    }
+                    Some("rainflix-settings") => {
+                        if let Some(settings) = args
+                            .get(1)
+                            .and_then(Value::as_str)
+                            .and_then(|text| serde_json::from_str::<Value>(text).ok())
+                        {
+                            let _ = app.emit("rainflix:native-torrent", json!({ "sessionId":session_id,"kind":"settings","settings":settings }));
                         }
                     }
                     Some("rainflix-subtitle") => {

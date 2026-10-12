@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Menu, Search, X } from "lucide-react";
-import { createPortal } from "react-dom";
+import { ArrowRight, Search, X } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router";
 import rainflixWordmark from "../../assets/rainflix-wordmark.png";
 import { api, imageFallback } from "../lib/api.js";
@@ -8,14 +7,13 @@ import { posterImageProps } from "../lib/images.js";
 import { useDetails } from "./details/DetailsProvider.jsx";
 import { isNativeApp } from "../platform/index.js";
 
-const showAddonsNavigation = isNativeApp;
-
 function routeState(pathname) {
   const parts = pathname.split("/").filter(Boolean);
   const routeName = parts[0] || "home";
   let primary = routeName;
+  if (routeName === "addons" || routeName === "settings") primary = "settings";
 
-  if (routeName === "watch" || routeName === "title") {
+  if (["watch", "title", "newest", "similar", "addon"].includes(routeName)) {
     primary = "browse";
   }
 
@@ -82,7 +80,6 @@ export default function Header() {
   const navigate = useNavigate();
   const { openDetails } = useDetails();
   const state = routeState(location.pathname);
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [searchState, setSearchState] = useState({
@@ -92,10 +89,6 @@ export default function Header() {
   });
   const searchRootRef = useRef(null);
   const searchInputRef = useRef(null);
-  const mobileCloseRef = useRef(null);
-  const mobileDrawerRef = useRef(null);
-  const mobilePreviousFocusRef = useRef(null);
-  const mobileToggleRef = useRef(null);
   const requestId = useRef(0);
   useEffect(() => {
     const shell = document.querySelector("#site-header");
@@ -108,40 +101,8 @@ export default function Header() {
   }, []);
 
   useEffect(() => {
-    setMobileOpen(false);
     setSearchOpen(false);
   }, [location.pathname, state.routeName]);
-
-  useEffect(() => {
-    document.body.classList.toggle("overflow-hidden", mobileOpen);
-    return () => document.body.classList.remove("overflow-hidden");
-  }, [mobileOpen]);
-
-  useEffect(() => {
-    if (!mobileOpen) {
-      return undefined;
-    }
-
-    const shell = document.querySelector("#app-shell");
-    mobilePreviousFocusRef.current = document.activeElement;
-    mobileCloseRef.current?.focus();
-    shell?.setAttribute("aria-hidden", "true");
-    if (shell) {
-      shell.inert = true;
-    }
-
-    return () => {
-      if (shell) {
-        shell.inert = false;
-        shell.removeAttribute("aria-hidden");
-      }
-
-      const previousFocus = mobilePreviousFocusRef.current;
-      if (previousFocus instanceof HTMLElement && previousFocus.isConnected) {
-        previousFocus.focus({ preventScroll: true });
-      }
-    };
-  }, [mobileOpen]);
 
   useEffect(() => {
     if (searchOpen) {
@@ -200,8 +161,6 @@ export default function Header() {
 
       if (searchOpen) {
         setSearchOpen(false);
-      } else if (mobileOpen) {
-        setMobileOpen(false);
       }
     };
 
@@ -211,7 +170,7 @@ export default function Header() {
       document.removeEventListener("pointerdown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [mobileOpen, searchOpen]);
+  }, [searchOpen]);
 
   const selectSearchResult = (item) => {
     setQuery("");
@@ -233,114 +192,6 @@ export default function Header() {
   };
   const primaryClass = (name) =>
     `header-nav-link${state.primary === name ? " is-active" : ""}`;
-  const mobilePrimaryClass = (name) =>
-    `mobile-nav-link${state.primary === name ? " is-active" : ""}`;
-  const trapMobileFocus = (event) => {
-    if (event.key !== "Tab" || !mobileDrawerRef.current) {
-      return;
-    }
-
-    const focusable = [
-      ...mobileDrawerRef.current.querySelectorAll(
-        'a[href], button:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
-      ),
-    ].filter((element) => !element.closest("[inert]"));
-    const first = focusable[0];
-    const last = focusable.at(-1);
-
-    if (!first || !last) {
-      event.preventDefault();
-    } else if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
-    }
-  };
-
-  const mobileLayer = (
-    <div
-      id="mobileNavLayer"
-      className={`mobile-nav-layer lg:hidden${mobileOpen ? " is-open" : ""}`}
-      aria-hidden={!mobileOpen}
-      inert={!mobileOpen}
-      onKeyDown={trapMobileFocus}
-    >
-      <button
-        className="mobile-nav-backdrop fixed inset-0 z-[300] cursor-default bg-black/80"
-        type="button"
-        onClick={() => setMobileOpen(false)}
-        aria-label="Close navigation"
-        tabIndex="-1"
-      />
-      <aside
-        className="mobile-nav-drawer fixed inset-y-0 right-0 z-[310] w-[min(18rem,82vw)] overflow-y-auto border-l border-blue-900/70 bg-slate-950 p-5 shadow-2xl shadow-black/60"
-        aria-label="Mobile navigation"
-        aria-modal="true"
-        role="dialog"
-        ref={mobileDrawerRef}
-      >
-        <div className="flex items-center justify-between border-b border-blue-950/80 pb-5">
-          <Link
-            className="inline-flex items-center text-slate-50"
-            to="/home"
-            aria-label="RainFlix home"
-          >
-            <img
-              className="h-8 w-auto object-contain"
-              src={rainflixWordmark}
-              alt="RainFlix"
-              draggable="false"
-            />
-          </Link>
-          <button
-            id="mobileNavClose"
-            className="header-icon-button"
-            type="button"
-            onClick={() => setMobileOpen(false)}
-            aria-label="Close navigation"
-            title="Close"
-            ref={mobileCloseRef}
-          >
-            <X className="h-6 w-6" aria-hidden="true" />
-          </button>
-        </div>
-
-        <nav className="mt-5 grid gap-1" aria-label="Mobile primary navigation">
-          <Link className={mobilePrimaryClass("home")} to="/home">
-            Home
-          </Link>
-          <Link className={mobilePrimaryClass("anime")} to="/anime">
-            Anime
-          </Link>
-          <Link className={mobilePrimaryClass("browse")} to="/browse">
-            Browse
-          </Link>
-          {!isNativeApp && (
-            <Link className={mobilePrimaryClass("downloads")} to="/downloads">
-              Downloads
-            </Link>
-          )}
-
-          <Link className={mobilePrimaryClass("library")} to="/library">
-            My List
-          </Link>
-          {isNativeApp && (
-            <Link className={mobilePrimaryClass("settings")} to="/settings">
-              Settings
-            </Link>
-          )}
-          {showAddonsNavigation && (
-            <Link className={mobilePrimaryClass("addons")} to="/addons">
-              Add-ons
-            </Link>
-          )}
-        </nav>
-      </aside>
-    </div>
-  );
-
   return (
     <>
       <header className="relative bg-transparent">
@@ -382,11 +233,6 @@ export default function Header() {
             {isNativeApp && (
               <Link className={primaryClass("settings")} to="/settings">
                 Settings
-              </Link>
-            )}
-            {showAddonsNavigation && (
-              <Link className={primaryClass("addons")} to="/addons">
-                Add-ons
               </Link>
             )}
           </nav>
@@ -536,23 +382,8 @@ export default function Header() {
               ) : null}
             </div>
           </div>
-
-          <button
-            id="mobileNavToggle"
-            className="header-icon-button lg:hidden"
-            type="button"
-            onClick={() => setMobileOpen(true)}
-            aria-label="Open navigation"
-            aria-controls="mobileNavLayer"
-            aria-expanded={mobileOpen}
-            title="Menu"
-            ref={mobileToggleRef}
-          >
-            <Menu className="h-6 w-6" aria-hidden="true" />
-          </button>
         </div>
       </header>
-      {createPortal(mobileLayer, document.body)}
     </>
   );
 }

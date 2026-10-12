@@ -1,12 +1,13 @@
-import { MediaCard } from "./MediaCard.jsx";
+import { CardSkeleton, MediaCard } from "./MediaCard.jsx";
 import { Link } from "react-router";
 
-export default function RelatedCarousel({ items, morePath }) {
+export default function RelatedCarousel({ items, morePath, loading = false }) {
   return (
     <section
       className="mt-12 min-w-0"
       aria-labelledby="similarTitle"
       aria-roledescription="carousel"
+      aria-busy={loading}
     >
       <div className="mb-5 flex items-center justify-between gap-4">
         <h2 id="similarTitle" className="text-xl font-bold">
@@ -34,6 +35,12 @@ export default function RelatedCarousel({ items, morePath }) {
             <MediaCard item={item} />
           </div>
         ))}
+        {loading &&
+          Array.from({ length: 12 }, (_, index) => (
+            <div key={`similar-ghost-${index}`} className="min-w-0 snap-start">
+              <CardSkeleton detailed />
+            </div>
+          ))}
       </div>
     </section>
   );

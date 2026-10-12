@@ -52,10 +52,7 @@ for (const width of [320, 390, 1440]) {
     ).toHaveCount(0);
     await expect(
       page.getByRole("link", { name: "Downloads", exact: true }),
-    ).toHaveCount(width < 1024 ? 0 : 1);
-    if (width < 1024) {
-      await page.getByRole("button", { name: "Open navigation" }).click();
-    }
+    ).toHaveCount(1);
     const navigation = page.getByRole("navigation", {
       name: width < 1024 ? "Mobile primary navigation" : "Primary navigation",
       exact: true,
@@ -148,8 +145,9 @@ for (const width of [320, 390, 1440]) {
       ),
     ).toBe(true);
     if (width < 768) {
-      await page.getByRole("button", { name: "Open navigation" }).click();
-      const drawer = page.getByRole("dialog", { name: "Mobile navigation" });
+      const drawer = page.getByRole("navigation", {
+        name: "Mobile primary navigation",
+      });
       await expect(
         drawer.getByRole("link", { name: "Add-ons", exact: true }),
       ).toHaveCount(0);
@@ -159,8 +157,6 @@ for (const width of [320, 390, 1440]) {
       await expect(
         drawer.getByRole("link", { name: "Downloads", exact: true }),
       ).not.toHaveAttribute("target", "_blank");
-      await drawer.getByRole("button", { name: "Close navigation" }).click();
-      await expect(drawer).toBeHidden();
     }
     await page.reload();
     await expect(page.locator(".ambient-backdrop-current")).toHaveCSS(
@@ -221,15 +217,14 @@ test("desktop header has no download entries", async ({ page, baseURL }) => {
   await expect(
     page.getByRole("link", { name: "Download RainFlix" }),
   ).toHaveCount(0);
-  await page.getByRole("button", { name: "Open navigation" }).click();
   await expect(
     page
-      .getByRole("dialog", { name: "Mobile navigation" })
+      .getByRole("navigation", { name: "Mobile primary navigation" })
       .getByRole("link", { name: "Add-ons", exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   await expect(
     page
-      .getByRole("dialog", { name: "Mobile navigation" })
+      .getByRole("navigation", { name: "Mobile primary navigation" })
       .getByRole("link", { name: "Download", exact: true }),
   ).toHaveCount(0);
 });

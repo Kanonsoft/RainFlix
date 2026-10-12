@@ -22,7 +22,7 @@ local skip_options = { intro=false,outro=false,preview=true,preload=true }
 local preload_video
 local preload_retry_at=0
 local skipped_chapter
-local skip_prompt = { chapter=nil, expires=0, last_input=mp.get_time() }
+local skip_prompt = { last_input=mp.get_time() }
 local function canonical_language(value)
     local code = tostring(value or "und"):lower():gsub("_","-")
     local aliases = { eng="en",jpn="ja",spa="es",fre="fr",fra="fr",ger="de",deu="de",chi="zh",zho="zh",
@@ -47,8 +47,7 @@ local function save_preferences(immediate)
             audio=track_choice("audio","aid"),sub=track_choice("sub","sid"),
             delay=mp.get_property_number("sub-delay",0),scale=mp.get_property_number("sub-scale",1),
             position=mp.get_property_number("sub-pos",100),volume=mp.get_property_number("volume",100),
-            speed=mp.get_property_number("speed",1),mute=mp.get_property_bool("mute",false),
-            skipIntro=skip_options.intro,skipOutro=skip_options.outro,nextPreview=skip_options.preview,preloadNext=skip_options.preload }))
+            speed=mp.get_property_number("speed",1),mute=mp.get_property_bool("mute",false) }))
     end
     if immediate==true then preferences_timer=nil; emit()
     else preferences_timer=mp.add_timeout(0.15,emit) end
@@ -367,12 +366,12 @@ local function render_subtitles(parts)
     local entries=language and variants or groups
     local total=#entries+(language and 0 or 1)
     local page_size = math.max(1, math.min(5, math.floor((height-230)/50)))
-    local max_page = math.max(0, math.ceil(total/page_size)-1)
+    local max_page = math.max(0, total-page_size)
     local page=clamp(language and variant_page or language_page,0,max_page)
     if language then variant_page=page else language_page=page end
-    local count = math.min(page_size,total-page*page_size)
+    local count = math.min(page_size,total-page)
     local pw = math.min(360,width-48)
-    local ph = 70+count*50+(language and 28 or 0)+(max_page > 0 and 38 or 0)
+    local ph = 70+count*50+(language and 28 or 0)
     local px,py = width-pw-30,height-ph-106
     hit(0,0,width,height,function() panel=nil end)
     rounded(parts,px,py,pw,ph,C.background,0x08)
@@ -382,7 +381,7 @@ local function render_subtitles(parts)
     if language then button(parts,px+14,py+42,pw-28,28,"<  Languages",function() language=nil; variant_page=0 end) end
     local top=language and 76 or 48
     for row=1,count do
-        local index=page*page_size+row-(language and 0 or 1)
+        local index=page+row-(language and 0 or 1)
         local track = language and variants[index] or nil
         local y = py+top+(row-1)*50
         if not language and index == 0 then
@@ -413,11 +412,7 @@ local function render_subtitles(parts)
                 end,mp.get_property_number("sid",-1) == id)
         end
     end
-    if max_page > 0 then
-        button(parts,px+16,py+ph-38,60,32,"Prev",function() if language then variant_page=math.max(0,page-1) else language_page=math.max(0,page-1) end end)
-        label(parts,px+pw/2,py+ph-22,string.format("%d / %d",page+1,max_page+1),14,C.muted,5)
-        button(parts,px+pw-76,py+ph-38,60,32,"Next",function() if language then variant_page=math.min(max_page,page+1) else language_page=math.min(max_page,page+1) end end)
-    end
+    list_scrollbar(parts,px+pw-7,py+top,py+top+count*50,total,page,page_size,function(value) if language then variant_page=value else language_page=value end end)
 end
 
 local function render_subtitle_settings(parts)
@@ -445,35 +440,26 @@ local function render_audio(parts)
     local tracks = tracks_of("audio")
     local pw = math.min(300, width - 32)
     local page_size = math.max(1, math.min(7, math.floor((height - 228) / 48)))
-    local max_page = math.max(0, math.ceil(#tracks / page_size) - 1)
+    local max_page = math.max(0, #tracks - page_size)
     audio_page = clamp(audio_page, 0, max_page)
     local visible_count = math.min(page_size, #tracks)
-    local ph = math.min(height - 120, 76 + math.max(1, visible_count) * 48 + (max_page > 0 and 42 or 0))
+    local ph = math.min(height - 120, 76 + math.max(1, visible_count) * 48)
     local px = width - pw - 30
     local py = height - ph - 106
     hit(0, 0, width, height, function() panel = nil end)
     rounded(parts, px, py, pw, ph, C.background, 0x08)
     label(parts, px + 20, py + 18, "Audio tracks", 16)
     if #tracks == 0 then label(parts, px + 24, py + 76, "No audio tracks", 17, C.muted) end
-    for index = audio_page * page_size + 1,
-        math.min(#tracks, (audio_page + 1) * page_size) do
+    for index = audio_page + 1,
+        math.min(#tracks, audio_page + page_size) do
         local track = tracks[index]
         local id = track.id
         local name = language_name(track)
-        button(parts, px + 16, py + 56 + (index - audio_page * page_size - 1) * 48, pw - 32, 42,
+        button(parts, px + 16, py + 56 + (index - audio_page - 1) * 48, pw - 32, 42,
             shorten(name .. (track.title and (" / " .. track.title) or ""), math.floor((pw-40)/9)), function() mp.set_property_number("aid", id) end,
             mp.get_property_number("aid", -1) == id)
     end
-    if max_page > 0 then
-        button(parts, px + 16, py + ph - 42, 62, 34, "Prev", function()
-            audio_page = math.max(0, audio_page - 1)
-        end)
-        label(parts, px + pw / 2, py + ph - 25,
-            string.format("%d / %d", audio_page + 1, max_page + 1), 15, C.muted, 5)
-        button(parts, px + pw - 78, py + ph - 42, 62, 34, "Next", function()
-            audio_page = math.min(max_page, audio_page + 1)
-        end)
-    end
+    list_scrollbar(parts,px+pw-7,py+56,py+56+visible_count*48,#tracks,audio_page,page_size,function(value) audio_page=value end)
 end
 
 local function render_speed(parts)
@@ -730,6 +716,11 @@ local function skip_chapter(position, duration)
     end
     local target = chapters[index + 1] and tonumber(chapters[index + 1].time) or duration
     if not kind or not target or target <= position or duration <= 0 then return nil end
+    local start = tonumber(chapters[index].time) or 0
+    if start < 0 or target > duration or target-start > math.min(300,duration/4) then return nil end
+    if kind=="Skip ending" then
+        if start < duration*.65 then return nil end
+    elseif start > math.min(300,duration/4) or target >= duration-math.min(30,duration/20) then return nil end
     return { title = kind, time = math.min(target, duration), index=index }
 end
 
@@ -755,12 +746,12 @@ end
 
 local function render_settings(parts)
     local pw=math.min(340,width-48)
-    local ph=302
+    local ph=172
     local px,py=width-pw-24,math.max(20,height-ph-110)
     hit(0,0,width,height,function() panel=nil end)
     rounded(parts,px,py,pw,ph,C.background,0x12)
     label(parts,px+20,py+18,"Playback settings",16)
-    local rows={{key="intro",title="Auto-skip intro"},{key="outro",title="Auto-skip outro"},{key="preview",title="Next episode preview"},{key="preload",title="Preload next episode"}}
+    local rows={{key="intro",title="Auto-skip intro"},{key="outro",title="Auto-skip outro"}}
     for index,item in ipairs(rows) do
         local y=py+52+(index-1)*50
         local active=skip_options[item.key]
@@ -770,11 +761,9 @@ local function render_settings(parts)
         circle(parts,px+pw-78+(active and 38 or 14),y+28,11,C.white)
         hit(px+12,y,pw-24,46,function()
             skip_options[item.key]=not skip_options[item.key]
-            if item.key=="preload" and skip_options.preload then preload_retry_at=0 end
-            save_preferences(true)
+            mp.commandv("script-message","rainflix-settings",utils.format_json({ skipIntro=skip_options.intro,skipOutro=skip_options.outro }))
         end)
     end
-    label(parts,px+20,py+274,preload_label(),13,C.muted)
 end
 
 local function render_next_episode(parts,item,remaining)
@@ -897,11 +886,6 @@ local function render()
     local duration = mp.get_property_number("duration",0)
     local chapters, current_chapter = chapter_at(position)
     local skip = skip_chapter(position,duration)
-    local prompt_chapter = skip and skip.index or nil
-    if prompt_chapter ~= skip_prompt.chapter then
-        skip_prompt.chapter = prompt_chapter
-        skip_prompt.expires = skip and mp.get_time()+3 or 0
-    end
     if skip and not restoring_tracks and not buffering and not panel and not mp.get_property_bool("pause",false)
         and ((skip.title=="Skip intro" and skip_options.intro) or (skip.title=="Skip ending" and skip_options.outro))
         and skipped_chapter~=skip.index then
@@ -1009,7 +993,7 @@ local function render()
         end
     end
 
-    if skip and not panel and not buffering and mp.get_time() < math.max(skip_prompt.expires,skip_prompt.last_input+3) then
+    if skip and not panel and not buffering and visible then
         local y=show_next and height-430 or height-184
         rounded(parts,width-252,y,226,50,C.background,0x50)
         button(parts,width-252,y,226,50,skip.title,function()
@@ -1048,7 +1032,7 @@ local function render()
     if os.getenv("RAINFLIX_NATIVE_SMOKE_MEDIA") then
         mp.set_property_native("user-data/rainflix",{ buffering=buffering,percent=percent,fill=buffer_fill,
             logo=ui.logo ~= nil and ui.logo.path ~= nil, skip=skip, panel=panel,
-            skipPromptVisible=skip~=nil and not panel and not buffering and mp.get_time()<math.max(skip_prompt.expires,skip_prompt.last_input+3),
+            skipPromptVisible=skip~=nil and not panel and not buffering and visible and true or false,
             languages=subtitle_languages(tracks_of("sub")),mouse=mp.get_property_native("mouse-pos"),size={w=width,h=height},season=season,
             subtitleLanguage=language,subtitleVariants=language and (function()
                 local count=0
@@ -1086,6 +1070,7 @@ local function navigate_or_seek(offset)
     if panel == "episodes" then episode_focus_pending=false; episode_page = math.max(0,episode_page+offset)
     elseif panel == "seasons" then season_page = math.max(0,season_page+offset)
     elseif panel == "streams" then stream_page = math.max(0,stream_page+offset*80)
+    elseif panel == "audio" then audio_page = math.max(0,audio_page+offset)
     elseif panel == "subtitles" then
         if language then variant_page=math.max(0,variant_page+offset) else language_page=math.max(0,language_page+offset) end
     elseif not panel then mp.commandv("seek",tostring(offset*10),"relative") end
@@ -1165,6 +1150,7 @@ mp.add_forced_key_binding("WHEEL_UP", "rainflix-wheel-up", function()
     if panel == "episodes" then episode_focus_pending=false; episode_page = math.max(0, episode_page - 1)
     elseif panel == "streams" then stream_page = math.max(0,stream_page-80)
     elseif panel == "seasons" then season_page = math.max(0,season_page-1)
+    elseif panel == "audio" then audio_page = math.max(0,audio_page-1)
     elseif panel == "subtitles" then
         if language then variant_page=math.max(0,variant_page-1) else language_page=math.max(0,language_page-1) end
     else mp.commandv("add", "volume", "5") end
@@ -1174,13 +1160,14 @@ mp.add_forced_key_binding("WHEEL_DOWN", "rainflix-wheel-down", function()
     if panel == "episodes" then episode_focus_pending=false; episode_page = episode_page + 1
     elseif panel == "streams" then stream_page = stream_page+80
     elseif panel == "seasons" then season_page = season_page+1
+    elseif panel == "audio" then audio_page = audio_page+1
     elseif panel == "subtitles" then
         if language then variant_page=variant_page+1 else language_page=language_page+1 end
     else mp.commandv("add", "volume", "-5") end
     reveal()
 end)
 
-mp.register_event("start-file",function() ready=false; has_played=false; skipped_chapter=nil; skip_prompt.chapter=nil; skip_prompt.expires=0; buffer_fill=0; reveal() end)
+mp.register_event("start-file",function() ready=false; has_played=false; skipped_chapter=nil; buffer_fill=0; reveal() end)
 mp.register_event("playback-restart",function() ready=true; has_played=true; reveal() end)
 mp.register_event("file-loaded", function() restore_preferences(); reveal() end)
 for _,property in ipairs({ "aid","sid","sub-delay","sub-scale","sub-pos","volume","speed","mute" }) do

@@ -313,8 +313,8 @@ try {
         Invoke-PlayerCommand @('script-message','rainflix-smoke-skip-option','preview','yes') | Out-Null
         Invoke-PlayerCommand @('set_property','chapter-list',@(
             @{ time = 0; title = 'OP - Opening' },
-            @{ time = 1; title = 'Story' },
-            @{ time = 2; title = 'ED - Ending' }
+            @{ time = 0.5; title = 'Story' },
+            @{ time = 2.4; title = 'ED - Ending' }
             @{ time = 2.7; title = 'Post credits' }
         )) | Out-Null
         Invoke-PlayerCommand @('seek',0,'absolute+exact') | Out-Null
@@ -322,14 +322,14 @@ try {
         Invoke-PlayerCommand @('set_property','pause',$false) | Out-Null
         Start-Sleep -Milliseconds 150
         Invoke-PlayerCommand @('set_property','pause',$true) | Out-Null
-        if ((Invoke-PlayerCommand @('get_property','time-pos')) -lt 1) { throw 'Enabled intro skipping did not seek to story.' }
+        if ((Invoke-PlayerCommand @('get_property','time-pos')) -lt 0.5) { throw 'Enabled intro skipping did not seek to story.' }
         Invoke-PlayerCommand @('script-message','rainflix-smoke-skip-option','intro','no') | Out-Null
         Invoke-PlayerCommand @('seek',0,'absolute+exact') | Out-Null
         Invoke-PlayerCommand @('set_property','pause',$false) | Out-Null
         Start-Sleep -Milliseconds 150
         Invoke-PlayerCommand @('set_property','pause',$true) | Out-Null
-        if ((Invoke-PlayerCommand @('get_property','time-pos')) -ge 1) { throw 'Disabled intro skipping still skipped the opening.' }
-        Invoke-PlayerCommand @('seek',2.2,'absolute+exact') | Out-Null
+        if ((Invoke-PlayerCommand @('get_property','time-pos')) -ge 0.5) { throw 'Disabled intro skipping still skipped the opening.' }
+        Invoke-PlayerCommand @('seek',2.45,'absolute+exact') | Out-Null
         Start-Sleep -Milliseconds 150
         Invoke-PlayerCommand @('screenshot-to-file',(Join-Path $output 'next-episode-skip.png'),'window') | Out-Null
         Invoke-PlayerCommand @('script-message','rainflix-smoke-skip-option','outro','yes') | Out-Null
@@ -338,7 +338,7 @@ try {
         Invoke-PlayerCommand @('set_property','pause',$true) | Out-Null
         if ((Invoke-PlayerCommand @('get_property','time-pos')) -lt 2.7) { throw 'Enabled outro skipping did not reach the next chapter.' }
         Invoke-PlayerCommand @('script-message','rainflix-smoke-skip-option','outro','no') | Out-Null
-        Invoke-PlayerCommand @('seek',2.05,'absolute+exact') | Out-Null
+        Invoke-PlayerCommand @('seek',2.45,'absolute+exact') | Out-Null
         Invoke-PlayerCommand @('set_property','pause',$false) | Out-Null
         Start-Sleep -Milliseconds 80
         Invoke-PlayerCommand @('set_property','pause',$true) | Out-Null
@@ -410,8 +410,8 @@ try {
     if ([Math]::Abs($position - $duration / 2) -gt 1) { throw 'Seek bar did not seek to the midpoint.' }
     Invoke-PlayerCommand @('set_property','chapter-list',@(
         @{ time = 0; title = 'OP - Opening' },
-        @{ time = $duration / 3; title = 'Story' },
-        @{ time = $duration * 2 / 3; title = 'ED - Ending' }
+        @{ time = $duration * 0.15; title = 'Story' },
+        @{ time = $duration * 0.8; title = 'ED - Ending' }
     )) | Out-Null
     Invoke-PlayerCommand @('seek',0,'absolute+exact') | Out-Null
     Start-Sleep -Milliseconds 400
@@ -420,10 +420,10 @@ try {
     Invoke-PlayerCommand @('screenshot-to-file',(Join-Path $output 'skip-intro.png'),'window') | Out-Null
     Click-Player ($dimensions.w - 126) ($dimensions.h - 162)
     $position = Invoke-PlayerCommand @('get_property','time-pos')
-    if ([Math]::Abs($position - $duration / 3) -gt 0.25) { throw 'Skip intro did not seek to the next chapter.' }
+    if ([Math]::Abs($position - $duration * 0.15) -gt 0.25) { throw 'Skip intro did not seek to the next chapter.' }
     $state = Invoke-PlayerCommand @('get_property','user-data/rainflix')
     if ($state.skip) { throw 'Ordinary story chapter incorrectly shows a skip prompt.' }
-    Invoke-PlayerCommand @('seek',($duration * 2 / 3),'absolute+exact') | Out-Null
+    Invoke-PlayerCommand @('seek',($duration * 0.8),'absolute+exact') | Out-Null
     Start-Sleep -Milliseconds 250
     $state = Invoke-PlayerCommand @('get_property','user-data/rainflix')
     if ($state.skip.title -ne 'Skip ending') { throw 'Ending chapter was not recognized.' }

@@ -525,7 +525,7 @@ test("records Continue Watching only after add-on video plays", async ({
 test.describe("mobile accessibility", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test("isolates and traps focus inside the navigation drawer", async ({
+  test("bottom navigation remains keyboard accessible without covering content", async ({
     page,
   }) => {
     await page.goto("/#/home");
@@ -541,22 +541,18 @@ test.describe("mobile accessibility", () => {
       )
       .toBeLessThanOrEqual(1);
 
-    await page.getByRole("button", { name: "Open navigation" }).click();
-    const drawer = page.getByRole("dialog", { name: "Mobile navigation" });
-    await expect(drawer).toBeVisible();
-    await expect(page.locator("#app-shell")).toHaveAttribute(
-      "aria-hidden",
-      "true",
-    );
+    const navigation = page.getByRole("navigation", {
+      name: "Mobile primary navigation",
+    });
+    await expect(navigation).toBeVisible();
     await expect(
-      drawer.getByRole("button", { name: "Close navigation" }),
-    ).toBeFocused();
-
-    await page.keyboard.press("Escape");
-    await expect(page.locator("#mobileNavLayer")).not.toHaveClass(/is-open/);
+      page.getByRole("dialog", { name: "Mobile navigation" }),
+    ).toHaveCount(0);
     await expect(page.locator("#app-shell")).not.toHaveAttribute("aria-hidden");
+    await navigation.getByRole("link", { name: "Home", exact: true }).focus();
+    await page.keyboard.press("Tab");
     await expect(
-      page.getByRole("button", { name: "Open navigation" }),
+      navigation.getByRole("link", { name: "Anime", exact: true }),
     ).toBeFocused();
   });
 });

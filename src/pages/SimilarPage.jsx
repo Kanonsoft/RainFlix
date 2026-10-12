@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useParams } from "react-router";
+import { useParams } from "react-router";
 import { MediaGrid } from "../components/MediaCard.jsx";
 import { contentRecommendations } from "../lib/recommendations.js";
 import { usePageMetadata } from "../lib/metadata.js";
@@ -108,12 +108,6 @@ function Results({ mediaType, id, onReady, onBackdrop }) {
         <h1 className="min-w-0 break-words text-2xl font-black md:text-3xl">
           {state.title ? `More like ${state.title.title}` : "More like this"}
         </h1>
-        <Link
-          to={`/title/${mediaType}/${id}`}
-          className="inline-flex min-h-11 items-center text-sm text-sky-300 hover:text-sky-100"
-        >
-          Back to title
-        </Link>
       </div>
       {state.error ? (
         <div role="alert">

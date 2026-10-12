@@ -20,6 +20,8 @@ Related: [[Architecture]], [[Configuration]], [[Title Playback]].
 
 Responsive layout: Recent Episodes and New Anime show nine titles per page below 1024px (three columns). Desktop Recent Episodes uses ten titles in five columns; full-width New Anime uses twelve in six columns. Crossing the breakpoint resets pagination to page one. Only Recent Episodes shares the desktop row with the ranking sidebar. Continue Watching remains on Home. History currently omits genre and original-language metadata, so there is no anime-specific history filter yet.
 
+Paged grids retain their full row/column footprint on shorter last pages using invisible, non-interactive skeleton slots. Recent-episode slots also reserve the date line. Loading uses the same grid dimensions, so section height and pagination controls do not jump when data arrives.
+
 Browse no longer offers Anime as a type on any platform. Anime discovery is through the dedicated Anime page. The previous `getAnimeBrowse` keyword adapter is retained internally but is not used by Browse. Schedule remains an episode schedule: upcoming theatrical movies are not included.
 
 Explicit-content filtering: all anime feeds reject adult flags and explicit title markers. Discovery excludes exact hentai/pornography keywords, and candidate details are checked with appended keywords before displaying cards. Failed detail checks omit the title. This also applies to cached discovery results and trending, which has no server-side adult toggle. TMDb misclassifications or missing keywords may still escape filtering; this is not a parental-control guarantee. Boys' Love and Girls' Love are not treated as inherently adult categories.

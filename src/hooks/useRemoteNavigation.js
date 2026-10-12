@@ -1,5 +1,6 @@
 import { useEffect } from "react";
-import { useLocation, useNavigate } from "react-router";
+import { useLocation } from "react-router";
+import useSmartBack from "./useSmartBack.js";
 
 const PAGE_TOP_TOLERANCE = 8;
 const FOCUSABLE_SELECTOR = [
@@ -46,14 +47,6 @@ function activeScope() {
 
   if (modal) {
     return modal.querySelector(".title-details-dialog") || modal;
-  }
-
-  const mobileNav = document.querySelector(
-    '#mobileNavLayer[aria-hidden="false"] .mobile-nav-drawer',
-  );
-
-  if (mobileNav) {
-    return mobileNav;
   }
 
   const search = document.querySelector("#headerSearch.is-open");
@@ -241,15 +234,6 @@ function closeTopLayer() {
     return true;
   }
 
-  const mobileClose = document.querySelector(
-    '#mobileNavLayer[aria-hidden="false"] #mobileNavClose',
-  );
-
-  if (mobileClose) {
-    mobileClose.click();
-    return true;
-  }
-
   const searchClose = document.querySelector(
     "#headerSearch.is-open #searchClose",
   );
@@ -273,9 +257,21 @@ function closeTopLayer() {
 
 export default function useRemoteNavigation() {
   const location = useLocation();
-  const navigate = useNavigate();
+  const back = useSmartBack();
 
   useEffect(() => {
+    const navigateBack = () => {
+      if (closeTopLayer()) return true;
+      const selectionBack = document.querySelector(
+        '[aria-label="Cancel stream lookup"], [aria-label="Back to episodes"], [aria-label="Back to streams"]',
+      );
+      if (selectionBack) {
+        selectionBack.click();
+        return true;
+      }
+      return back();
+    };
+    window.rainflixNavigateBack = navigateBack;
     const handleRemoteKey = (event) => {
       if (
         event.defaultPrevented ||
@@ -299,9 +295,9 @@ export default function useRemoteNavigation() {
           return;
         }
 
-        if (event.key !== "Escape" && location.pathname !== "/home") {
+        if (event.key !== "Escape") {
           event.preventDefault();
-          navigate(-1);
+          navigateBack();
         }
         return;
       }
@@ -347,6 +343,8 @@ export default function useRemoteNavigation() {
     return () => {
       document.removeEventListener("keydown", handleRemoteKey);
       document.removeEventListener("pointerdown", clearRemoteMode, true);
+      if (window.rainflixNavigateBack === navigateBack)
+        delete window.rainflixNavigateBack;
     };
-  }, [location.pathname, navigate]);
+  }, [location.pathname, back]);
 }

@@ -22,4 +22,6 @@ References: [TMDb recommendations](https://developer.themoviedb.org/reference/mo
 
 ## Verification
 
+Title-page recommendations render a detailed ghost-card carousel while weighted metadata is being fetched. It shares the final cards' geometry and sets `aria-busy`; empty or failed results remove the section after loading. The dedicated catalog retains its retry state.
+
 `tests/recommendations.spec.js` covers plot/metadata weighting, Bayesian confidence, quality exclusions, partial metadata, retry without fabricated results, bounded concurrency, More navigation, infinite batches and mobile/desktop overflow. Run `npm run check` and `npm run test:e2e`.

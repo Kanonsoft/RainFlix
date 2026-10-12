@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { handoffPlayback } from "../lib/playback-handoff.js";
-import { useParams, useSearchParams } from "react-router";
+import { useLocation, useParams, useSearchParams } from "react-router";
 import { supports, useAddons, useAddonRestoring } from "../lib/addons.js";
 import {
   addonPreview,
@@ -12,6 +12,7 @@ import TitleDetails from "../components/TitleDetails.jsx";
 
 function Title({ owner, type, id, installed, onBackdrop, onReady }) {
   const [params, setParams] = useSearchParams();
+  const location = useLocation();
   const requestedVideo = params.get("video");
   const season = requestedVideo?.startsWith(`${id}:`)
     ? Number.parseInt(requestedVideo.split(":")[1], 10) || 1
@@ -59,17 +60,37 @@ function Title({ owner, type, id, installed, onBackdrop, onReady }) {
       onRetry={() => setRevision((value) => value + 1)}
       onBackdrop={onBackdrop}
       requestedVideo={requestedVideo}
-      onVideoChange={(video, autoplay = false, playback) => {
+      onVideoChange={(video, autoplay = false, playback, selectionPhase) => {
         const next = new URLSearchParams(params);
         next.set("video", video);
         next.delete("play");
+        if (selectionPhase) next.set("selection", selectionPhase);
+        if (autoplay || playback) {
+          next.delete("selection");
+          next.delete("provider");
+        }
         if (autoplay) next.set("resume", "1");
         else next.delete("resume");
+        if (selectionPhase && params.get("selection") === "episodes") {
+          const previous = new URLSearchParams(next);
+          previous.set("selection", "episodes");
+          setParams(previous, { replace: true, state: location.state });
+        }
         setParams(next, {
-          replace: autoplay || Boolean(playback),
+          replace: !selectionPhase,
           state: playback
-            ? { rainflixEpisodePlayback: handoffPlayback(playback) }
-            : null,
+            ? {
+                rainflixEpisodePlayback: handoffPlayback(playback),
+                rainflixSelectionRoot: location.state?.rainflixSelectionRoot,
+              }
+            : selectionPhase
+              ? {
+                  rainflixSelection: true,
+                  rainflixSelectionRoot: location.state?.rainflixSelectionRoot,
+                }
+              : next.has("selection")
+                ? location.state
+                : null,
         });
       }}
     />

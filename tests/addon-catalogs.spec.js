@@ -166,7 +166,7 @@ test("catalog filters, custom metadata and episode identities work on mobile", a
       ),
     )
     .toBe(true);
-  await page.getByRole("button", { name: "Next page" }).click();
+  await expect(page.getByRole("button", { name: "Next page" })).toHaveCount(0);
   await expect
     .poll(() => catalogRequests.some((url) => url.includes("skip=3")))
     .toBe(true);
@@ -221,8 +221,16 @@ test("catalog filters, custom metadata and episode identities work on mobile", a
   });
   await page.goBack();
   await expect(
-    page.getByRole("combobox", { name: "Season", exact: true }),
-  ).toHaveValue("1");
+    page.getByRole("button", { name: "Play with Custom Streams" }),
+  ).toBeVisible();
+  await page.goBack();
+  await expect(
+    page.getByRole("heading", { name: "Featured shows - Series", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByLabel("search", { exact: true })).toHaveValue("A & B");
+  await page
+    .getByRole("link", { name: "More information about Catalog Show" })
+    .click();
   await page.reload();
   await expect(
     page.getByRole("heading", { name: "Catalog Show", exact: true, level: 1 }),
@@ -254,6 +262,45 @@ test("required catalog extras gate requests and errors can be retried", async ({
   await expect(page.getByRole("alert")).toContainText("500");
   await page.getByRole("button", { name: "Retry catalog" }).click();
   await expect(page.getByText("No titles found.")).toBeVisible();
+});
+
+test("catalog scroll appends unique batches and stops on repeated results", async ({
+  page,
+  baseURL,
+}) => {
+  await setup({ page, baseURL });
+  await page.setViewportSize({ width: 390, height: 844 });
+  const offsets = [];
+  await page.route("https://catalog.example/**", (route) => {
+    const offset = Number(
+      /skip=(\d+)/.exec(decodeURIComponent(route.request().url()))?.[1] || 0,
+    );
+    offsets.push(offset);
+    const batch = offset === 0 ? 0 : 24;
+    return route.fulfill({
+      json: {
+        metas: Array.from({ length: 24 }, (_, index) => ({
+          ...preview,
+          id: `custom:${batch + index}`,
+          name: `Show ${batch + index}`,
+        })),
+      },
+    });
+  });
+  await page.goto("/#/addon/addon%3Acatalog/catalog/series/featured");
+  await expect(page.locator("#appLoader")).toHaveClass(/is-hidden/, {
+    timeout: 15000,
+  });
+  await expect(page.locator(".catalog-grid article")).toHaveCount(24);
+  await page.evaluate(() => scrollTo(0, document.body.scrollHeight));
+  await expect(page.locator(".catalog-grid article")).toHaveCount(48);
+  await page.evaluate(() => scrollTo(0, document.body.scrollHeight));
+  await expect.poll(() => offsets).toEqual([0, 24, 48]);
+  await expect(page.locator(".catalog-grid article")).toHaveCount(48);
+  await expect(
+    page.getByRole("button", { name: /Next page|Previous page/ }),
+  ).toHaveCount(0);
+  await expect(page).not.toHaveURL(/skip=/);
 });
 
 test("home hides empty, invalid, failed and input-only catalog rows", async ({
@@ -502,7 +549,9 @@ test("custom metadata can supply inline streams without persisting them", async 
     .toBe(1);
   await page.goBack();
   await expect(page.locator("#fullscreenPlayback")).toHaveCount(0);
-  await expect(page).toHaveURL(/title\/movie\/custom%3Amovie$/);
+  await expect(page).toHaveURL(
+    /title\/movie\/custom%3Amovie\?video=inline%3Amovie&selection=streams/,
+  );
   const stored = await page.evaluate(() => JSON.stringify({ ...localStorage }));
   expect(stored).not.toContain("player-sample.mp4");
   expect(stored).toContain("Add-on Movie Details");

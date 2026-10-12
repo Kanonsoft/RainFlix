@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { handoffPlayback } from "../lib/playback-handoff.js";
-import { useParams, useSearchParams } from "react-router";
+import { useLocation, useParams, useSearchParams } from "react-router";
 import { api } from "../lib/api.js";
 import { getTmdbTitleMeta } from "../lib/addon-catalogs.js";
 import TitleDetails from "../components/TitleDetails.jsx";
 
 function Title({ mediaType, id, onReady, onBackdrop }) {
   const [params, setParams] = useSearchParams();
+  const location = useLocation();
   const season = Math.max(1, Number.parseInt(params.get("season"), 10) || 1);
   const episode = Math.max(1, Number.parseInt(params.get("episode"), 10) || 1);
   const [feed, setFeed] = useState({ loading: true });
@@ -54,19 +55,39 @@ function Title({ mediaType, id, onReady, onBackdrop }) {
       onRetry={() => setRevision((value) => value + 1)}
       onBackdrop={onBackdrop}
       requestedVideo={requestedVideo}
-      onVideoChange={(video, autoplay = false, playback) => {
+      onVideoChange={(video, autoplay = false, playback, selectionPhase) => {
         const parts = video.split(":");
         const next = new URLSearchParams(params);
         next.set("season", parts.at(-2));
         next.set("episode", parts.at(-1));
         next.delete("play");
+        if (selectionPhase) next.set("selection", selectionPhase);
+        if (autoplay || playback) {
+          next.delete("selection");
+          next.delete("provider");
+        }
         if (autoplay) next.set("resume", "1");
         else next.delete("resume");
+        if (selectionPhase && params.get("selection") === "episodes") {
+          const previous = new URLSearchParams(next);
+          previous.set("selection", "episodes");
+          setParams(previous, { replace: true, state: location.state });
+        }
         setParams(next, {
-          replace: autoplay || Boolean(playback),
+          replace: !selectionPhase,
           state: playback
-            ? { rainflixEpisodePlayback: handoffPlayback(playback) }
-            : null,
+            ? {
+                rainflixEpisodePlayback: handoffPlayback(playback),
+                rainflixSelectionRoot: location.state?.rainflixSelectionRoot,
+              }
+            : selectionPhase
+              ? {
+                  rainflixSelection: true,
+                  rainflixSelectionRoot: location.state?.rainflixSelectionRoot,
+                }
+              : next.has("selection")
+                ? location.state
+                : null,
         });
       }}
     />
