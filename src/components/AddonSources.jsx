@@ -18,7 +18,7 @@ import {
 import TorrentPlaybackSettings from "./TorrentPlaybackSettings.jsx";
 import { isNativeApp } from "../platform/index.js";
 import PlaybackLoader from "./PlaybackLoader.jsx";
-import { preferredStream } from "../lib/playback-preferences.js";
+import { preferredResumeStream } from "../lib/playback-preferences.js";
 import { streamPresentation } from "../lib/stream-presentation.js";
 
 const providers = {
@@ -101,22 +101,23 @@ export default function AddonSources({
       return;
     }
     if (loading || autoHandled.current) return;
-    const automatic = resumePreference
-      ? preferredStream(streams, resumePreference.quality)
-      : streams.length === 1 && !streams[0].blockedReason
-        ? streams[0]
-        : null;
-    if (!automatic) {
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      const automatic = resumePreference
+        ? await preferredResumeStream(streams, resumePreference.quality)
+        : streams.length === 1 && !streams[0].blockedReason
+          ? streams[0]
+          : null;
+      if (cancelled) return;
       autoHandled.current = true;
-      onReady?.();
-      return;
-    }
-    // Only a fresh provider lookup can auto-start its sole stream, never a settings change.
-    const timer = window.setTimeout(() => {
-      autoHandled.current = true;
-      onPlay({ stream: automatic, provider, settings, details }, true);
+      if (automatic)
+        onPlay({ stream: automatic, provider, settings, details }, true);
+      else onReady?.();
     }, 0);
-    return () => window.clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
   }, [
     loading,
     streams,

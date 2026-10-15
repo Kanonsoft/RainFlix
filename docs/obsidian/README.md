@@ -14,6 +14,8 @@ Open this folder as an Obsidian vault, or open the repository as a vault and nav
 - [[Windows Desktop Plan]]: Windows Tauri shell in progress, platform boundaries, storage, and development milestones.
 - [[Android Native]]: Android APK builds, native player, torrent transport and install links.
 - [[Settings]]: native app preferences, playback defaults and cache controls.
+- [[Account Sync]]: Supabase/Google OAuth setup, native accounts, library/progress sync and privacy boundaries.
+- [[App Updates]]: GitHub Releases update notices, device-specific downloads and versioning requirements.
 - [[Startup Artwork]]: bundled posters and the weekly background artwork cache.
 - [[Title Playback]]: shared title pages, fullscreen playback, source selection, and trailers.
 - [[Recommendations]]: weighted content similarity, quality filters and the More like this catalog.

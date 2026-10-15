@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { Trash2 } from "lucide-react";
-import { MediaGrid } from "../components/MediaCard.jsx";
+import MediaCarousel from "../components/MediaCarousel.jsx";
 import { useLibrary } from "../components/library/LibraryProvider.jsx";
 import { watchPath } from "../lib/api.js";
 import { usePageMetadata } from "../lib/metadata.js";
@@ -61,7 +61,7 @@ export default function LibraryPage({ onBackdrop, onReady }) {
           My List
         </h1>
         <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-400 md:text-base">
-          Saved titles and recent watch pages stay on this device.
+          Your saved titles and viewing history.
         </p>
       </header>
 
@@ -77,9 +77,9 @@ export default function LibraryPage({ onBackdrop, onReady }) {
             {myList.length}
           </span>
         </div>
-        <MediaGrid
+        <MediaCarousel
+          label="Saved titles"
           items={myList}
-          browse
           emptyText="Your list is empty. Use the bookmark button on any title to save it here."
         />
       </section>
@@ -105,9 +105,9 @@ export default function LibraryPage({ onBackdrop, onReady }) {
                 </button>
               ) : null}
             </div>
-            <MediaGrid
+            <MediaCarousel
+              label="Continue watching"
               items={resumable}
-              browse
               emptyText="No unfinished playback."
             />
           </section>
@@ -123,8 +123,8 @@ export default function LibraryPage({ onBackdrop, onReady }) {
                 {watched.length}
               </span>
             </div>
-            <MediaGrid
-              browse
+            <MediaCarousel
+              label="Watched titles"
               items={watched.map((item) => ({
                 ...item,
                 historyKind: "watched",

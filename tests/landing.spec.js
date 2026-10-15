@@ -225,12 +225,13 @@ for (const width of [320, 390, 1440])
     await expect
       .poll(() => viewport.evaluate((el) => el.scrollLeft))
       .toBeLessThan(before - 30);
+    const afterPrevious = await viewport.evaluate((el) => el.scrollLeft);
     await trending
       .getByRole("button", { name: "Next Trending this week" })
       .click();
     await expect
       .poll(() => viewport.evaluate((el) => el.scrollLeft))
-      .toBeGreaterThan(before - 20);
+      .toBeGreaterThan(afterPrevious + 30);
     const special = page.getByRole("region", {
       name: "Anime & K-dramas",
       exact: true,

@@ -4,6 +4,14 @@ import { receiveAddonInstallLink } from "../lib/addon-install-links.js";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { isAndroid, isDesktop } from "./index.js";
 import { readAppSettings } from "../lib/app-settings.js";
+import { parseAccountCallback } from "../lib/account-oauth.js";
+
+async function receiveAppLink(url) {
+  if (parseAccountCallback(url)) {
+    const { receiveAccountCallback } = await import("../lib/account-sync.js");
+    await receiveAccountCallback(url);
+  } else receiveAddonInstallLink(url);
+}
 
 async function initializeWindowSettings() {
   const { getCurrentWindow } = await import("@tauri-apps/api/window");
@@ -38,22 +46,23 @@ export async function initializeDesktopLinks() {
     await addPluginListener(
       "native-player",
       "rainflix:addon-install",
-      ({ url }) => {
-        if (url) receiveAddonInstallLink(url);
+      async ({ url }) => {
+        const pending = await invoke("plugin:native-player|take_install_link");
+        if (pending?.url || url) await receiveAppLink(pending?.url || url);
       },
     );
     const { url } = await invoke("plugin:native-player|take_install_link");
-    if (url) receiveAddonInstallLink(url);
+    if (url) await receiveAppLink(url);
   }
 
   if (isDesktop) {
     initializeWindowSettings().catch(() => {});
     await listen("rainflix:addon-link", async () => {
       const link = await invoke("take_addon_install_link");
-      if (link) receiveAddonInstallLink(link);
+      if (link) await receiveAppLink(link);
     });
     const link = await invoke("take_addon_install_link");
-    if (link) receiveAddonInstallLink(link);
+    if (link) await receiveAppLink(link);
   }
 
   document.addEventListener("click", (event) => {
@@ -69,7 +78,7 @@ export async function initializeDesktopLinks() {
     }
     if (["stremio:", "rainflix:"].includes(url.protocol)) {
       event.preventDefault();
-      receiveAddonInstallLink(url.href);
+      void receiveAppLink(url.href);
       return;
     }
     if (

@@ -3,6 +3,10 @@
 These instructions prepare releases; they do not publish anything automatically.
 Current app/package version: `1.0.0`. The locally built EXE and APK already exist.
 
+Latest release description: [Accounts, Cloud Sync & Improved Playback](2026-10-15-account-sync.md), covering Windows and Android. These notes do not change the binary version. Choose an unused higher version and rebuild both apps before publishing an update intended to trigger in-app notices. The owner reported applying migration `202610150003_user_document_sync.sql` and confirmed syncing works; retain the legacy backup until cross-device data is verified.
+
+The same release notes now include startup sync under the RainFlix loader, synced stream/track resume, thumbnail episode transitions and horizontal library rows. Migration `202610150004_playback_preferences_sync.sql` enables the new resume records in the existing user document; the owner reported applying it. Older installed apps can still use the unchanged RPC response format, but both devices need an updated build for the new resume behavior.
+
 ## Current Artifacts
 
 | Platform      | File                                                                              |
@@ -78,6 +82,8 @@ archives. If source should remain private, publish binaries from a separate
 public distribution repository instead.
 
 ## Website Download Behavior
+
+Native apps also use this repository for in-app update notices. See [App Updates](../obsidian/App%20Updates.md). Publish a higher matching version and attach both installers; reusing a version will not notify users. Old builds without the checker need one manual upgrade before future notices work. Downloads require user installation rather than silent replacement.
 
 `RAINFLIX_CONFIG.downloads.githubRepository` currently points to
 `Kanonsoft/RainFlix`. The website selects an EXE from the latest public,

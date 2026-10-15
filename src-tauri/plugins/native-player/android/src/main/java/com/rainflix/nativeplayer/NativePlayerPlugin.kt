@@ -34,10 +34,14 @@ class NativePlayerPlugin(private val host: Activity) : Plugin(host) {
     private fun receiveLink(intent: Intent) {
         val value = intent.dataString ?: return
         val uri = Uri.parse(value)
+        val authCallback = uri.scheme == "rainflix" && uri.host == "auth" &&
+            uri.path == "/callback" && uri.port == -1 &&
+            (uri.getQueryParameter("code") != null || uri.getQueryParameter("error") != null)
         if (value.length > 16384 || uri.scheme !in listOf("stremio", "rainflix") ||
             uri.host.isNullOrBlank() || uri.userInfo != null || uri.fragment != null ||
-            uri.path?.endsWith("/manifest.json") != true) return
+            (!authCallback && uri.path?.endsWith("/manifest.json") != true)) return
         pendingLink = value
+        intent.data = null
         trigger("rainflix:addon-install", JSObject().put("url", value))
     }
     @Command fun takeInstallLink(invoke: Invoke) {
@@ -76,6 +80,14 @@ class NativePlayerPlugin(private val host: Activity) : Plugin(host) {
     @Command fun start(invoke: Invoke) {
         val args = invoke.getArgs()
         host.runOnUiThread {
+            val current = PlayerBridge.activity
+            if (current != null && args.optString("previousSessionId").isNotBlank() &&
+                args.optString("previousSessionId") == PlayerBridge.session?.optString("sessionId")) {
+                PlayerBridge.session = args
+                current.replaceSession(args)
+                invoke.resolve()
+                return@runOnUiThread
+            }
             PlayerBridge.activity?.close(false)
             PlayerBridge.session = args
             PlayerBridge.emit = { trigger("rainflix:native-torrent", it) }

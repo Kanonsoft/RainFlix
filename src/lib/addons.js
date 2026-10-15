@@ -66,7 +66,7 @@ function registrations() {
     (item) => !removedRegistrations.has(item.id),
   );
 }
-addonRegistrations()
+export const addonRestoreReady = addonRegistrations()
   .then(async (saved) => {
     const defaults = isNativeApp
       ? config.nativeDefaultAddons
@@ -199,6 +199,11 @@ addonRegistrations()
     installed.forEach((entry) => void cachedAddonLogo(entry.manifest.logo));
     restoring = false;
     listeners.forEach((listener) => listener());
+    window.dispatchEvent(
+      new CustomEvent("rainflix:personal-data-changed", {
+        detail: { kind: "addons-ready" },
+      }),
+    );
   });
 function subscribe(listener) {
   listeners.add(listener);
@@ -218,6 +223,102 @@ function update(next) {
     /* Keep in memory. */
   }
   listeners.forEach((listener) => listener());
+  window.dispatchEvent(
+    new CustomEvent("rainflix:personal-data-changed", {
+      detail: { kind: "addons" },
+    }),
+  );
+}
+
+export async function syncAddonKey(address) {
+  const bytes = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(address),
+  );
+  return `addons/${[...new Uint8Array(bytes)].map((value) => value.toString(16).padStart(2, "0")).join("")}`;
+}
+export async function addonSyncData() {
+  if (restoring) return null;
+  const values = {};
+  for (const item of registrations()) {
+    const address = manifestAddress(item.manifestUrl);
+    if (!address.startsWith("https://")) continue;
+    values[await syncAddonKey(address)] = {
+      id: item.id,
+      manifestUrl: address,
+      enabled: item.enabled !== false,
+      name: String(item.name || "Add-on").slice(0, 200),
+    };
+  }
+  return values;
+}
+export async function applyAddonSyncRecords(records, isCurrent = () => true) {
+  if (restoring) return;
+  for (const row of Object.values(records)) {
+    if (!isCurrent()) return;
+    const current = new Map();
+    for (const item of registrations())
+      current.set(await syncAddonKey(item.manifestUrl), item);
+    const previous = current.get(row.record_key);
+    if (row.deleted) {
+      if (previous) removeAddon(previous.id);
+      continue;
+    }
+    let address;
+    try {
+      address = manifestAddress(row.value?.manifestUrl);
+    } catch {
+      continue;
+    }
+    if (
+      !address.startsWith("https://") ||
+      (await syncAddonKey(address)) !== row.record_key
+    )
+      continue;
+    if (previous) {
+      const item = installed.find((item) => item.id === previous.id);
+      if (item && item.enabled !== (row.value.enabled !== false))
+        update(
+          installed.map((entry) =>
+            entry.id === item.id
+              ? { ...entry, enabled: row.value.enabled !== false }
+              : entry,
+          ),
+        );
+      continue;
+    }
+    const id =
+      /^addon:[\w-]{1,100}$/.test(row.value.id || "") &&
+      !installed.some((item) => item.id === row.value.id)
+        ? row.value.id
+        : `addon:${crypto.randomUUID()}`;
+    let manifest;
+    try {
+      manifest = await addonFetch(address, AbortSignal.timeout(5000), {
+        label: "Add-on",
+      });
+      if (!validManifest(manifest)) manifest = null;
+    } catch {
+      /* Preserve registrations even while their server is unavailable. */
+    }
+    if (!isCurrent()) return;
+    removedRegistrations.delete(id);
+    update([
+      ...installed,
+      {
+        id,
+        manifestUrl: address,
+        enabled: row.value.enabled !== false,
+        unavailable: !manifest,
+        manifest: manifest || {
+          id,
+          name: String(row.value.name || "Unavailable add-on").slice(0, 200),
+          types: [],
+          resources: [],
+        },
+      },
+    ]);
+  }
 }
 export function removeAddon(id) {
   removedRegistrations.add(id);

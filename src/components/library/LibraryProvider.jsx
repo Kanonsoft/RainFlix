@@ -59,6 +59,7 @@ function readStoredList(key) {
 function writeStoredList(key, value) {
   try {
     window.localStorage.setItem(key, JSON.stringify(value));
+    window.dispatchEvent(new Event("rainflix:personal-data-changed"));
   } catch {
     // Personalization remains optional when storage is unavailable.
   }

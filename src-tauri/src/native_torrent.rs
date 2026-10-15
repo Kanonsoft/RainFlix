@@ -4,7 +4,7 @@ use std::{
     net::Ipv4Addr,
     num::NonZeroU32,
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{Arc, RwLock},
     time::{Duration, Instant},
 };
 
@@ -134,6 +134,7 @@ struct Active {
 }
 
 struct Player {
+    owner: Arc<RwLock<String>>,
     cancel: CancellationToken,
     task: JoinHandle<()>,
     ui_path: PathBuf,
@@ -788,15 +789,17 @@ pub async fn play_native_torrent(
         &pipe,
     )?;
     let cancel = CancellationToken::new();
+    let owner = Arc::new(RwLock::new(session_id));
     let task = tokio::spawn(monitor_player(
         app,
-        session_id,
+        owner.clone(),
         pipe.clone(),
         child,
         cancel.clone(),
         surface,
     ));
     active.player = Some(Player {
+        owner,
         cancel,
         task,
         ui_path: active.directory.join("player-ui.json"),
@@ -1251,7 +1254,7 @@ pub async fn load_native_subtitle(
 
 async fn monitor_player(
     app: AppHandle,
-    session_id: String,
+    owner: Arc<RwLock<String>>,
     pipe: String,
     mut child: tokio::process::Child,
     cancel: CancellationToken,
@@ -1263,7 +1266,7 @@ async fn monitor_player(
     );
     let observer = tokio::spawn(observe_player(
         app.clone(),
-        session_id.clone(),
+        owner.clone(),
         pipe,
         cancel.clone(),
     ));
@@ -1298,6 +1301,7 @@ async fn monitor_player(
     let _ = observer.await;
     drop(surface);
     if let Some(success) = status {
+        let session_id = owner.read().unwrap().clone();
         let _ = app.emit(
             "rainflix:native-torrent",
             json!({
@@ -1374,7 +1378,7 @@ pub async fn run_player_smoke(app: AppHandle, media_path: PathBuf) {
             });
             monitor_player(
                 app.clone(),
-                "native-player-smoke".into(),
+                Arc::new(RwLock::new("native-player-smoke".into())),
                 pipe,
                 child,
                 cancel,
@@ -1389,7 +1393,7 @@ pub async fn run_player_smoke(app: AppHandle, media_path: PathBuf) {
 
 async fn observe_player(
     app: AppHandle,
-    session_id: String,
+    owner: Arc<RwLock<String>>,
     pipe: String,
     cancel: CancellationToken,
 ) {
@@ -1419,6 +1423,8 @@ async fn observe_player(
     let mut position: Option<f64> = None;
     let mut duration: Option<f64> = None;
     let mut playing = false;
+    let mut session_id = owner.read().unwrap().clone();
+    let mut awaiting_file = false;
     loop {
         line.clear();
         let count = tokio::select! {
@@ -1431,6 +1437,23 @@ async fn observe_player(
         let Ok(value) = serde_json::from_str::<Value>(&line) else {
             continue;
         };
+        let current_owner = owner.read().unwrap().clone();
+        if current_owner != session_id {
+            session_id = current_owner;
+            position = None;
+            duration = None;
+            playing = false;
+            awaiting_file = true;
+        }
+        if value.get("event").and_then(Value::as_str) == Some("start-file") {
+            position = None;
+            duration = None;
+            playing = false;
+            awaiting_file = false;
+        }
+        if awaiting_file && value.get("event").and_then(Value::as_str) != Some("client-message") {
+            continue;
+        }
         match value.get("event").and_then(Value::as_str) {
             Some("client-message") => {
                 let Some(args) = value.get("args").and_then(Value::as_array) else {
@@ -1631,6 +1654,42 @@ pub async fn update_native_preload_status(
         serde_json::to_vec(&metadata).map_err(|e| e.to_string())?,
     )
     .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn update_native_navigation_status(
+    state: TauriState<'_, NativeTorrentState>,
+    session_id: String,
+    video_id: String,
+    status: String,
+    message: String,
+) -> Result<(), String> {
+    if !matches!(status.as_str(), "loading" | "error") {
+        return Err("Invalid navigation status".into());
+    }
+    let (pipe, cancel) = {
+        let inner = state.inner.lock().await;
+        let player = inner
+            .active
+            .as_ref()
+            .filter(|active| active.id == session_id)
+            .and_then(|active| active.player.as_ref())
+            .ok_or("Playback closed")?;
+        let mut metadata: Value =
+            serde_json::from_slice(&std::fs::read(&player.ui_path).map_err(|e| e.to_string())?)
+                .map_err(|e| e.to_string())?;
+        metadata["navigationStatus"] = json!({"videoId": video_id, "status": status, "message": message.chars().take(200).collect::<String>()});
+        std::fs::write(
+            &player.ui_path,
+            serde_json::to_vec(&metadata).map_err(|e| e.to_string())?,
+        )
+        .map_err(|e| e.to_string())?;
+        (player.pipe.clone(), player.cancel.clone())
+    };
+    if status == "loading" {
+        send_player_command(&pipe, json!(["set_property", "pause", true]), &cancel).await?;
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -1902,6 +1961,7 @@ pub async fn start_native_torrent(
     ui: Option<PlayerUi>,
     start_at: Option<f64>,
     preload_id: Option<String>,
+    reuse_session_id: Option<String>,
 ) -> Result<NativePlayback, String> {
     let magnet = magnet_url(&info_hash, &sources)?;
     start_native_playback(
@@ -1914,6 +1974,7 @@ pub async fn start_native_torrent(
         ui,
         start_at,
         preload_id,
+        reuse_session_id,
     )
     .await
 }
@@ -1926,6 +1987,7 @@ pub async fn start_native_media(
     url: String,
     ui: Option<PlayerUi>,
     start_at: Option<f64>,
+    reuse_session_id: Option<String>,
 ) -> Result<NativePlayback, String> {
     let url = url::Url::parse(&url).map_err(|_| "Invalid media URL")?;
     if !matches!(url.scheme(), "http" | "https") {
@@ -1941,6 +2003,7 @@ pub async fn start_native_media(
         ui,
         start_at,
         None,
+        reuse_session_id,
     )
     .await
 }
@@ -1955,13 +2018,14 @@ async fn start_native_playback(
     ui: Option<PlayerUi>,
     start_at: Option<f64>,
     preload_id: Option<String>,
+    reuse_session_id: Option<String>,
 ) -> Result<NativePlayback, String> {
     if session_id.len() < 16 || session_id.len() > 64 {
         return Err("Invalid playback session.".into());
     }
     let cancel = CancellationToken::new();
     let done = CancellationToken::new();
-    let (old, previous_done, prepared) = {
+    let (old, previous_done, prepared, reused_player) = {
         let mut inner = state.inner.lock().await;
         if inner.in_flight.contains_key(&session_id)
             || inner
@@ -1976,6 +2040,22 @@ async fn start_native_playback(
             pending.cancel.cancel();
             previous_done.push(pending.done.clone());
         }
+        let reused_player = inner
+            .active
+            .as_mut()
+            .filter(|active| Some(&active.id) == reuse_session_id.as_ref())
+            .and_then(|active| {
+                if active.player.as_ref().is_some_and(|player| {
+                    !player.cancel.is_cancelled() && !player.task.is_finished()
+                }) {
+                    active.player.take()
+                } else {
+                    None
+                }
+            });
+        if let Some(player) = &reused_player {
+            *player.owner.write().unwrap() = session_id.clone();
+        }
         let old = inner.retire_active();
         previous_done.extend(inner.closing.values().cloned());
         inner.in_flight.insert(
@@ -1988,7 +2068,7 @@ async fn start_native_playback(
         );
         inner.pending = Some(session_id.clone());
         let prepared = inner.preload.take();
-        (old, previous_done, prepared)
+        (old, previous_done, prepared, reused_player)
     };
     let mut prepared = match prepared {
         Some(mut preload)
@@ -2008,7 +2088,7 @@ async fn start_native_playback(
     if let Some((old, closed)) = old {
         state.stop_retired(old, closed).await;
     }
-    let mut early_player = None;
+    let mut early_player = reused_player;
     let mut pipe = None;
     let result = async {
         wait_for_player_teardown(previous_done, &cancel).await?;
@@ -2016,88 +2096,117 @@ async fn start_native_playback(
             return Err("Playback stopped".into());
         }
         if let Some(ui) = ui {
-            let root = cache_root(&app)?;
-            std::fs::create_dir_all(&root).map_err(|e| e.to_string())?;
-            let directory = root.join(format!("playback-{}", Uuid::new_v4()));
-            std::fs::create_dir(&directory).map_err(|e| e.to_string())?;
-            let path = directory.join("player-ui.json");
-            let player_pipe = format!(r"\\.\pipe\rainflix-{}", Uuid::new_v4());
-            let (child, surface) = match spawn_player(&app, "", 0.0, &ui, &path, &player_pipe) {
-                Ok(player) => player,
-                Err(error) => {
-                    remove_owned_directory(&root, &directory);
-                    return Err(error);
+            if let Some(player) = &early_player {
+                let old_metadata: Value = std::fs::read(&player.ui_path)
+                    .ok()
+                    .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+                    .unwrap_or(Value::Null);
+                let mut metadata = serde_json::to_value(&ui).map_err(|e| e.to_string())?;
+                for key in ["logo", "backdrop"] {
+                    metadata[key] = old_metadata[key].clone();
                 }
-            };
-            let task = tokio::spawn(monitor_player(
-                app.clone(),
-                session_id.clone(),
-                player_pipe.clone(),
-                child,
-                cancel.clone(),
-                surface,
-            ));
-            early_player = Some(Player {
-                cancel: cancel.clone(),
-                task,
-                ui_path: path.clone(),
-                pipe: player_pipe.clone(),
-            });
-            {
-                let mut inner = state.inner.lock().await;
-                if cancel.is_cancelled() {
-                    return Err("Playback stopped".into());
+                std::fs::write(
+                    &player.ui_path,
+                    serde_json::to_vec(&metadata).map_err(|e| e.to_string())?,
+                )
+                .map_err(|e| e.to_string())?;
+                if let Some(pending) = state.inner.lock().await.in_flight.get_mut(&session_id) {
+                    pending.ui_path = Some(player.ui_path.clone());
                 }
-                if let Some(pending) = inner.in_flight.get_mut(&session_id) {
-                    pending.ui_path = Some(path.clone());
-                }
-            }
-            let _ = app.emit(
-                "rainflix:native-torrent",
-                json!({ "sessionId":session_id, "kind":"opened" }),
-            );
-            pipe = Some(player_pipe);
-            let artwork_cancel = cancel.clone();
-            let artwork_app = app.clone();
-            tokio::spawn(async move {
-                let (logo, backdrop) = tokio::join!(
-                    artwork(ui.logo_url.as_deref(), 384, 144),
-                    artwork(ui.backdrop_url.as_deref(), 960, 540)
+                send_player_command(&player.pipe, json!(["stop"]), &cancel).await?;
+                pipe = Some(player.pipe.clone());
+                let _ = app.emit(
+                    "rainflix:native-torrent",
+                    json!({"sessionId":session_id,"kind":"opened"}),
                 );
-                if artwork_cancel.is_cancelled() {
-                    return;
-                }
-                let state = artwork_app.state::<NativeTorrentState>();
-                let _guard = state.inner.lock().await;
-                if artwork_cancel.is_cancelled() {
-                    return;
-                }
-                let Ok(bytes) = std::fs::read(&path) else {
-                    return;
+            } else {
+                let root = cache_root(&app)?;
+                std::fs::create_dir_all(&root).map_err(|e| e.to_string())?;
+                let directory = root.join(format!("playback-{}", Uuid::new_v4()));
+                std::fs::create_dir(&directory).map_err(|e| e.to_string())?;
+                let path = directory.join("player-ui.json");
+                let player_pipe = format!(r"\\.\pipe\rainflix-{}", Uuid::new_v4());
+                let (child, surface) = match spawn_player(&app, "", 0.0, &ui, &path, &player_pipe) {
+                    Ok(player) => player,
+                    Err(error) => {
+                        remove_owned_directory(&root, &directory);
+                        return Err(error);
+                    }
                 };
-                let Ok(mut metadata) = serde_json::from_slice::<Value>(&bytes) else {
-                    return;
-                };
-                if let Some(logo) = logo {
-                    metadata["logo"] =
-                        write_artwork(&logo, &path.with_extension("loading-logo.bgra"), true)
-                            .unwrap_or(Value::Null);
-                }
-                if let Some(backdrop) = backdrop {
-                    if let Some(mut art) = write_artwork(
-                        &backdrop,
-                        &path.with_extension("loading-backdrop.bgra"),
-                        true,
-                    ) {
-                        art["path"] = art["dimPath"].clone();
-                        metadata["backdrop"] = art;
+                let owner = Arc::new(RwLock::new(session_id.clone()));
+                let task = tokio::spawn(monitor_player(
+                    app.clone(),
+                    owner.clone(),
+                    player_pipe.clone(),
+                    child,
+                    cancel.clone(),
+                    surface,
+                ));
+                early_player = Some(Player {
+                    owner,
+                    cancel: cancel.clone(),
+                    task,
+                    ui_path: path.clone(),
+                    pipe: player_pipe.clone(),
+                });
+                {
+                    let mut inner = state.inner.lock().await;
+                    if cancel.is_cancelled() {
+                        return Err("Playback stopped".into());
+                    }
+                    if let Some(pending) = inner.in_flight.get_mut(&session_id) {
+                        pending.ui_path = Some(path.clone());
                     }
                 }
-                if !artwork_cancel.is_cancelled() {
-                    let _ =
-                        std::fs::write(&path, serde_json::to_vec(&metadata).unwrap_or_default());
-                }
-            });
+                let _ = app.emit(
+                    "rainflix:native-torrent",
+                    json!({ "sessionId":session_id, "kind":"opened" }),
+                );
+                pipe = Some(player_pipe);
+                let artwork_cancel = cancel.clone();
+                let artwork_app = app.clone();
+                tokio::spawn(async move {
+                    let (logo, backdrop) = tokio::join!(
+                        artwork(ui.logo_url.as_deref(), 384, 144),
+                        artwork(ui.backdrop_url.as_deref(), 960, 540)
+                    );
+                    if artwork_cancel.is_cancelled() {
+                        return;
+                    }
+                    let state = artwork_app.state::<NativeTorrentState>();
+                    let _guard = state.inner.lock().await;
+                    if artwork_cancel.is_cancelled() {
+                        return;
+                    }
+                    let Ok(bytes) = std::fs::read(&path) else {
+                        return;
+                    };
+                    let Ok(mut metadata) = serde_json::from_slice::<Value>(&bytes) else {
+                        return;
+                    };
+                    if let Some(logo) = logo {
+                        metadata["logo"] =
+                            write_artwork(&logo, &path.with_extension("loading-logo.bgra"), true)
+                                .unwrap_or(Value::Null);
+                    }
+                    if let Some(backdrop) = backdrop {
+                        if let Some(mut art) = write_artwork(
+                            &backdrop,
+                            &path.with_extension("loading-backdrop.bgra"),
+                            true,
+                        ) {
+                            art["path"] = art["dimPath"].clone();
+                            metadata["backdrop"] = art;
+                        }
+                    }
+                    if !artwork_cancel.is_cancelled() {
+                        let _ = std::fs::write(
+                            &path,
+                            serde_json::to_vec(&metadata).unwrap_or_default(),
+                        );
+                    }
+                });
+            }
         }
         let (mut active, url) = if let Some(mut warmed) = prepared.take() {
             warmed.id = session_id.clone();

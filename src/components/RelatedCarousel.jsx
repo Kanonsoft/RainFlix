@@ -1,4 +1,4 @@
-import { CardSkeleton, MediaCard } from "./MediaCard.jsx";
+import MediaCarousel from "./MediaCarousel.jsx";
 import { Link } from "react-router";
 
 export default function RelatedCarousel({ items, morePath, loading = false }) {
@@ -23,25 +23,12 @@ export default function RelatedCarousel({ items, morePath, loading = false }) {
           </Link>
         )}
       </div>
-      <div
+      <MediaCarousel
         id="similarCarousel"
-        className="grid snap-x snap-mandatory auto-cols-[calc((100%-1rem)/3)] grid-flow-col gap-2 overflow-x-auto overscroll-x-contain py-2 sm:auto-cols-[calc((100%-2.25rem)/4)] sm:gap-3 lg:auto-cols-[calc((100%-5rem)/6)] lg:gap-4"
-      >
-        {items.map((item) => (
-          <div
-            key={`${item.mediaType}:${item.id}`}
-            className="min-w-0 snap-start"
-          >
-            <MediaCard item={item} />
-          </div>
-        ))}
-        {loading &&
-          Array.from({ length: 12 }, (_, index) => (
-            <div key={`similar-ghost-${index}`} className="min-w-0 snap-start">
-              <CardSkeleton detailed />
-            </div>
-          ))}
-      </div>
+        label="Similar titles"
+        items={items}
+        loading={loading}
+      />
     </section>
   );
 }

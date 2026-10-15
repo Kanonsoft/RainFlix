@@ -30,6 +30,9 @@ export async function mockPlayback(
   enableLegacy = true,
   preserveStorage = false,
 ) {
+  await page.route("https://api.github.com/repos/**/releases/latest", (route) =>
+    route.fulfill({ status: 404, json: {} }),
+  );
   await page.route("**/scripts/config.js", async (route) => {
     const response = await route.fetch({ maxRetries: 2 });
     await route.fulfill({

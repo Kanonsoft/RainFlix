@@ -62,6 +62,7 @@ class PlayerActivity : Activity() {
     private var ready = false
     private var closed = false
     private var complete = false
+    private var navigating = false
     private var sourceUrl: String? = null
     private var externalSub: MediaItem.SubtitleConfiguration? = null
     private var selectedExternalId = ""
@@ -96,7 +97,7 @@ class PlayerActivity : Activity() {
             val target = minOf(5000L, maxOf(1L, remaining))
             val fraction = ((player.bufferedPosition - player.currentPosition).toFloat() / target).coerceIn(0f, 1f)
             progress.progress = (fraction * 100).toInt()
-            progress.isIndeterminate = player.playbackState == Player.STATE_BUFFERING && (player.duration == C.TIME_UNSET || player.bufferedPosition <= player.currentPosition)
+            progress.isIndeterminate = navigating || (player.playbackState == Player.STATE_BUFFERING && (player.duration == C.TIME_UNSET || player.bufferedPosition <= player.currentPosition))
             logo.imageAlpha = (90 + fraction * 165).toInt()
             updatePlaybackActions()
             handler.postDelayed(this, 1000)
@@ -292,6 +293,7 @@ class PlayerActivity : Activity() {
         session.optString("url").takeIf { it.isNotBlank() }?.let { setSource(session) }
     }
     private fun updateReadyOverlay() {
+        if (navigating) return
         if (!ready || player.playbackState != Player.STATE_READY) return
         logoPulse?.cancel()
         if (player.playWhenReady) {
@@ -386,6 +388,30 @@ class PlayerActivity : Activity() {
         seekFeedback.visibility = View.VISIBLE
         handler.removeCallbacks(hideSeekFeedback); handler.postDelayed(hideSeekFeedback, 800)
         surface.showController()
+    }
+    fun replaceSession(args: JSONObject) {
+        navigating = false
+        ready = false; complete = false
+        player.stop(); player.clearMediaItems()
+        dismissDrawer()
+        ui = args.optJSONObject("ui") ?: JSONObject()
+        savedTracks = ui.optJSONObject("tracks") ?: JSONObject()
+        episodes = ui.optJSONArray("episodes") ?: JSONArray()
+        subtitles = JSONArray(); streams = JSONArray()
+        browsedSeason = ui.optInt("season", 1)
+        chosenVideo = ""; chosenProvider = ""; requestId = ""
+        previewVideo = ""; preloadVideo = ""; preloadStatus = ""
+        sourceUrl = null; externalSub = null; selectedExternalId = ""
+        subtitleRevision++; episodeRevision++
+        restoredTrackTypes.clear(); chapters.clear(); introSkipped = false
+        title.text = ui.optString("title", "RainFlix")
+        nextCard.visibility = View.GONE; skipButton.visibility = View.GONE
+        loading.visibility = View.VISIBLE; progress.visibility = View.VISIBLE
+        progress.isIndeterminate = true; backdrop?.visibility = View.VISIBLE
+        applySubtitleStyle(); updateEpisodeNavigation()
+        surface.showController()
+        PlayerBridge.event("opened")
+        args.optString("url").takeIf { it.isNotBlank() }?.let { setSource(args) }
     }
     fun setSource(args: JSONObject) {
         val url = args.optString("url")
@@ -646,7 +672,19 @@ class PlayerActivity : Activity() {
         PlayerBridge.event("episode", JSONObject().put("mode", if (next) "next" else "prev").put("videoId", entry.optString("id")))
     }
     fun updateNavigation(args: JSONObject) {
+        if (args.optString("status") == "loading") {
+            navigating = true
+            player.pause()
+            dismissDrawer()
+            loading.visibility = View.VISIBLE
+            backdrop?.visibility = View.VISIBLE
+            progress.visibility = View.VISIBLE; progress.isIndeterminate = true
+            logoPulse?.start()
+            return
+        }
         if (args.optString("status") != "error") return
+        navigating = false
+        updateReadyOverlay()
         Toast.makeText(this, args.optString("message", "Could not open this episode. Try again."), Toast.LENGTH_LONG).show()
         val entry = arrayItems(episodes).firstOrNull { it.optString("id") == args.optString("videoId") }
         if (entry != null) chooseEpisode(entry.optString("id"))

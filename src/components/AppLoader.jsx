@@ -27,7 +27,7 @@ function LoaderCard({ poster, onSettled }) {
   );
 }
 
-export default function AppLoader({ dataReady, posters }) {
+export default function AppLoader({ dataReady, posters, startupReady = true }) {
   const { reduceAnimations } = useAppSettings();
   const shownAt = useRef(performance.now());
   const [visible, setVisible] = useState(true);
@@ -68,13 +68,14 @@ export default function AppLoader({ dataReady, posters }) {
   }, [visible]);
 
   useEffect(() => {
+    if (!startupReady) return;
     const fallbackTimer = window.setTimeout(
       () => setVisible(false),
       fallbackDuration,
     );
 
     return () => window.clearTimeout(fallbackTimer);
-  }, [fallbackDuration]);
+  }, [fallbackDuration, startupReady]);
 
   useEffect(() => {
     if (!dataReady) {

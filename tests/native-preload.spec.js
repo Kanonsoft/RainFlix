@@ -177,6 +177,13 @@ for (const action of ["next", "complete"])
       infoHash: "a".repeat(40),
       fileIdx: 2,
     });
+    const starts = await page.evaluate(() =>
+      window.nativeCalls
+        .filter((call) => call.command === "plugin:native-player|start")
+        .map((call) => call.args.payload),
+    );
+    expect(starts[1].previousSessionId).toBe(starts[0].sessionId);
+    expect(starts[2].previousSessionId).toBe(starts[1].sessionId);
   });
 
 test("Android episode drawer resolves streams and a failed Next can be retried", async ({
@@ -294,6 +301,14 @@ for (const action of ["next", "complete"]) {
     expect(started.infoHash).toBe("b".repeat(40));
     expect(started.fileIdx).toBe(4);
     expect(started.preloadId).toBeNull();
+    expect(started.reuseSessionId).toBe(
+      await page.evaluate(
+        () =>
+          window.nativeCalls.find(
+            (call) => call.command === "start_native_torrent",
+          ).args.sessionId,
+      ),
+    );
   });
 
   test(`desktop preloading reuses the same-provider torrent on ${action}`, async ({

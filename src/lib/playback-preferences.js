@@ -45,9 +45,96 @@ export function savePlaybackPreferences(details, change) {
         ),
       ),
     );
+    window.dispatchEvent(
+      new CustomEvent("rainflix:personal-data-changed", {
+        detail: { kind: "playback" },
+      }),
+    );
   } catch {
     /* Device storage is optional. */
   }
+}
+
+async function torrentSourceKey(stream) {
+  const hash = stream.torrent?.infoHash;
+  if (!/^[a-f0-9]{40}$/i.test(hash || "")) return null;
+  const file = Number.isInteger(stream.torrent.fileIdx)
+    ? stream.torrent.fileIdx
+    : -1;
+  const bytes = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(`${hash.toLowerCase()}:${file}`),
+  );
+  return [...new Uint8Array(bytes)]
+    .map((value) => value.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+export async function resumeStreamPreference(stream) {
+  const quality = streamPreference(stream);
+  const sourceKey = await torrentSourceKey(stream).catch(() => null);
+  return sourceKey ? { ...quality, sourceKey } : quality;
+}
+
+export async function preferredResumeStream(streams, quality = {}) {
+  if (quality.sourceKey) {
+    for (const stream of streams) {
+      if (
+        !stream.blockedReason &&
+        (await torrentSourceKey(stream).catch(() => null)) === quality.sourceKey
+      )
+        return stream;
+    }
+  }
+  return preferredStream(streams, quality);
+}
+
+export function cleanPlaybackPreference(value) {
+  if (!value || typeof value !== "object") return null;
+  const result = {};
+  if (
+    /^(?:addon:[\w-]{1,100}|yastream|torrentio)$/.test(value.providerId || "")
+  )
+    result.providerId = value.providerId;
+  if (/^addons\/[a-f0-9]{64}$/.test(value.providerKey || ""))
+    result.providerKey = value.providerKey;
+  result.quality = {};
+  for (const [key, pattern] of Object.entries({
+    fingerprint: /^[a-f0-9]{1,8}$/,
+    sourceKey: /^[a-f0-9]{64}$/,
+    resolution: /^(2160|1080|720|480)$/,
+    codec: /^(hevc|h[ .]?265|x265|h[ .]?264|x264|av1)$/i,
+  })) {
+    if (pattern.test(value.quality?.[key] || ""))
+      result.quality[key] = value.quality[key];
+  }
+  result.tracks = {};
+  for (const type of ["sub", "audio"]) {
+    const track = value.tracks?.[type];
+    if (!track || typeof track !== "object") continue;
+    result.tracks[type] = {};
+    for (const name of ["lang", "title", "label", "codec"])
+      if (typeof track[name] === "string")
+        result.tracks[type][name] = track[name].slice(0, 200);
+    for (const name of ["off", "forced", "sdh"])
+      if (typeof track[name] === "boolean")
+        result.tracks[type][name] = track[name];
+  }
+  for (const [key, min, max] of [
+    ["delay", -600, 600],
+    ["scale", 0.25, 5],
+    ["position", 0, 150],
+    ["speed", 0.25, 3],
+  ]) {
+    const number = value.tracks?.[key];
+    if (Number.isFinite(number) && number >= min && number <= max)
+      result.tracks[key] = number;
+  }
+  return result.providerId ||
+    result.providerKey ||
+    Object.keys(result.tracks).length
+    ? result
+    : null;
 }
 
 export function streamPreference(stream) {

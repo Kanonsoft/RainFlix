@@ -2,6 +2,10 @@
   window.RAINFLIX_CONFIG = {
     tmdbApiKey: "dd045c41790ea1b9e9632fa07ffad160",
     publicSiteUrl: "https://kanonsoft.github.io/RainFlix/",
+    account: {
+      url: "https://wrsyztvvrpkckqbqtstz.supabase.co",
+      publishableKey: "sb_publishable_48fMZly7K2r1uOh6JwOy7Q_CqUlHWIl",
+    },
     downloads: {
       githubRepository: "Kanonsoft/RainFlix",
     },

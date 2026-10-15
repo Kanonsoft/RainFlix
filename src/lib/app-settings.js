@@ -4,6 +4,7 @@ import { isNativeApp } from "../platform/index.js";
 const key = "rainflix:settings:v1";
 const defaults = {
   reduceAnimations: false,
+  checkUpdates: true,
   fullscreenOnStart: false,
   subtitleLanguage: "en",
   audioLanguage: "",
@@ -32,10 +33,16 @@ export function readAppSettings() {
   return isNativeApp ? snapshot : webSettings;
 }
 const listeners = new Set();
+window.addEventListener("storage", (event) => {
+  if (event.key !== key) return;
+  snapshot = undefined;
+  listeners.forEach((listener) => listener());
+});
 export function saveAppSettings(change) {
   snapshot = { ...readAppSettings(), ...change };
   try {
     localStorage.setItem(key, JSON.stringify(snapshot));
+    window.dispatchEvent(new Event("rainflix:personal-data-changed"));
   } catch {
     /* Optional storage. */
   }

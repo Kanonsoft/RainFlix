@@ -824,12 +824,15 @@ local function buffering_state()
 end
 
 local function render_buffer(parts, active, percent, elapsed)
+    local navigating=ui.navigationStatus and ui.navigationStatus.status=="loading"
+    active=active or navigating
+    if navigating then percent=0 end
     activity_x=nil
     local paused = ready and mp.get_property_bool("pause",false) and not active
     if (not active and not paused) or panel then
         return
     end
-    if active and not has_played and ui.backdrop and ui.backdrop.path then
+    if active and (not has_played or navigating) and ui.backdrop and ui.backdrop.path then
         local art = ui.backdrop
         local scale = math.max(width/art.width,height/art.height)
         local dw,dh = math.floor(art.width*scale),math.floor(art.height*scale)
@@ -1167,9 +1170,21 @@ mp.add_forced_key_binding("WHEEL_DOWN", "rainflix-wheel-down", function()
     reveal()
 end)
 
-mp.register_event("start-file",function() ready=false; has_played=false; skipped_chapter=nil; buffer_fill=0; reveal() end)
+mp.register_event("start-file",function()
+    local updated=read_ui()
+    if updated.title then ui=updated end
+    restoring_tracks=true
+    if preferences_timer then preferences_timer:kill(); preferences_timer=nil end
+    ready=false; has_played=false; skipped_chapter=nil; buffer_fill=0
+    preload_video=nil; preload_retry_at=0; panel=nil
+    reveal()
+end)
 mp.register_event("playback-restart",function() ready=true; has_played=true; reveal() end)
-mp.register_event("file-loaded", function() restore_preferences(); reveal() end)
+mp.register_event("file-loaded", function()
+    restore_preferences()
+    if not os.getenv("RAINFLIX_NATIVE_SMOKE_MEDIA") then mp.set_property_bool("pause",false) end
+    reveal()
+end)
 for _,property in ipairs({ "aid","sid","sub-delay","sub-scale","sub-pos","volume","speed","mute" }) do
     mp.observe_property(property,"native",save_preferences)
 end
@@ -1239,8 +1254,15 @@ mp.add_periodic_timer(0.25,function()
     if os.getenv("RAINFLIX_NATIVE_SMOKE_MEDIA") then return end
     local updated = read_ui()
     if updated.title then
+        if updated.currentVideoId ~= ui.currentVideoId then
+            ui=updated; panel=nil; preload_video=nil; preload_retry_at=0
+            ready=false; has_played=false; buffer_fill=0
+            restoring_tracks=true
+            if preferences_timer then preferences_timer:kill(); preferences_timer=nil end
+        end
         ui.episodes=updated.episodes; ui.seasons=updated.seasons
         ui.episodeStatus=updated.episodeStatus
+        ui.navigationStatus=updated.navigationStatus
         ui.logo=updated.logo; ui.backdrop=updated.backdrop
         ui.addonSubtitles=updated.addonSubtitles; ui.loadedAddonSubtitles=updated.loadedAddonSubtitles
         ui.subtitleStatus=updated.subtitleStatus; ui.subtitleLookupFailed=updated.subtitleLookupFailed

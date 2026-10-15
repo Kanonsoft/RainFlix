@@ -15,7 +15,7 @@ function Title({ mediaType, id, onReady, onBackdrop }) {
 
   useEffect(() => {
     const controller = new AbortController();
-    setFeed({ loading: true });
+    setFeed((current) => (current.meta ? current : { loading: true }));
     const load = async () => {
       if (!["movie", "tv"].includes(mediaType) || !/^\d+$/.test(id))
         throw new Error("This title is unavailable.");
@@ -36,22 +36,22 @@ function Title({ mediaType, id, onReady, onBackdrop }) {
     return () => controller.abort();
   }, [mediaType, id, season, revision, onReady]);
 
-  const requestedVideo = (
-    feed.meta?.videos?.find(
-      (video) => video.season === season && video.episode === episode,
-    ) ||
-    feed.meta?.videos?.find(
-      (video) =>
-        video.season === season && video.sourceEpisodeNumber === episode,
-    )
-  )?.id;
+  const requestedVideo =
+    (
+      feed.meta?.videos?.find(
+        (video) => video.season === season && video.episode === episode,
+      ) ||
+      feed.meta?.videos?.find(
+        (video) =>
+          video.season === season && video.sourceEpisodeNumber === episode,
+      )
+    )?.id ||
+    (feed.meta?.addonId && mediaType === "tv"
+      ? `${feed.meta.addonId}:${season}:${episode}`
+      : undefined);
   return (
     <TitleDetails
-      feed={
-        mediaType === "tv" && feed.meta && feed.meta.selectedSeason !== season
-          ? { loading: true }
-          : feed
-      }
+      feed={feed}
       onRetry={() => setRevision((value) => value + 1)}
       onBackdrop={onBackdrop}
       requestedVideo={requestedVideo}

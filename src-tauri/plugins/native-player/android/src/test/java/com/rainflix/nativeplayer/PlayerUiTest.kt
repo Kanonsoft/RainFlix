@@ -16,6 +16,25 @@ import org.robolectric.shadows.ShadowAlertDialog
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28], qualifiers = "w900dp-h400dp-land")
 class PlayerUiTest {
+    @Test fun episodeHandoffReusesActivityAndResetsCompletion() {
+        PlayerBridge.session = JSONObject().put("sessionId", "first").put("ui", JSONObject().put("title", "First episode"))
+        val controller = Robolectric.buildActivity(PlayerActivity::class.java).create().start().resume().visible()
+        val activity = controller.get()
+        try {
+            val complete = PlayerActivity::class.java.getDeclaredField("complete").apply { isAccessible = true }
+            complete.setBoolean(activity, true)
+            activity.updateNavigation(JSONObject().put("status", "loading").put("videoId", "next"))
+            val backdrop = PlayerActivity::class.java.getDeclaredField("backdrop").apply { isAccessible = true }.get(activity) as View
+            assertEquals(View.VISIBLE, backdrop.visibility)
+            val next = JSONObject().put("sessionId", "second").put("ui", JSONObject().put("title", "S2 E1: Next episode").put("season", 2))
+            PlayerBridge.session = next
+            activity.replaceSession(next)
+            assertSame(activity, PlayerBridge.activity)
+            assertFalse(activity.isFinishing)
+            assertFalse(complete.getBoolean(activity))
+            assertNotNull(findText(activity.window.decorView, "S2 E1: Next episode"))
+        } finally { controller.pause().stop().destroy(); PlayerBridge.session = null; PlayerBridge.emit = null }
+    }
     @Test fun unknownDurationNeverOffersAnUnsafeSkip() {
         PlayerBridge.session = JSONObject().put("sessionId", "skip-test").put("ui", JSONObject())
         val controller = Robolectric.buildActivity(PlayerActivity::class.java).create().start().resume().visible()

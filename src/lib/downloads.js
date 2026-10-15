@@ -5,6 +5,22 @@ export function releaseRepository(config) {
     : "Kanonsoft/RainFlix";
 }
 
+export function releaseVersion(value) {
+  const match = String(value || "").match(
+    /^(?:(?:rainflix|windows|android)[-_])?v?(\d+)\.(\d+)\.(\d+)(?:\+[\w.-]+)?$/i,
+  );
+  return match ? match.slice(1).map(Number) : null;
+}
+export function newerRelease(candidate, current) {
+  const next = releaseVersion(candidate),
+    installed = releaseVersion(current);
+  if (!next || !installed) return false;
+  for (let index = 0; index < 3; index++) {
+    if (next[index] !== installed[index]) return next[index] > installed[index];
+  }
+  return false;
+}
+
 export async function platformReleases(repository, signal) {
   const response = await fetch(
     `https://api.github.com/repos/${repository}/releases/latest`,

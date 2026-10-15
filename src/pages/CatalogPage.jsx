@@ -4,6 +4,7 @@ import HeroCarousel from "../components/HeroCarousel.jsx";
 import AddonCatalogRows from "../components/AddonCatalogRows.jsx";
 import ViewportCatalog from "../components/ViewportCatalog.jsx";
 import { MediaGrid } from "../components/MediaCard.jsx";
+import MediaCarousel from "../components/MediaCarousel.jsx";
 import { useLibrary } from "../components/library/LibraryProvider.jsx";
 import { api, delay, preloadImage, watchPath } from "../lib/api.js";
 import { usePageMetadata } from "../lib/metadata.js";
@@ -551,7 +552,7 @@ export default function CatalogPage({ mode = "home", onBackdrop, onReady }) {
                 Continue watching
               </h2>
             </div>
-            <MediaGrid items={continueWatching} />
+            <MediaCarousel items={continueWatching} label="Continue watching" />
           </section>
         </ViewportCatalog>
       ) : null}

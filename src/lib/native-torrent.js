@@ -1,5 +1,7 @@
 import { isAndroid, isDesktop, isNativeApp } from "../platform/index.js";
 
+let retainedPlayback;
+
 const androidPlayerCommands = {
   update_native_player_episodes: "update_episodes",
   update_native_player_streams: "update_streams",
@@ -94,6 +96,7 @@ export async function startNativeTorrent({
   onStatus,
   sessionId = crypto.randomUUID(),
   ui,
+  handoffTitle,
   resumePosition = 0,
 }) {
   if (!isNativeApp || (!stream?.torrent && !stream?.isNativeMedia)) {
@@ -101,6 +104,13 @@ export async function startNativeTorrent({
   }
   const { invoke } = await import("@tauri-apps/api/core");
   const startAt = Number.isFinite(resumePosition) ? resumePosition : 0;
+  let previous = retainedPlayback;
+  retainedPlayback = null;
+  if (previous) window.clearTimeout(previous.timer);
+  if (previous && previous.title !== handoffTitle) {
+    previous.destroy();
+    previous = null;
+  }
   const androidUi = {
     ...ui,
     capabilities: { ...ui?.capabilities, preload: true },
@@ -129,6 +139,7 @@ export async function startNativeTorrent({
       await invoke("plugin:native-player|start", {
         payload: {
           sessionId,
+          previousSessionId: previous?.sessionId || null,
           url: stream.isNativeMedia ? stream.url : null,
           startAt,
           ui: androidUi,
@@ -157,6 +168,7 @@ export async function startNativeTorrent({
                 ? {
                     ui: ui || null,
                     startAt,
+                    reuseSessionId: previous?.sessionId || null,
                   }
                 : {}),
             },
@@ -176,8 +188,31 @@ export async function startNativeTorrent({
         throw new DOMException("Playback stopped.", "AbortError");
       }
     }
-    return { sessionId, url: result.url, destroy: stop };
+    previous?.destroy();
+    return {
+      sessionId,
+      url: result.url,
+      destroy: stop,
+      retain() {
+        signal?.removeEventListener("abort", stop);
+        if (retainedPlayback) {
+          window.clearTimeout(retainedPlayback.timer);
+          retainedPlayback.destroy();
+        }
+        retainedPlayback = {
+          sessionId,
+          title: handoffTitle,
+          destroy: stop,
+          timer: window.setTimeout(() => {
+            if (retainedPlayback?.sessionId === sessionId)
+              retainedPlayback = null;
+            stop();
+          }, 15000),
+        };
+      },
+    };
   } catch (error) {
+    previous?.destroy();
     stop();
     if (signal?.aborted) {
       throw new DOMException("Playback stopped.", "AbortError");

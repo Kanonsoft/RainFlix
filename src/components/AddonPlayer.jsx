@@ -17,7 +17,6 @@ import {
   readAppSettings,
   savePlayerSkipSettings,
 } from "../lib/app-settings.js";
-import { isAndroid } from "../platform/index.js";
 
 function bufferedReadiness(video) {
   if (!video.readyState || !Number.isFinite(video.duration)) return null;
@@ -704,6 +703,17 @@ function NativeTorrentPlayer({
     let played = false;
     let ended = false;
     let advancing = false;
+    let retaining = false;
+    const selectEpisode = (videoId, autoplay, choice) => {
+      retaining = Boolean(autoplay || choice);
+      const accepted = callbacks.current.onEpisodeSelect?.(
+        videoId,
+        autoplay,
+        choice,
+      );
+      if (accepted === false) retaining = false;
+      return accepted;
+    };
     let lastSample;
     let preload;
     const reportPreload = async (current, status, percent = 0) => {
@@ -754,7 +764,7 @@ function NativeTorrentPlayer({
         return false;
       }
       current.claimed = true;
-      const accepted = callbacks.current.onEpisodeSelect?.(videoId, false, {
+      const accepted = selectEpisode(videoId, false, {
         ...current.choice,
         stream: { ...current.choice.stream, nativePreloadId: current.id },
       });
@@ -764,7 +774,17 @@ function NativeTorrentPlayer({
       if (advancing || cancelled) return;
       advancing = true;
       let handedOff = false;
-      (videoId ? takePreload(videoId) : Promise.resolve(false))
+      (videoId
+        ? invokeNativePlayer("update_native_navigation_status", {
+            sessionId,
+            videoId,
+            status: "loading",
+            message: "",
+          })
+            .catch(() => {})
+            .then(() => takePreload(videoId))
+        : Promise.resolve(false)
+      )
         .catch(() => false)
         .then(async (continued) => {
           if (continued || cancelled) {
@@ -777,15 +797,11 @@ function NativeTorrentPlayer({
               controller.signal,
             );
             if (cancelled) return;
-            if (!choice && isAndroid)
+            if (!choice)
               throw new Error(
                 "No matching stream. Choose a source for this episode.",
               );
-            const accepted = callbacks.current.onEpisodeSelect?.(
-              videoId,
-              false,
-              choice || undefined,
-            );
+            const accepted = selectEpisode(videoId, false, choice || undefined);
             if (accepted === false)
               throw new Error("This episode could not be opened. Try again.");
             handedOff = true;
@@ -795,23 +811,16 @@ function NativeTorrentPlayer({
             if (callbacks.current.onEnded) await callbacks.current.onEnded();
             else callbacks.current.onClose?.();
             handedOff = true;
-          } else
-            handedOff =
-              callbacks.current.onEpisodeSelect?.(videoId, true) !== false;
+          } else handedOff = selectEpisode(videoId, true) !== false;
         })
         .catch(async (error) => {
           if (cancelled || !videoId) return;
-          if (isAndroid)
-            await invokeNativePlayer("update_native_navigation_status", {
-              sessionId,
-              videoId,
-              status: "error",
-              message:
-                error.message || "Could not open this episode. Try again.",
-            }).catch(() => {});
-          else
-            handedOff =
-              callbacks.current.onEpisodeSelect?.(videoId, false) !== false;
+          await invokeNativePlayer("update_native_navigation_status", {
+            sessionId,
+            videoId,
+            status: "error",
+            message: error.message || "Could not open this episode. Try again.",
+          }).catch(() => {});
         })
         .finally(() => {
           if (!handedOff && !cancelled) advancing = false;
@@ -1073,12 +1082,7 @@ function NativeTorrentPlayer({
               .catch(() => {});
           } else if (payload.mode === "source") {
             const choice = choices[Number(payload.choiceId)];
-            if (choice)
-              callbacks.current.onEpisodeSelect?.(
-                payload.videoId,
-                false,
-                choice,
-              );
+            if (choice) selectEpisode(payload.videoId, false, choice);
           } else advanceEpisode(payload.videoId);
         } else if (payload.kind === "subtitle") {
           const item = callbacks.current.subtitles?.find(
@@ -1109,6 +1113,7 @@ function NativeTorrentPlayer({
       if (cancelled) return;
       session = await startNativeTorrent({
         stream,
+        handoffTitle: initialUi.current.title,
         sessionId,
         resumePosition,
         signal: controller.signal,
@@ -1163,11 +1168,12 @@ function NativeTorrentPlayer({
       cancelled = true;
       window.clearTimeout(timer);
       if (lastSample) callbacks.current.onProgress?.(lastSample, true);
+      if (retaining) session?.retain();
       controller.abort();
       cancelPreload();
       choiceController?.abort();
       seasonController?.abort();
-      session?.destroy();
+      if (!retaining) session?.destroy();
       unlisten?.();
     };
   }, [stream, resumePosition, currentVideoId, season, episode]);

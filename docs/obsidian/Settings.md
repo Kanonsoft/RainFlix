@@ -4,6 +4,8 @@ tags: [rainflix, settings, native]
 
 # Settings
 
+The Settings index contains navigation only. Account & sync shows the signed-in email alongside its label; account controls live at `/settings/account`. Appearance, Playback and App updates have dedicated `/settings/appearance`, `/settings/playback` and `/settings/updates` pages. Add-ons and Subtitle settings retain their dedicated pages. Native Back/browser history returns to the index without adding visible routing Back buttons. Sign out uses a muted red treatment.
+
 Reduced-animation mode uses a fixed solid charcoal (`#2d333b`), inspired by the cool gray reference palette. It does not display movie artwork behind pages or animate background changes. Featured-title artwork remains visible inside the carousel and transitions using a decoded-image crossfade.
 
 Normal ambient movie backgrounds use the landing-page-style 38px blur on both current and outgoing image layers, including dynamic crossfades. A 48px overscan prevents blurred edges from revealing gaps. Hero/card artwork stays sharp, fixed background sizing stays stable on mobile, and reduced-animation mode keeps its solid color unchanged. This shared CSS applies to web, Windows and Android.

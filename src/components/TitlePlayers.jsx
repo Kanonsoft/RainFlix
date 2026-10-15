@@ -11,7 +11,12 @@ import { ArrowLeft, Maximize, X } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { config, trackEvent } from "../lib/api.js";
 import { httpUrl } from "../lib/addon-streams.js";
-import { supports, useAddons, useAddonRestoring } from "../lib/addons.js";
+import {
+  supports,
+  useAddons,
+  useAddonRestoring,
+  syncAddonKey,
+} from "../lib/addons.js";
 import {
   framePlaybackEvent,
   playbackIdentity,
@@ -25,7 +30,7 @@ import AddonSources, { streamProvider } from "./AddonSources.jsx";
 import {
   readPlaybackPreferences,
   savePlaybackPreferences,
-  streamPreference,
+  resumeStreamPreference,
   preferredEpisodeStream,
 } from "../lib/playback-preferences.js";
 import PlaybackLoader from "./PlaybackLoader.jsx";
@@ -494,14 +499,38 @@ export default function TitlePlayers({
   const listedSources =
     providerFirst && !episodeChosen ? sources : availableSources;
   useEffect(() => {
-    if (resumed.current || !resumePreference?.providerId) return;
-    const source = availableSources.find(
-      (item) => item.id === resumePreference.providerId,
-    );
-    if (!source) return;
-    resumed.current = true;
-    setProviderChoice(source.id);
-    setSourcesVisible(false);
+    if (
+      resumed.current ||
+      (!resumePreference?.providerId && !resumePreference?.providerKey)
+    )
+      return;
+    let cancelled = false;
+    void (async () => {
+      let source;
+      if (resumePreference.providerKey) {
+        for (const item of availableSources) {
+          if (
+            item.addon &&
+            (await syncAddonKey(item.addon.manifestUrl)) ===
+              resumePreference.providerKey
+          ) {
+            source = item;
+            break;
+          }
+        }
+      } else
+        source = availableSources.find(
+          (item) => item.id === resumePreference.providerId,
+        );
+      if (!source || cancelled) return;
+      resumed.current = true;
+      setResumePreference((current) => ({ ...current, providerId: source.id }));
+      setProviderChoice(source.id);
+      setSourcesVisible(false);
+    })().catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, [availableSources, resumePreference]);
   const chosenProvider = sources.find(
     (source) =>
@@ -604,8 +633,14 @@ export default function TitlePlayers({
       started.current = true;
       completedIdentity.current = null;
       if (pendingPreference.current) {
-        savePlaybackPreferences(details, pendingPreference.current);
-        remembered.current = readPlaybackPreferences(details);
+        const pending = pendingPreference.current;
+        void Promise.resolve(pending)
+          .then((preference) => {
+            if (pendingPreference.current !== pending) return;
+            savePlaybackPreferences(details, preference);
+            remembered.current = readPlaybackPreferences(details);
+          })
+          .catch(() => {});
       }
       onStarted?.();
     }
@@ -617,10 +652,16 @@ export default function TitlePlayers({
     params.set("play", "1");
     params.delete("resume");
     pendingPreference.current = playback
-      ? {
+      ? Promise.all([
+          resumeStreamPreference(playback.stream),
+          source.addon
+            ? syncAddonKey(source.addon.manifestUrl).catch(() => null)
+            : Promise.resolve(null),
+        ]).then(([quality, providerKey]) => ({
           providerId: source.id,
-          quality: streamPreference(playback.stream),
-        }
+          quality,
+          ...(providerKey ? { providerKey } : {}),
+        }))
       : null;
     remembered.current = readPlaybackPreferences(details);
     const resumePosition =
@@ -742,14 +783,10 @@ export default function TitlePlayers({
   useImperativeHandle(ref, () => ({
     resume() {
       const preference = readPlaybackPreferences(details);
-      if (
-        !availableSources.some((source) => source.id === preference.providerId)
-      )
-        return;
       setResumePreference(preference);
-      setProviderChoice(preference.providerId);
+      setProviderChoice("");
       setSourcesVisible(false);
-      resumed.current = true;
+      resumed.current = false;
     },
     playTrailer() {
       if (!trailer) return;
@@ -1151,9 +1188,7 @@ export default function TitlePlayers({
               episodeTitle={episodeTitle}
               onStarted={markStarted}
               onProgress={recordProgress}
-              onEnded={
-                details.addonType === "series" ? finishPlayback : undefined
-              }
+              onEnded={details.addonType === "series" ? finishPlayback : close}
               preferences={remembered.current}
               onPreferences={(tracks) => {
                 savePlaybackPreferences(details, { tracks });

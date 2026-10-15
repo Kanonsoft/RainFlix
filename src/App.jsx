@@ -15,6 +15,7 @@ import {
   useNavigationType,
 } from "react-router";
 import AppLoader from "./components/AppLoader.jsx";
+import { useAccountStartupReady } from "./lib/account-startup.js";
 import Footer from "./components/Footer.jsx";
 import Header from "./components/Header.jsx";
 import MobileNavigation from "./components/MobileNavigation.jsx";
@@ -45,6 +46,8 @@ const NewestPage = lazy(() => import("./pages/NewestPage.jsx"));
 const DownloadsPage = lazy(() => import("./pages/DownloadsPage.jsx"));
 const AnimePage = lazy(() => import("./pages/AnimePage.jsx"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage.jsx"));
+const AccountPage = lazy(() => import("./pages/AccountPage.jsx"));
+const AppUpdateNotice = lazy(() => import("./components/AppUpdateNotice.jsx"));
 const SubtitleSettingsPage = lazy(
   () => import("./pages/SubtitleSettingsPage.jsx"),
 );
@@ -135,6 +138,7 @@ function RouteFallback() {
 }
 
 function AppShell() {
+  const accountReady = useAccountStartupReady();
   const location = useLocation();
   const landing = !isNativeApp && ["/", "/about"].includes(location.pathname);
   const settings = useAppSettings();
@@ -291,7 +295,8 @@ function AppShell() {
     <>
       {!landing && (
         <AppLoader
-          dataReady={dataReady && loaderPostersReady}
+          dataReady={dataReady && loaderPostersReady && accountReady}
+          startupReady={accountReady}
           posters={loaderPosters}
         />
       )}
@@ -360,6 +365,29 @@ function AppShell() {
                   )
                 }
               />
+              <Route
+                path="/settings/account"
+                element={
+                  isNativeApp ? (
+                    <AccountPage onReady={completeBoot} />
+                  ) : (
+                    <Navigate replace to="/home" />
+                  )
+                }
+              />
+              {["appearance", "playback", "updates"].map((section) => (
+                <Route
+                  key={section}
+                  path={`/settings/${section}`}
+                  element={
+                    isNativeApp ? (
+                      <SettingsPage section={section} onReady={completeBoot} />
+                    ) : (
+                      <Navigate replace to="/home" />
+                    )
+                  }
+                />
+              ))}
               <Route
                 path="/title/:mediaType/:id"
                 element={
@@ -532,6 +560,11 @@ function AppShell() {
       </div>
       <ScrollManager />
       <BackToTop />
+      {isNativeApp && (
+        <Suspense fallback={null}>
+          <AppUpdateNotice />
+        </Suspense>
+      )}
       {config.analyticsScriptUrl && config.analyticsWebsiteId ? (
         <Suspense fallback={null}>
           <PrivacyAnalytics />

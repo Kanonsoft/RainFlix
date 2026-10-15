@@ -136,9 +136,7 @@ export function MediaCard({ item }) {
       <Link
         className={mainClass}
         to={
-          item.resumePath
-            ? `${item.resumePath}${item.resumePath.includes("?") ? "&" : "?"}resume=1`
-            : item.detailPath || watchPath(item)
+          item.resumePath ? item.resumePath : item.detailPath || watchPath(item)
         }
         aria-label={
           item.resumePath

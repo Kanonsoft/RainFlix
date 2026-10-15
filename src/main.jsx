@@ -5,6 +5,7 @@ import App from "./App.jsx";
 import AppErrorBoundary from "./components/AppErrorBoundary.jsx";
 import { registerRainFlixServiceWorker } from "./lib/service-worker.js";
 import { isNativeApp } from "./platform/index.js";
+import { beginAccountStartup } from "./lib/account-startup.js";
 import "../styles/input.css";
 
 // Suppress browser menus without interfering with RainFlix's card menus.
@@ -27,6 +28,7 @@ ReactDOM.createRoot(document.querySelector("#root")).render(
 );
 
 if (isNativeApp) {
+  void beginAccountStartup();
   import("./platform/desktop.js")
     .then(({ initializeDesktopLinks }) => initializeDesktopLinks())
     .catch((error) => console.warn("Native app links could not start.", error));

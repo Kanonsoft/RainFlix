@@ -33,7 +33,7 @@ test("desktop applies startup fullscreen and Escape returns to windowed mode", a
       },
     };
   });
-  await page.goto("/#/settings");
+  await page.goto("/#/settings/appearance");
   await expect
     .poll(() => page.evaluate(() => window.fullscreenCalls))
     .toEqual([true]);
@@ -69,14 +69,19 @@ for (const android of [true, false])
     await expect(
       page.getByRole("heading", { name: "Settings", exact: true }),
     ).toBeVisible();
+    await expect(page.getByRole("switch")).toHaveCount(0);
+    await page.getByRole("link", { name: "Appearance", exact: true }).click();
     const reduced = page.getByRole("switch", { name: "Reduce animations" });
     await expect(reduced).not.toBeChecked();
+    await page.goBack();
+    await page.getByRole("link", { name: "Playback", exact: true }).click();
     await expect(page.getByLabel("Preferred subtitles")).toHaveValue("en");
     await expect(page.getByLabel("Preferred audio")).toHaveValue("");
     await expect(page.locator("#appLoader")).toHaveClass(/is-hidden/, {
       timeout: 15000,
     });
     await expect(page.getByLabel("Subtitle size")).toHaveCount(0);
+    await page.goBack();
     await page.getByRole("link", { name: "Subtitle settings" }).click();
     await expect(page).toHaveURL(/#\/settings\/subtitles$/);
     await expect(page.getByLabel("Subtitle size")).toHaveValue("1");
@@ -114,6 +119,12 @@ for (const android of [true, false])
     await expect(page).toHaveURL(/#\/settings$/);
     await expect(page.getByText("Storage", { exact: true })).toHaveCount(0);
     await expect(page.getByLabel("Intro fallback length")).toHaveCount(0);
+    for (const name of ["Manage add-ons", "Subtitle settings"]) {
+      await expect(page.getByRole("link", { name }).locator("svg")).toHaveCount(
+        0,
+      );
+    }
+    await page.getByRole("link", { name: "Appearance", exact: true }).click();
     if (!android) {
       const fullscreen = page.getByRole("switch", {
         name: "Fullscreen on start",
@@ -122,11 +133,6 @@ for (const android of [true, false])
       await fullscreen.check();
     }
     await reduced.check();
-    for (const name of ["Manage add-ons", "Subtitle settings"]) {
-      await expect(page.getByRole("link", { name }).locator("svg")).toHaveCount(
-        0,
-      );
-    }
     const header = page.locator("#site-header");
     await expect(header).toHaveCSS("background-color", "rgb(13, 19, 23)");
     await expect(header).toHaveCSS("backdrop-filter", "none");
@@ -134,8 +140,11 @@ for (const android of [true, false])
     await expect(page.locator("body")).toHaveCSS("user-select", "none");
     await page.evaluate(() => scrollTo(0, 500));
     await expect(header).toHaveCSS("background-color", "rgb(13, 19, 23)");
+    await page.goBack();
+    await page.getByRole("link", { name: "Playback", exact: true }).click();
     await page.getByLabel("Preferred audio").selectOption("ja");
     await page.reload();
+    await page.goto("/#/settings");
     await page.getByRole("link", { name: "Subtitle settings" }).click();
     await expect(page.getByLabel("Subtitle size")).toHaveValue("2.5");
     await expect(page.getByLabel("Subtitle vertical position")).toHaveValue(
@@ -143,7 +152,10 @@ for (const android of [true, false])
     );
     await expect(page.getByLabel("Subtitle delay")).toHaveValue("-10");
     await page.goBack();
+    await page.getByRole("link", { name: "Playback", exact: true }).click();
     await expect(page.getByLabel("Preferred audio")).toHaveValue("ja");
+    await page.goBack();
+    await page.getByRole("link", { name: "Appearance", exact: true }).click();
     if (!android)
       await expect(
         page.getByRole("switch", { name: "Fullscreen on start" }),
@@ -173,6 +185,7 @@ for (const android of [true, false])
         .outputPath(`settings-${android ? "android" : "desktop"}.png`),
       fullPage: true,
     });
+    await page.goBack();
     await page.getByRole("link", { name: "Subtitle settings" }).click();
     await page.getByRole("button", { name: "Reset subtitle settings" }).click();
     await expect(page.getByLabel("Subtitle size")).toHaveValue("1");

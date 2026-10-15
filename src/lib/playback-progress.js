@@ -116,6 +116,11 @@ export function savePlaybackProgress(identity, sample, flush = false) {
       ),
     );
     persistedAt.set(identity.key, Date.now());
+    window.dispatchEvent(
+      new CustomEvent("rainflix:personal-data-changed", {
+        detail: { kind: "progress", flush },
+      }),
+    );
   } catch {
     // Seeking still works between players when browser storage is unavailable.
   }
@@ -167,6 +172,7 @@ export function removeTitlePlaybackProgress(item, episodeOnly = false) {
       STORAGE_KEY,
       JSON.stringify([...readStored()].filter(([key]) => !matches(key))),
     );
+    window.dispatchEvent(new Event("rainflix:personal-data-changed"));
   } catch {
     /* Optional storage. */
   }
@@ -177,6 +183,7 @@ export function clearPlaybackProgress() {
   persistedAt.clear();
   try {
     localStorage.removeItem(STORAGE_KEY);
+    window.dispatchEvent(new Event("rainflix:personal-data-changed"));
   } catch {
     /* Optional storage. */
   }

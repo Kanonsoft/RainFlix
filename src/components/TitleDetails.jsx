@@ -29,7 +29,13 @@ function Content({
   onSeriesProviderChange,
 }) {
   const location = useLocation();
-  const { isInMyList, toggleMyList, recordViewed, markWatched } = useLibrary();
+  const {
+    isInMyList,
+    toggleMyList,
+    recordViewed,
+    markWatched,
+    recentlyViewed,
+  } = useLibrary();
   const [shareStatus, setShareStatus] = useState("");
   const [selectionStep, setSelectionStep] = useState(false);
   const [similar, setSimilar] = useState([]);
@@ -55,6 +61,11 @@ function Content({
       ),
   };
   const saved = isInMyList(libraryTitle);
+  const recent = recentlyViewed.find(
+    (item) =>
+      String(item.id) === String(libraryTitle.id) &&
+      item.mediaType === libraryTitle.mediaType,
+  );
   const [extraVideos, setExtraVideos] = useState([]);
   useEffect(() => {
     if (!tmdb || !meta.tmdbSeasons?.length) return;
@@ -114,6 +125,7 @@ function Content({
   );
   const selectedVideo =
     videos.find((video) => video.id === requestedVideo) ||
+    extraVideos.find((video) => video.id === requestedVideo) ||
     videos.find((video) => video.sourceVideoId === requestedVideo) ||
     videos.find((video) => video.id === meta.defaultVideoId) ||
     videos[0];
@@ -295,6 +307,30 @@ function Content({
                   >
                     Watch on RainFlix App
                   </Link>
+                )}
+                {recent && (
+                  <button
+                    type="button"
+                    className="inline-flex min-h-11 items-center justify-center rounded-lg bg-sky-400 px-4 text-sm font-bold text-slate-950 transition hover:bg-sky-300 focus-visible:outline-sky-200"
+                    onClick={() => {
+                      setEpisodeChosen(true);
+                      const target =
+                        recent.videoId ||
+                        videos.find(
+                          (video) =>
+                            video.season === recent.season &&
+                            video.episode === recent.episode,
+                        )?.id;
+                      if (target && target !== videoId)
+                        onVideoChange(String(target), true);
+                      else players.current?.resume();
+                    }}
+                  >
+                    Continue watching
+                    {recent.mediaType === "tv"
+                      ? ` S${recent.season || 1} E${recent.episode || 1}`
+                      : ""}
+                  </button>
                 )}
                 {libraryTitle && (
                   <button

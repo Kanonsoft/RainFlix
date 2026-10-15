@@ -25,7 +25,7 @@ function Title({ owner, type, id, installed, onBackdrop, onReady }) {
   const [revision, setRevision] = useState(0);
   useEffect(() => {
     const controller = new AbortController();
-    setFeed({ loading: true });
+    setFeed((current) => (current.meta ? current : { loading: true }));
     const load = async () => {
       if (hasTmdb)
         return getTmdbAddonMeta(owner, type, id, season, controller.signal);

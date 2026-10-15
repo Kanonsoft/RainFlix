@@ -311,6 +311,9 @@ test("series stay in Continue Watching until all episodes finish, then have one 
     .getByRole("link", { name: "Continue watching Playback Test" })
     .click();
   await expect(page).toHaveURL(/episode=2/);
+  await page
+    .getByRole("button", { name: "Continue watching S1 E2", exact: true })
+    .click();
   await finish();
   await expect
     .poll(() =>

@@ -4,6 +4,8 @@ import { useAppSettings, saveAppSettings } from "../lib/app-settings.js";
 import { usePageMetadata } from "../lib/metadata.js";
 import { isDesktop } from "../platform/index.js";
 import { setDesktopFullscreen } from "../platform/desktop.js";
+import UpdateSettings from "../components/UpdateSettings.jsx";
+import { useAccount } from "../lib/account-sync.js";
 
 const languages = [
   ["en", "English"],
@@ -20,9 +22,14 @@ const languages = [
   ["th", "Thai"],
   ["tl", "Filipino"],
 ];
-export default function SettingsPage({ onReady }) {
+export default function SettingsPage({ onReady, section }) {
   const settings = useAppSettings();
-  usePageMetadata({ title: "Settings" });
+  const account = useAccount();
+  const title =
+    { appearance: "Appearance", playback: "Playback", updates: "App updates" }[
+      section
+    ] || "Settings";
+  usePageMetadata({ title });
   useEffect(() => {
     onReady?.();
   }, [onReady]);
@@ -66,37 +73,55 @@ export default function SettingsPage({ onReady }) {
   );
   return (
     <section className="mx-auto w-full max-w-3xl px-5 py-8 md:px-10">
-      <h1 className="text-3xl font-bold">Settings</h1>
-      <h2 className="mt-9 text-lg font-semibold text-sky-200">Add-ons</h2>
-      <Link
-        to="/addons"
-        className="flex min-h-16 items-center gap-4 border-b border-white/10 py-4 hover:text-sky-300 focus-visible:outline-sky-400"
-      >
-        <span className="flex-1">Manage add-ons</span>
-      </Link>
-      <h2 className="mt-9 text-lg font-semibold text-sky-200">Appearance</h2>
-      {toggle("reduceAnimations", "Reduce animations")}
-      {isDesktop && toggle("fullscreenOnStart", "Fullscreen on start")}
-      <h2 className="mt-9 text-lg font-semibold text-sky-200">Playback</h2>
-      {language("subtitleLanguage", "Preferred subtitles", "Off")}
-      {language("audioLanguage", "Preferred audio", "Source default")}
-      {toggle("autoNext", "Play next episode automatically")}
-      {toggle("skipIntro", "Automatically skip intros")}
-      {toggle("skipOutro", "Automatically skip endings")}
-      {toggle("preloadNext", "Prefetch next episode")}
-      {toggle("nextPreview", "Show next episode preview")}
-      <h2 className="mt-9 text-lg font-semibold text-sky-200">
-        Subtitle settings
-      </h2>
-      <Link
-        to="/settings/subtitles"
-        className="flex min-h-16 items-center gap-4 border-b border-white/10 py-4 hover:text-sky-300 focus-visible:outline-sky-400"
-      >
-        <span className="flex-1">Subtitle settings</span>
-        <span className="text-sm text-slate-400">
-          {Math.round(settings.subtitleScale * 100)}%
-        </span>
-      </Link>
+      <h1 className="text-3xl font-bold">{title}</h1>
+      {!section && (
+        <nav aria-label="Settings sections" className="mt-6">
+          <Link
+            to="/settings/account"
+            className="flex min-h-16 flex-wrap items-center justify-between gap-x-5 gap-y-2 border-b border-white/10 py-4 hover:text-sky-300"
+          >
+            <span>Account &amp; sync</span>
+            {account.user?.email && (
+              <span className="min-w-0 break-all text-sm text-slate-300">
+                {account.user.email}
+              </span>
+            )}
+          </Link>
+          {[
+            ["/addons", "Manage add-ons"],
+            ["/settings/appearance", "Appearance"],
+            ["/settings/playback", "Playback"],
+            ["/settings/subtitles", "Subtitle settings"],
+            ["/settings/updates", "App updates"],
+          ].map(([to, label]) => (
+            <Link
+              key={to}
+              to={to}
+              className="flex min-h-16 items-center border-b border-white/10 py-4 hover:text-sky-300"
+            >
+              {label}
+            </Link>
+          ))}
+        </nav>
+      )}
+      {section === "appearance" && (
+        <div className="mt-6">
+          {toggle("reduceAnimations", "Reduce animations")}
+          {isDesktop && toggle("fullscreenOnStart", "Fullscreen on start")}
+        </div>
+      )}
+      {section === "playback" && (
+        <div className="mt-6">
+          {language("subtitleLanguage", "Preferred subtitles", "Off")}
+          {language("audioLanguage", "Preferred audio", "Source default")}
+          {toggle("autoNext", "Play next episode automatically")}
+          {toggle("skipIntro", "Automatically skip intros")}
+          {toggle("skipOutro", "Automatically skip endings")}
+          {toggle("preloadNext", "Prefetch next episode")}
+          {toggle("nextPreview", "Show next episode preview")}
+        </div>
+      )}
+      {section === "updates" && <UpdateSettings />}
     </section>
   );
 }
