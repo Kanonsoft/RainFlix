@@ -25,17 +25,17 @@ for (const android of [false, true])
     );
     await page.setViewportSize({ width: android ? 390 : 1440, height: 900 });
     const release = {
-      tag_name: "v1.1.0",
+      tag_name: "v2.1.0",
       assets: [
         {
           name: "RainFlix_x64-setup.exe",
           browser_download_url:
-            "https://github.com/Kanonsoft/RainFlix/releases/download/v1.1.0/RainFlix.exe",
+            "https://github.com/Kanonsoft/RainFlix/releases/download/v2.1.0/RainFlix.exe",
         },
         {
           name: "app-arm64-release.apk",
           browser_download_url:
-            "https://github.com/Kanonsoft/RainFlix/releases/download/v1.1.0/RainFlix.apk",
+            "https://github.com/Kanonsoft/RainFlix/releases/download/v2.1.0/RainFlix.apk",
         },
       ],
     };
@@ -64,18 +64,18 @@ for (const android of [false, true])
     await notice.getByRole("button", { name: "Remind me tomorrow" }).click();
     await expect(notice).toHaveCount(0);
     await expect(
-      page.getByRole("link", { name: "Download v1.1.0" }),
+      page.getByRole("link", { name: "Download v2.1.0" }),
     ).toBeVisible();
     await page.reload();
     await page
       .getByRole("button", { name: "Check for updates", exact: true })
       .click();
     await expect(
-      page.getByRole("link", { name: "Download v1.1.0" }),
+      page.getByRole("link", { name: "Download v2.1.0" }),
     ).toBeVisible();
     await expect(notice).toHaveCount(0);
     expect(requestCount).toBeGreaterThanOrEqual(2);
-    release.tag_name = "v1.2.0";
+    release.tag_name = "v2.2.0";
     await page
       .getByRole("button", { name: "Check for updates", exact: true })
       .click();
@@ -123,12 +123,12 @@ test("native checks automatically once at startup without a five-second polling 
       calls++;
       return route.fulfill({
         json: {
-          tag_name: "v1.1.0",
+          tag_name: "v2.1.0",
           assets: [
             {
               name: "RainFlix_x64.exe",
               browser_download_url:
-                "https://github.com/Kanonsoft/RainFlix/releases/download/v1.1.0/RainFlix.exe",
+                "https://github.com/Kanonsoft/RainFlix/releases/download/v2.1.0/RainFlix.exe",
             },
           ],
         },

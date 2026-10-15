@@ -1,9 +1,9 @@
 # Release Instructions
 
 These instructions prepare releases; they do not publish anything automatically.
-Current app/package version: `1.0.0`. The locally built EXE and APK already exist.
+Current app/package version: `2.0.0`. Build both installers from this revision before publishing.
 
-Latest release description: [Accounts, Cloud Sync & Improved Playback](2026-10-15-account-sync.md), covering Windows and Android. These notes do not change the binary version. Choose an unused higher version and rebuild both apps before publishing an update intended to trigger in-app notices. The owner reported applying migration `202610150003_user_document_sync.sql` and confirmed syncing works; retain the legacy backup until cross-device data is verified.
+Latest release description: [RainFlix 2.0.0 - Accounts, Cloud Sync & Improved Playback](2026-10-15-account-sync.md), covering Windows and Android. Publish with the matching `v2.0.0` tag after verifying both installers. The owner reported applying migration `202610150003_user_document_sync.sql` and confirmed syncing works; retain the legacy backup until cross-device data is verified.
 
 The same release notes now include startup sync under the RainFlix loader, synced stream/track resume, thumbnail episode transitions and horizontal library rows. Migration `202610150004_playback_preferences_sync.sql` enables the new resume records in the existing user document; the owner reported applying it. Older installed apps can still use the unchanged RPC response format, but both devices need an updated build for the new resume behavior.
 
@@ -11,20 +11,20 @@ The same release notes now include startup sync under the RainFlix loader, synce
 
 | Platform      | File                                                                              |
 | ------------- | --------------------------------------------------------------------------------- |
-| Windows x64   | `src-tauri/target/release/bundle/nsis/RainFlix_1.0.0_x64-setup.exe`               |
+| Windows x64   | `src-tauri/target/release/bundle/nsis/RainFlix_2.0.0_x64-setup.exe`               |
 | Android ARM64 | `src-tauri/gen/android/app/build/outputs/apk/arm64/release/app-arm64-release.apk` |
 
-Release title suggestion: **RainFlix 1.0.0 - Windows and Android**.
+Release title suggestion: **RainFlix 2.0.0 - Accounts, Cloud Sync & Improved Playback**.
 Use one release containing both assets, with the Windows and Android sections
-from [the combined notes](2026-10-11-landing-and-controls.md). Separate
+from [the combined notes](2026-10-15-account-sync.md). Previous
 [Windows notes](2026-10-11-windows.md) and [Android notes](2026-10-11-android.md)
 are also provided for platform-specific announcements.
 
-If `v1.0.0` already exists, do not replace its tag or silently reuse its version
+If `v2.0.0` already exists, do not replace its tag or silently reuse its version
 for a new public update. Choose a new version, align the version fields in
 `package.json`, `src-tauri/tauri.conf.json`, and `src-tauri/Cargo.toml`, update
 lockfiles/generated Android version metadata through the build tools, and rebuild.
-The currently supplied binaries still report `1.0.0`.
+Keep the existing app identifiers and Android signing key so upgrades preserve installed data.
 
 ## Build and Verify
 
@@ -50,7 +50,7 @@ Verify the Android signature using your installed SDK build tools:
 Optional SHA-256 verification records for release assets:
 
 ```powershell
-Get-FileHash src-tauri/target/release/bundle/nsis/RainFlix_1.0.0_x64-setup.exe -Algorithm SHA256
+Get-FileHash src-tauri/target/release/bundle/nsis/RainFlix_2.0.0_x64-setup.exe -Algorithm SHA256
 Get-FileHash src-tauri/gen/android/app/build/outputs/apk/arm64/release/app-arm64-release.apk -Algorithm SHA256
 ```
 
@@ -70,9 +70,9 @@ an APK signature is not a Windows installer signature.
 
 1. Commit and push the exact source revision used for the binaries, excluding credentials, signing keys, caches, and generated installers.
 2. Open the intended distribution repository's **Releases** and choose **Draft a new release**.
-3. Select an unused matching version tag and the built commit as its target. For these binaries, use `v1.0.0` only if it has not already been released.
+3. Select `v2.0.0` and the built commit as its target, provided the tag has not already been released.
 4. Enter the release title and paste the combined notes, or the relevant platform notes for separate releases.
-5. Attach the EXE and APK listed above. The APK can be renamed to `RainFlix_1.0.0_android-arm64.apk` for clarity without changing its signature.
+5. Attach the EXE and APK listed above. The APK can be renamed to `RainFlix_2.0.0_android-arm64.apk` for clarity without changing its signature.
 6. Keep a draft until installation checks and dependency/license obligations are reviewed. For a test build, mark it as a prerelease rather than implying production readiness.
 7. Publish only when ready. For a production release intended for website discovery, leave prerelease disabled and mark it as latest.
 

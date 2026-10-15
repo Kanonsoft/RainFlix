@@ -4,7 +4,7 @@ Windows and Android check the existing configured GitHub Releases repository for
 
 ## User experience
 
-- Automatic checks start five seconds after app mounting, repeat every six hours while open, and retry on focus/reconnection when due. A single in-flight lookup is shared with Settings. Network errors never block startup or playback.
+- Automatic checks run during the initial native loading screen alongside account sync when online and enabled. The release request has a ten-second timeout and the startup gate has a thirty-second fail-safe. Checks repeat every six hours while open and retry on focus/reconnection when due; the notice retains its five-second fallback if no initial check completed. A single in-flight lookup is shared with Settings. Network errors never trap startup or playback.
 - A non-blocking **RainFlix update available** notice includes the version and **Download update** action. It is suppressed on playback query routes and placed above Android's bottom navigation.
 - **Remind me tomorrow** snoozes that version for 24 hours. A newer version can notify immediately. Settings retains its download action even after snoozing.
 - **Settings -> App updates** shows installed version, a manual check, current status, and an automatic-check switch. This switch is device-local, not account-synced.

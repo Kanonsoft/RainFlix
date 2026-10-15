@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { isNativeApp } from "../platform/index.js";
+import { readAppSettings } from "./app-settings.js";
 
 let ready = !isNativeApp;
 let started;
@@ -23,14 +24,18 @@ export function beginAccountStartup() {
   };
   // A stalled auth/storage/network request must never trap the app at startup.
   const deadline = window.setTimeout(finish, 30000);
-  started = import("./account-sync.js")
-    .then(({ initializeAccountSync }) =>
-      initializeAccountSync({ waitForStartup: true }),
-    )
-    .catch(() => {})
-    .finally(() => {
-      window.clearTimeout(deadline);
-      finish();
-    });
+  const sync = import("./account-sync.js").then(({ initializeAccountSync }) =>
+    initializeAccountSync({ waitForStartup: true }),
+  );
+  const updates =
+    readAppSettings().checkUpdates && navigator.onLine
+      ? import("./app-updates.js").then(({ checkAppUpdates }) =>
+          checkAppUpdates(),
+        )
+      : Promise.resolve();
+  started = Promise.allSettled([sync, updates]).finally(() => {
+    window.clearTimeout(deadline);
+    finish();
+  });
   return started;
 }

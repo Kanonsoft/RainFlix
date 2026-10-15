@@ -1,4 +1,4 @@
-# RainFlix - Accounts, Cloud Sync & Improved Playback
+# RainFlix 2.0.0 - Accounts, Cloud Sync & Improved Playback
 
 Your library can now follow you between Windows and Android.
 
@@ -41,6 +41,7 @@ Your library can now follow you between Windows and Android.
 ## App Updates
 
 - In-app update notices for Windows and Android when a newer compatible release is available.
+- Update checks also run during the initial RainFlix loading screen alongside account sync, without trapping startup when offline or on failure.
 - Automatic update checks can be managed from Settings > App updates.
 
 ## Sync Reliability
