@@ -129,6 +129,7 @@ local C = {
     white = "FFFFFF",
     muted = "B7B1AA",
     green = "83CC25",
+    yellow = "15CCFA",
 }
 
 local function clamp(value, minimum, maximum)
@@ -704,24 +705,36 @@ local function chapter_at(position)
     return chapters, current
 end
 
-local function skip_chapter(position, duration)
-    local chapters, index = chapter_at(position)
-    if not index then return nil end
+local function chapter_segment(chapters, index, duration)
     local title = tostring(chapters[index].title or ""):lower():gsub("[^%w]", " ")
-    local kind
+    local intro, outro = false, false
+    local narrative = {recap=true,previously=true,previous=true,preview=true,next=true,teaser=true,prologue=true,epilogue=true,scene=true,story=true}
+    local words = {}
     for word in title:gmatch("%w+") do
-        if word == "intro" or word == "opening" or word:match("^op%d*$") then kind = "Skip intro"; break
-        elseif word == "ending" or title == "end" or word == "outro" or word == "credits" or word:match("^ed%d*$") then kind = "Skip ending"; break
-        elseif word == "recap" then kind = "Skip recap"; break end
+        if narrative[word] then return nil end
+        words[#words+1]=word
+        if word == "intro" or word == "opening" or word:match("^op%d*$") then intro=true end
+        if word == "ending" or word == "outro" or word == "closing" or word:match("^ed%d*$") then outro=true end
     end
+    local normalized=table.concat(words," ")
+    outro=outro or normalized=="end" or normalized=="credits" or normalized=="end credits"
+    if intro == outro then return nil end
+    local kind = intro and "Skip intro" or "Skip ending"
     local target = chapters[index + 1] and tonumber(chapters[index + 1].time) or duration
-    if not kind or not target or target <= position or duration <= 0 then return nil end
+    if not target or duration <= 0 then return nil end
     local start = tonumber(chapters[index].time) or 0
-    if start < 0 or target > duration or target-start > math.min(300,duration/4) then return nil end
+    if start < 0 or target <= start or target > duration or target-start > math.min(intro and 180 or 300,duration/4) then return nil end
     if kind=="Skip ending" then
         if start < duration*.65 then return nil end
-    elseif start > math.min(300,duration/4) or target >= duration-math.min(30,duration/20) then return nil end
-    return { title = kind, time = math.min(target, duration), index=index }
+    elseif start > math.min(300,duration/4) or target > math.min(360,duration*.3) or target >= duration-math.min(30,duration/20) then return nil end
+    return { title = kind, start=start, time = target, index=index }
+end
+
+local function skip_chapter(position, duration, chapters, index)
+    if not chapters then chapters, index = chapter_at(position) end
+    if not index then return nil end
+    local segment=chapter_segment(chapters,index,duration)
+    return segment and (not position or position < segment.time) and segment or nil
 end
 
 local function next_episode()
@@ -939,15 +952,22 @@ local function render()
             end
             local fill = clamp(position / duration, 0, 1) * sw
             rectangle(parts, sx, sy + 7, fill, 6, C.purple, 0)
-            circle(parts,sx+fill,sy+10,8,C.purple)
-            circle(parts,sx+fill,sy+10,4,C.white)
             hit(sx, sy - 12, sw, 36, function(x)
                 mp.commandv("seek", tostring(clamp((x - sx) / sw, 0, 1) * duration), "absolute+exact")
             end)
-            for _, chapter in ipairs(chapters) do
+            for index, chapter in ipairs(chapters) do
                 local x = sx+clamp((tonumber(chapter.time) or 0)/duration,0,1)*sw
                 rectangle(parts,x,sy+5,2,10,C.background,0x10)
             end
+            for index, chapter in ipairs(chapters) do
+                local x = sx+clamp((tonumber(chapter.time) or 0)/duration,0,1)*sw
+                local segment=skip_chapter(nil,duration,chapters,index)
+                if segment then
+                    rectangle(parts,x,sy+7,(segment.time-segment.start)/duration*sw,6,C.yellow,0)
+                end
+            end
+            circle(parts,sx+fill,sy+10,8,C.purple)
+            circle(parts,sx+fill,sy+10,4,C.white)
             if hovered(sx,sy-12,sw,36) then
                 local mouse = mp.get_property_native("mouse-pos") or {}
                 local time = clamp((mouse.x-sx)/sw,0,1)*duration

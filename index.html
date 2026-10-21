@@ -56,11 +56,42 @@
         min-height: 100svh;
         display: grid;
         place-content: center;
-        gap: 16px;
+        gap: 18px;
         padding: 24px;
         box-sizing: border-box;
         text-align: center;
         font-family: system-ui, sans-serif;
+      }
+      #startupFallback .startup-emblem {
+        display: grid;
+        width: 112px;
+        height: 112px;
+        place-items: center;
+        justify-self: center;
+        box-sizing: border-box;
+        border: 1px solid rgb(125 211 252 / 14%);
+        border-radius: 24px;
+        background: rgb(8 17 31 / 92%);
+        box-shadow:
+          0 28px 70px rgb(0 0 0 / 62%),
+          inset 0 1px 0 rgb(255 255 255 / 7%);
+        transform: perspective(700px) rotateX(7deg) rotateY(-9deg) rotateZ(2deg);
+      }
+      #startupFallback img {
+        width: 78px;
+        height: 78px;
+        object-fit: contain;
+      }
+      @media (max-width: 640px) {
+        #startupFallback .startup-emblem {
+          width: 94px;
+          height: 94px;
+          border-radius: 20px;
+        }
+        #startupFallback img {
+          width: 64px;
+          height: 64px;
+        }
       }
       #startupFallback strong {
         color: #38bdf8;
@@ -82,7 +113,7 @@
         cursor: pointer;
       }
       .startup-progress {
-        width: 120px;
+        width: 112px;
         height: 3px;
         overflow: hidden;
         background: #1e293b;
@@ -107,13 +138,15 @@
     </style>
     <div id="root">
       <div id="startupFallback" role="status">
-        <img
-          src="./rainflix-r.png"
-          alt=""
-          width="96"
-          height="96"
-          style="justify-self: center; object-fit: contain"
-        />
+        <div class="startup-emblem">
+          <img
+            src="./rainflix-r.png"
+            alt=""
+            width="96"
+            height="96"
+            style="justify-self: center; object-fit: contain"
+          />
+        </div>
         <div class="startup-progress" aria-label="Loading RainFlix"></div>
         <p id="startupMessage" hidden></p>
         <button id="startupRetry" type="button" hidden>Reload</button>

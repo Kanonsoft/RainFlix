@@ -333,12 +333,22 @@ class PlayerActivity : Activity() {
         }
         chapters.sortBy { it.second }
     }
+    private fun chapterSegments(duration: Long = player.duration): List<Triple<String, Long, Long>> {
+        return chapters.map { chapter ->
+            val next = chapters.firstOrNull { it.second > chapter.second }?.second ?: duration
+            val end = if (chapter.third > chapter.second) chapter.third else next
+            if (end > next) return@map Triple(chapter.first, chapter.second, chapter.second)
+            Triple(chapter.first, chapter.second, end)
+        }.filter { ChapterSkipGuard.isSafe(it.first, it.second, it.third, duration) }
+    }
+    private fun updateChapterRanges(duration: Long) {
+        val ranges = chapterSegments(duration).map { it.second to it.third }
+        surface.findViewById<ChapterTimeBar>(androidx.media3.ui.R.id.exo_progress)
+            ?.setChapterRanges(ranges)
+    }
     private fun currentSegment(): Triple<String, Long, Long>? {
         val position = player.currentPosition
-        return chapters.mapIndexed { index, chapter ->
-            val end = if (chapter.third > chapter.second) chapter.third else chapters.getOrNull(index + 1)?.second ?: player.duration
-            Triple(chapter.first, chapter.second, end)
-        }.firstOrNull { position >= it.second && position < it.third && Regex("(?i)\\b(intro|opening|op\\d*|outro|ending|end|credits|ed\\d*)\\b").containsMatchIn(it.first) && ChapterSkipGuard.isSafe(it.first, it.second, it.third, player.duration) }
+        return chapterSegments().firstOrNull { position >= it.second && position < it.third }
     }
     private fun skipCurrentSegment() {
         val segment = currentSegment() ?: return
@@ -347,8 +357,9 @@ class PlayerActivity : Activity() {
     }
     private fun updatePlaybackActions() {
         if (!::nextCard.isInitialized) return
+        updateChapterRanges(player.duration)
         val segment = if (ready) currentSegment() else null
-        val ending = segment?.first?.let { Regex("(?i)\\b(outro|ending|end|credits|ed\\d*)\\b").containsMatchIn(it) } == true
+        val ending = segment?.first?.let { ChapterSkipGuard.kind(it) == "outro" } == true
         skipButton.visibility = if (segment != null && drawer == null && !nextCard.isShown && surface.isControllerFullyVisible) View.VISIBLE else View.GONE
         skipButton.text = if (ending) "Skip ending" else "Skip intro"
         if (player.isPlaying && segment != null && ((ending && savedTracks.optBoolean("skipOutro")) || (!ending && !introSkipped && savedTracks.optBoolean("skipIntro")))) skipCurrentSegment()

@@ -1,5 +1,11 @@
 # Title Playback
 
+## Chapter Safety and Markers
+
+Chapter highlights cover the entire intro/ending interval with a continuous yellow line, not separate endpoint ticks. The seek handle stays above the highlight. Android extends Media3's `DefaultTimeBar` only for range painting, retaining built-in seeking and accessibility.
+
+Windows and Android mark the start/end of validated intro and ending chapters in yellow on the timeline. The same validated intervals drive manual and automatic skip actions. Recaps, previously-on segments, previews, opening scenes, story chapters, and ambiguous combined intro/outro labels are excluded. Intros must be short (at most 180 seconds), early and end within the first six minutes/30% of runtime; endings retain the late-position and five-minute maximum guards. Invalid whole-episode or overlapping parent chapters do not qualify. Metadata can still be inaccurate; unknown/ambiguous chapters never get guessed timings.
+
 Continue Watching cards open the title page without autoplay. A blue Continue watching action (with season/episode for series) resumes the saved episode using fresh source lookup and remembered title-level stream/track preferences. Resume waits for provider availability rather than ignoring a tap during lookup.
 
 Home Continue Watching and all My List sections use the same shared horizontal `MediaCarousel` as More like this: three visible cards on narrow screens, four on small tablets and six on desktop. Lists scroll sideways with native touch/trackpad/scrollbar behavior and keyboard focus; card links and right-click/long-press history actions are unchanged. Empty sections retain their empty states. Ordinary Browse grids remain vertical.

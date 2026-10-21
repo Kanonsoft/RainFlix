@@ -1,4 +1,5 @@
 assets/
+**/.obsidian/
 dist/
 dist-desktop/
 dist-mobile/

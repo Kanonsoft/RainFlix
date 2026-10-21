@@ -287,6 +287,12 @@ html.app-is-loading {
     visibility 0s linear 280ms;
 }
 
+.app-loader.is-hidden .app-loader-column-track,
+.app-loader.is-hidden .app-loader-bar {
+  animation-play-state: paused;
+  will-change: auto;
+}
+
 .app-loader-content {
   position: relative;
   z-index: 2;
@@ -773,6 +779,7 @@ html.details-modal-open {
   z-index: 0;
   pointer-events: none;
   overflow: hidden;
+  contain: strict;
 }
 
 .ambient-backdrop-layer {
@@ -782,6 +789,7 @@ html.details-modal-open {
   background-size: cover;
   filter: blur(38px) saturate(0.8) contrast(1.08);
   will-change: opacity;
+  transform: translateZ(0);
 }
 .ambient-backdrop:not(.is-static) {
   opacity: 0.25;
@@ -819,6 +827,37 @@ html.details-modal-open {
 }
 .ambient-backdrop.is-static .ambient-backdrop-previous {
   display: none;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  html {
+    scroll-behavior: auto;
+  }
+  #site-header.is-scrolled {
+    background: rgb(13 19 23 / 97%);
+    backdrop-filter: none;
+  }
+  .mobile-bottom-nav {
+    background: #0d1317;
+    backdrop-filter: none;
+  }
+  .ambient-backdrop-layer {
+    filter: blur(28px) saturate(0.8) contrast(1.08);
+  }
+  .rainflix-peel-in-left,
+  .rainflix-peel-in-right {
+    animation: hero-simple-in 920ms ease both;
+  }
+  .rainflix-peel-out-left,
+  .rainflix-peel-out-right {
+    animation: hero-simple-out 920ms ease both;
+  }
+  .rainflix-peel-interactive {
+    will-change: opacity;
+  }
+  .rainflix-peel-edge {
+    display: none;
+  }
 }
 @keyframes hero-simple-in {
   from {

@@ -59,6 +59,32 @@ class PlayerUiTest {
         assertFalse(ChapterSkipGuard.isSafe("Opening", 800000, 890000, duration))
         assertFalse(ChapterSkipGuard.isSafe("Opening", 0, 90000, -1))
         assertFalse(ChapterSkipGuard.isSafe("Ending", 1320000, duration + 1, duration))
+        for (name in listOf("Recap", "Opening / Recap", "Opening scene", "Previously - OP", "ED / Next episode preview", "End of recap", "Credits - Story", "OP + ED")) {
+            assertNull("Ambiguous chapter: $name", ChapterSkipGuard.kind(name))
+            assertFalse(ChapterSkipGuard.isSafe(name, 0, 90000, duration))
+        }
+        assertFalse(ChapterSkipGuard.isSafe("Opening", 240000, 420000, duration))
+        assertFalse(ChapterSkipGuard.isSafe("Intro", 0, 240000, duration))
+        assertTrue(ChapterSkipGuard.isSafe("OP2", 60000, 150000, duration))
+        assertTrue(ChapterSkipGuard.isSafe("End Credits", 1320000, duration, duration))
+    }
+    @Test fun yellowTimelineRangesUseOnlySafeIntroAndEndingIntervals() {
+        PlayerBridge.session = JSONObject().put("sessionId", "marker-test").put("ui", JSONObject())
+        val controller = Robolectric.buildActivity(PlayerActivity::class.java).create().start().resume().visible()
+        val activity = controller.get()
+        try {
+            val timeBar = activity.findViewById<ChapterTimeBar>(androidx.media3.ui.R.id.exo_progress)
+            assertNotNull(timeBar)
+            @Suppress("UNCHECKED_CAST")
+            val chapters = PlayerActivity::class.java.getDeclaredField("chapters").apply { isAccessible = true }.get(activity) as MutableList<Triple<String, Long, Long>>
+            chapters.addAll(listOf(Triple("Recap", 0L, 60000L), Triple("OP2", 60000L, 150000L), Triple("Story", 150000L, 1320000L), Triple("End Credits", 1320000L, 1440000L)))
+            val update = PlayerActivity::class.java.getDeclaredMethod("updateChapterRanges", Long::class.javaPrimitiveType).apply { isAccessible = true }
+            update.invoke(activity, 1440000L)
+            assertEquals(listOf(60000L to 150000L, 1320000L to 1440000L), timeBar.chapterRanges)
+            chapters.clear()
+            update.invoke(activity, 1440000L)
+            assertTrue(timeBar.chapterRanges.isEmpty())
+        } finally { controller.pause().stop().destroy(); PlayerBridge.session = null; PlayerBridge.emit = null }
     }
     private fun findText(view: View, value: String): TextView? {
         if (view is TextView && view.text.toString() == value) return view

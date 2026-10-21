@@ -112,9 +112,14 @@ for (const [mode, width, touch] of [
     await expect
       .poll(() => page.evaluate(() => scrollY))
       .toBeLessThan(beforeUp - 40);
+    const backgroundBlur = (await page.evaluate(
+      () => matchMedia("(hover: none) and (pointer: coarse)").matches,
+    ))
+      ? /blur\(28px\)/
+      : /blur\(38px\)/;
     await expect(page.locator(".ambient-backdrop-current")).toHaveCSS(
       "filter",
-      /blur\(38px\)/,
+      backgroundBlur,
     );
     await page.route("https://api.themoviedb.org/3/movie/506?*", (route) =>
       route.fulfill({
@@ -135,11 +140,11 @@ for (const [mode, width, touch] of [
     );
     await expect(page.locator(".ambient-backdrop-previous")).toHaveCSS(
       "filter",
-      /blur\(38px\)/,
+      backgroundBlur,
     );
     await expect(page.locator(".ambient-backdrop-current")).toHaveCSS(
       "filter",
-      /blur\(38px\)/,
+      backgroundBlur,
     );
     await client?.detach();
   });

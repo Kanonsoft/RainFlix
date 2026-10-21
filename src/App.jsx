@@ -297,6 +297,7 @@ function AppShell() {
         <AppLoader
           dataReady={dataReady && loaderPostersReady && accountReady}
           startupReady={accountReady}
+          postersReady={loaderPostersReady}
           posters={loaderPosters}
         />
       )}

@@ -10,7 +10,7 @@
             android:gravity="center_vertical">
             <TextView android:id="@id/exo_position" android:layout_width="64dp"
                 android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="14sp" />
-            <androidx.media3.ui.DefaultTimeBar android:id="@id/exo_progress"
+            <com.rainflix.nativeplayer.ChapterTimeBar android:id="@id/exo_progress"
                 android:layout_width="0dp" android:layout_weight="1" android:layout_height="40dp"
                 app:played_color="#38BDF8" app:buffered_color="#64748B" app:unplayed_color="#554B5563"
                 app:scrubber_color="#FFFFFF" app:scrubber_enabled_size="12dp" app:bar_height="4dp" />

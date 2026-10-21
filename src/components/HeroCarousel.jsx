@@ -224,6 +224,9 @@ function HeroSlide({ articleStyle, contentStyle, item, mode, direction }) {
 
 export default function HeroCarousel({ items, onBackdrop }) {
   const { reduceAnimations } = useAppSettings();
+  const [touchTransitions] = useState(
+    () => window.matchMedia("(hover: none) and (pointer: coarse)").matches,
+  );
   const [activeIndex, setActiveIndex] = useState(0);
   const [previousIndex, setPreviousIndex] = useState(null);
   const [direction, setDirection] = useState("left");
@@ -527,7 +530,7 @@ export default function HeroCarousel({ items, onBackdrop }) {
         dragPreview.direction,
         dragPreview.progress,
         dragPreview.phase === "dragging" ? 0 : dragPreview.duration,
-        reduceAnimations,
+        reduceAnimations || touchTransitions,
       )
     : null;
 

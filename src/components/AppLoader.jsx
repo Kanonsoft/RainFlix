@@ -27,10 +27,16 @@ function LoaderCard({ poster, onSettled }) {
   );
 }
 
-export default function AppLoader({ dataReady, posters, startupReady = true }) {
+export default function AppLoader({
+  dataReady,
+  posters,
+  startupReady = true,
+  postersReady = true,
+}) {
   const { reduceAnimations } = useAppSettings();
   const shownAt = useRef(performance.now());
   const [visible, setVisible] = useState(true);
+  const [retired, setRetired] = useState(false);
   const [wallReady, setWallReady] = useState(false);
   const [settledImages, setSettledImages] = useState(0);
   const minimumDuration = Math.max(
@@ -91,11 +97,18 @@ export default function AppLoader({ dataReady, posters, startupReady = true }) {
   }, [dataReady, minimumDuration]);
 
   useEffect(() => {
+    if (visible) return;
+    const timer = window.setTimeout(() => setRetired(true), 300);
+    return () => window.clearTimeout(timer);
+  }, [visible]);
+
+  useEffect(() => {
+    if (!postersReady || retired) return;
     setSettledImages(0);
     setWallReady(false);
     const timer = window.setTimeout(() => setWallReady(true), 900);
     return () => window.clearTimeout(timer);
-  }, [uniquePosters]);
+  }, [uniquePosters, postersReady, retired]);
 
   useEffect(() => {
     if (expectedImages && settledImages >= expectedImages) {
@@ -126,55 +139,59 @@ export default function AppLoader({ dataReady, posters, startupReady = true }) {
       aria-live="polite"
       aria-hidden={!visible}
     >
-      {!reduceAnimations && (
-        <div className="app-loader-scene" aria-hidden="true">
-          <div className={`app-loader-wall${wallReady ? " is-ready" : ""}`}>
-            {columns.map((column, columnIndex) => (
-              <div
-                className={`app-loader-column app-loader-column-${
-                  columnIndex % 2 === 0 ? "up" : "down"
-                }`}
-                key={`loader-column-${columnIndex}`}
-              >
-                <div className="app-loader-column-track">
-                  {[false, true].map((duplicate) => (
-                    <div
-                      className="app-loader-sequence"
-                      aria-hidden={duplicate || undefined}
-                      key={duplicate ? "duplicate" : "primary"}
-                    >
-                      {column.map((poster, cardIndex) => (
-                        <LoaderCard
-                          poster={poster}
-                          key={`${duplicate ? "d" : "p"}-${cardIndex}-${poster}`}
-                          onSettled={() =>
-                            setSettledImages((count) => count + 1)
-                          }
-                        />
+      {!retired && (
+        <>
+          {!reduceAnimations && postersReady && (
+            <div className="app-loader-scene" aria-hidden="true">
+              <div className={`app-loader-wall${wallReady ? " is-ready" : ""}`}>
+                {columns.map((column, columnIndex) => (
+                  <div
+                    className={`app-loader-column app-loader-column-${
+                      columnIndex % 2 === 0 ? "up" : "down"
+                    }`}
+                    key={`loader-column-${columnIndex}`}
+                  >
+                    <div className="app-loader-column-track">
+                      {[false, true].map((duplicate) => (
+                        <div
+                          className="app-loader-sequence"
+                          aria-hidden={duplicate || undefined}
+                          key={duplicate ? "duplicate" : "primary"}
+                        >
+                          {column.map((poster, cardIndex) => (
+                            <LoaderCard
+                              poster={poster}
+                              key={`${duplicate ? "d" : "p"}-${cardIndex}-${poster}`}
+                              onSettled={() =>
+                                setSettledImages((count) => count + 1)
+                              }
+                            />
+                          ))}
+                        </div>
                       ))}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
+          )}
+          <div className="app-loader-vignette" aria-hidden="true" />
+          <div className="app-loader-content">
+            <div className="app-loader-emblem">
+              <img
+                className="app-loader-logo"
+                src={rainflixLogo}
+                alt=""
+                draggable="false"
+              />
+            </div>
+            <div className="app-loader-track" aria-hidden="true">
+              <div className="app-loader-bar" />
+            </div>
+            <span className="sr-only">Loading RainFlix</span>
           </div>
-        </div>
+        </>
       )}
-      <div className="app-loader-vignette" aria-hidden="true" />
-      <div className="app-loader-content">
-        <div className="app-loader-emblem">
-          <img
-            className="app-loader-logo"
-            src={rainflixLogo}
-            alt=""
-            draggable="false"
-          />
-        </div>
-        <div className="app-loader-track" aria-hidden="true">
-          <div className="app-loader-bar" />
-        </div>
-        <span className="sr-only">Loading RainFlix</span>
-      </div>
     </div>
   );
 }

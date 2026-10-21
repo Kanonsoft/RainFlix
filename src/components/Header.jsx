@@ -92,12 +92,26 @@ export default function Header() {
   const requestId = useRef(0);
   useEffect(() => {
     const shell = document.querySelector("#site-header");
-    const updateSurface = () =>
-      shell?.classList.toggle("is-scrolled", window.scrollY > 24);
+    let frame = 0;
+    let scrolled;
+    const updateSurface = () => {
+      frame = 0;
+      const next = window.scrollY > 24;
+      if (next !== scrolled) {
+        shell?.classList.toggle("is-scrolled", next);
+        scrolled = next;
+      }
+    };
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(updateSurface);
+    };
 
     updateSurface();
-    window.addEventListener("scroll", updateSurface, { passive: true });
-    return () => window.removeEventListener("scroll", updateSurface);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", onScroll);
+    };
   }, []);
 
   useEffect(() => {
